@@ -1,6 +1,5 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma } from '@jury-hrms/db/client.js';
-import { de } from 'zod/v4/locales';
 
 const PORT = process.env.ORG_SERVICE_PORT || 50051;
 const organizationProto = loadProto('organization');

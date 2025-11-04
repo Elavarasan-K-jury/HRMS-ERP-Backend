@@ -8,9 +8,10 @@
     "packages/*"
   ],
   "scripts": {
+    "dev:emp-cat": "bun --watch services/employee-category-service/server.js",
     "dev:org": "bun --watch services/organization-service/server.js",
     "dev:gateway": "bun --watch apps/api-gateway/server.js",
-    "dev": "bunx concurrently -k -n org,gateway -c auto \"bun run dev:org\" \"bun run dev:gateway\"",
+    "dev": "bunx concurrently -k -n org,gateway,emp-cat -c auto \"bun run dev:org\" \"bun run dev:emp-cat\" \"bun run dev:gateway\"",
     "prisma:generate": "bunx prisma generate --schema=packages/db/prisma/schema.prisma",
     "prisma:push": "bunx prisma db push --schema=packages/db/prisma/schema.prisma",
     "prisma:studio": "bunx prisma studio --schema=packages/db/prisma/schema.prisma",
