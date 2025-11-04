@@ -8,9 +8,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:org": "bun --watch services/organization-service/server.js",
-    "dev:gateway": "bun --watch apps/api-gateway/server.js",
-    "dev": "bunx concurrently -k -n org,gateway -c auto \"bun run dev:org\" \"bun run dev:gateway\"",
+    "start:org": "bun services/organization-service/server.js",
+    "start:gateway": "bun apps/api-gateway/server.js",
+    "start": "bunx concurrently -k -n org,gateway -c auto \"bun run start:org\" \"bun run start:gateway\"",
     "prisma:generate": "bunx prisma generate --schema=packages/db/prisma/schema.prisma",
     "prisma:push": "bunx prisma db push --schema=packages/db/prisma/schema.prisma",
     "prisma:studio": "bunx prisma studio --schema=packages/db/prisma/schema.prisma",
@@ -25,6 +25,9 @@
     "@hono/swagger-ui": "^0.5.2",
     "@hono/zod-openapi": "^1.1.4",
     "hono": "^4.10.4",
+    "hono-rate-limit": "^1.0.2",
+    "p-queue": "^9.0.0",
+    "redlock": "^5.0.0-beta.2",
     "swagger-ui-dist": "^5.30.1",
     "zod": "^4.1.12"
   }

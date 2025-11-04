@@ -1,5 +1,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { swaggerUI } from '@hono/swagger-ui';
+import { rateLimiter } from './middlewares/rateLimiter.js';
+import { withQueue } from './middlewares/requestQueue.js';
 import registerOrganizationRoutes from './routes/organization.routes.js';
 
 // ---- Initialize Hono App ---- //
@@ -22,18 +24,60 @@ app.doc('/doc', {
 // ---- Swagger UI ---- //
 app.get('/swagger', swaggerUI({ url: '/doc' }));
 
+// 🧩 Apply global middlewares
+app.use('*', rateLimiter);
+
 // ---- Health Check ---- //
 app.get('/', (c) => c.text('🚀 Jury-HRMS API Gateway is running!'));
 
 // ---- Register Routes ---- //
-registerOrganizationRoutes(app);
+registerOrganizationRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
 
-// ---- Start Server ---- //
+// ---- Start Server (HMR-safe) ---- //
 if (import.meta.main) {
     const PORT = Number(process.env.GATEWAY_PORT || 3030);
-    Bun.serve({ port: PORT, fetch: app.fetch });
-    console.log(`🚀 API Gateway running on :${PORT}`);
-    console.log(`📘 Swagger Docs → http://localhost:${PORT}/swagger`);
+
+    // 🧹 Stop any previous instance (for Bun --watch)
+    if (globalThis.__gatewayServer) {
+        try {
+            globalThis.__gatewayServer.stop?.(); // Bun v1.1+
+            globalThis.__gatewayServer.shutdown?.();
+            console.log('[gateway] previous server stopped');
+        } catch (err) {
+            console.warn('[gateway] cleanup failed:', err);
+        }
+        globalThis.__gatewayServer = undefined;
+    }
+
+    try {
+        const server = Bun.serve({ port: PORT, fetch: app.fetch });
+        globalThis.__gatewayServer = server;
+        console.log(`🚀 API Gateway running on :${server.port}`);
+        console.log(`📘 Swagger Docs → http://localhost:${server.port}/swagger`);
+    } catch (err) {
+        if (err.code === 'EADDRINUSE') {
+            console.error(`❌ Port ${PORT} already in use.`);
+            console.error('Either stop the old process or set GATEWAY_PORT to a new value.');
+        } else {
+            console.error('❌ Failed to start server:', err);
+        }
+    }
+
+    // Graceful shutdown (Ctrl+C, Docker stop, etc.)
+    for (const sig of ['SIGINT', 'SIGTERM']) {
+        process.on(sig, () => {
+            try {
+                globalThis.__gatewayServer?.stop?.();
+            } catch { }
+            console.log('[gateway] shutting down gracefully...');
+            process.exit(0);
+        });
+    }
 }
 
 export default app;

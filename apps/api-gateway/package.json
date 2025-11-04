@@ -9,6 +9,7 @@
         "hono": "latest",
         "@grpc/grpc-js": "latest",
         "@grpc/proto-loader": "latest",
-        "@jury-hrms/proto": "workspace:*"
+        "@jury-hrms/proto": "workspace:*",
+        "@jury-hrms/redis": "workspace:*"
     }
 }
