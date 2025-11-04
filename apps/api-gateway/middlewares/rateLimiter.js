@@ -1,73 +1,85 @@
-import rateLimit from 'hono-rate-limit';
-import { getRedis } from '@jury-hrms/redis';
+import { getRedis, setJSON, getJSON } from '@jury-hrms/redis';
 
-// 🧠 Try to initialize Redis client
+// 🧩 Config
+const WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW || 60) * 1000; // 60s
+const LIMIT = Number(process.env.RATE_LIMIT_MAX || 100); // 100 requests
+
+// 🟥 Redis client
 let redis;
 try {
     redis = getRedis();
 } catch (err) {
-    console.warn('[rateLimiter] Redis not available, falling back to in-memory store');
+    console.warn('[rateLimiter] Redis not available, using in-memory fallback');
     redis = null;
 }
 
-// 🧩 Define Redis or in-memory store
+// 🧠 In-memory fallback
 const memoryStore = new Map();
 
-const store = redis
-    ? {
-        // ---- Redis Store ---- //
-        async get(key) {
-            const raw = await redis.get(key);
-            return raw ? JSON.parse(raw) : null;
-        },
-
-        async set(key, value, ttlMs) {
-            // Redis TTL expects seconds
-            await redis.setex(key, Math.ceil(ttlMs / 1000), JSON.stringify(value));
-        },
-
-        async reset(key) {
-            await redis.del(key);
-        },
+// 🧱 Main Middleware
+export async function rateLimiter(c, next) {
+    // Skip Swagger/docs requests
+    if (c.req.path.startsWith('/swagger') || c.req.path.startsWith('/doc')) {
+        return next();
     }
-    : {
-        // ---- Memory Fallback ---- //
-        async get(key) {
-            const data = memoryStore.get(key);
-            if (!data) return null;
-            if (Date.now() > data.expiry) {
-                memoryStore.delete(key);
-                return null;
-            }
-            return data.value;
-        },
 
-        async set(key, value, ttlMs) {
-            memoryStore.set(key, {
-                value,
-                expiry: Date.now() + ttlMs,
-            });
-        },
-
-        async reset(key) {
-            memoryStore.delete(key);
-        },
-    };
-
-// ⚙️ Configure Rate Limiter
-export const rateLimiter = rateLimit({
-    windowMs: Number(process.env.RATE_LIMIT_WINDOW || 60) * 1000, // default 60 seconds
-    limit: Number(process.env.RATE_LIMIT_MAX || 100), // default 100 requests per window
-    keyGenerator: (c) =>
+    const ip =
         c.req.header('x-forwarded-for') ||
         c.req.header('cf-connecting-ip') ||
         c.req.header('x-real-ip') ||
-        c.req.header('x-client-ip') ||
-        c.req.header('host') ||
-        'unknown',
+        'unknown';
 
-    store, // 🧱 use Redis or in-memory store
+    const key = `ratelimit:${ip}`;
+    const now = Date.now();
 
-    message: (remaining, resetMs) =>
-        `🚫 Rate limit exceeded. Try again in ${Math.ceil(resetMs / 1000)} seconds.`,
+    let record;
+    let ttl = WINDOW_MS;
+
+    if (redis) {
+        // --- Redis-based limiter using getJSON/setJSON ---
+        const data = await getJSON(key);
+        record = data || { count: 0, startTime: now };
+
+        if (now - record.startTime > WINDOW_MS) {
+            record = { count: 1, startTime: now };
+        } else {
+            record.count++;
+        }
+
+        ttl = WINDOW_MS - (now - record.startTime);
+
+        // store JSON with TTL (in seconds)
+        await setJSON(key, record, Math.ceil(ttl / 1000));
+    } else {
+        // --- Memory fallback ---
+        record = memoryStore.get(key) || { count: 0, startTime: now };
+        if (now - record.startTime > WINDOW_MS) {
+            record = { count: 1, startTime: now };
+        } else {
+            record.count++;
+        }
+        ttl = WINDOW_MS - (now - record.startTime);
+        memoryStore.set(key, record);
+    }
+
+    // 🚫 Exceeded limit
+    if (record.count > LIMIT) {
+        return c.json(
+            {
+                error: 'Rate limit exceeded',
+                message: `Try again in ${Math.ceil(ttl / 1000)} seconds.`,
+            },
+            429
+        );
+    }
+
+    // ✅ Allowed
+    return next();
+}
+
+// 🧩 Cleanup on exit
+process.on('exit', () => {
+    if (redis) {
+        redis.quit();
+    }
 });
