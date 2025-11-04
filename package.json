@@ -1,0 +1,31 @@
+{
+  "name": "jury-hrms-monorepo",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:org": "bun --watch services/organization-service/server.js",
+    "dev:gateway": "bun --watch apps/api-gateway/server.js",
+    "dev": "bunx concurrently -k -n org,gateway -c auto \"bun run dev:org\" \"bun run dev:gateway\"",
+    "prisma:generate": "bunx prisma generate --schema=packages/db/prisma/schema.prisma",
+    "prisma:push": "bunx prisma db push --schema=packages/db/prisma/schema.prisma",
+    "prisma:studio": "bunx prisma studio --schema=packages/db/prisma/schema.prisma",
+    "format": "bunx prettier --write .",
+    "lint": "bunx eslint ."
+  },
+  "devDependencies": {
+    "prettier": "latest",
+    "eslint": "latest"
+  },
+  "dependencies": {
+    "@hono/swagger-ui": "^0.5.2",
+    "@hono/zod-openapi": "^1.1.4",
+    "hono": "^4.10.4",
+    "swagger-ui-dist": "^5.30.1",
+    "zod": "^4.1.12"
+  }
+}

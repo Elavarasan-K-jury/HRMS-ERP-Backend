@@ -1,0 +1,130 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Admins {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  email String
+  phone String
+}
+
+model Organizations {
+  id                       String                     @id @default(auto()) @map("_id") @db.ObjectId
+  name                     String
+  domain                   String                     @unique
+  GSTNumber                String?                    @map("gst_number")
+  email                    String?
+  contactPersonName        String?                    @map("contact_person_name")
+  contactPersonNumber      String?                    @map("contact_person_number")
+  note                     String?
+  industry                 String?
+  size                     Int?
+  address                  Json?
+  createdAt                DateTime                   @map("created_at")
+  updatedAt                DateTime                   @map("updated_at")
+  deletedAt                DateTime?                  @map("deleted_at")
+  OrganizationDepartments  OrganizationDepartments[]
+  OrganizationDesignations OrganizationDesignations[]
+  OrganizationEmployees    OrganizationEmployees[]
+  EmployeCategories        EmployeeCategories[]
+}
+
+model OrganizationDepartments {
+  id                      String                     @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId          String                     @map("organization_id") @db.ObjectId
+  name                    String
+  code                    String?
+  departmentHeadId        String?                    @map("department_head_id") @db.ObjectId
+  departmentHeadStratDate DateTime?                  @map("department_head_start_date")
+  description             String?
+  note                    String?
+  organization            Organizations              @relation(fields: [organizationId], references: [id])
+  createdAt               DateTime                   @map("created_at")
+  updatedAt               DateTime                   @map("updated_at")
+  deletedAt               DateTime?                  @map("deleted_at")
+  DepartmentDesignation   OrganizationDesignations[]
+  DepartmentEmployees     EmployeeDepartments[]
+}
+
+model OrganizationDesignations {
+  id             String                   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String                   @map("organization_id") @db.ObjectId
+  departmentId   String?                  @map("department_id") @db.ObjectId
+  name           String
+  level          String?
+  description    String?
+  organization   Organizations            @relation(fields: [organizationId], references: [id])
+  department     OrganizationDepartments? @relation(fields: [departmentId], references: [id])
+  createdAt      DateTime                 @map("created_at")
+  updatedAt      DateTime                 @map("updated_at")
+  deletedAt      DateTime?                @map("deleted_at")
+}
+
+model EmployeeCategories {
+  id                 String                  @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId     String                  @map("organization_id") @db.ObjectId
+  organization       Organizations           @relation(fields: [organizationId], references: [id])
+  name               String
+  code               String?
+  description        String?
+  idPrefix           String?                 @map("id_prefix")
+  isPermanent        Boolean                 @map("is_permanent")
+  benefitsApplicable Boolean                 @map("benefits_applciable")
+  onboardingWorkflow String?                 @map("onboarding_overflow") @db.ObjectId
+  isActive           Boolean                 @default(true) @map("is_active")
+  trainingRequired   Boolean                 @default(true) @map("training_required")
+  trainingMonths     Int                     @default(6) @map("training_months")
+  probationRequired  Boolean                 @default(true) @map("probation_required")
+  probationMonths    Int                     @default(3) @map("probation_months")
+  noticeRequired     Boolean                 @default(true) @map("notice_required")
+  noticeMonths       Int                     @default(2) @map("notice_months")
+  createdAt          DateTime                @map("created_at")
+  updatedAt          DateTime                @map("updated_at")
+  deletedAt          DateTime?               @map("deleted_at")
+  employees          OrganizationEmployees[]
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+model OrganizationEmployees {
+  id                  String                @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId      String                @map("organization_id") @db.ObjectId
+  organization        Organizations         @relation(fields: [organizationId], references: [id])
+  categoryId          String                @map("category_id") @db.ObjectId
+  category            EmployeeCategories    @relation(fields: [categoryId], references: [id])
+  departmentId        String?               @map("department_id") @db.ObjectId
+  firstName           String?               @map("first_name")
+  lastName            String?               @map("last_name")
+  fullName            String                @map("full_name")
+  email               String?
+  phone               String
+  altPhone            String?               @map("alt_phone")
+  gender              Gender
+  dateOfBirth         DateTime              @db.Date
+  EmployeeDepartments EmployeeDepartments[]
+}
+
+model EmployeeDepartments {
+  id           String                   @id @default(auto()) @map("_id") @db.ObjectId
+  departmentId String                   @map("department_id") @db.ObjectId
+  department   OrganizationDepartments? @relation(fields: [departmentId], references: [id])
+  employeeId   String                   @map("employee_id") @db.ObjectId
+  employee     OrganizationEmployees    @relation(fields: [employeeId], references: [id])
+  startDate    DateTime                 @map("start_date")
+  endDate      DateTime?                @map("end_date")
+}

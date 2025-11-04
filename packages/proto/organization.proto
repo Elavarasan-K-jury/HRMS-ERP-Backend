@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package organization;
+
+service OrganizationService {
+  rpc CreateOrganization (CreateOrganizationRequest) returns (OrganizationResponse);
+  rpc GetOrganization    (GetOrganizationRequest)    returns (OrganizationResponse);
+  rpc ListOrganizations  (ListOrganizationsRequest)  returns (ListOrganizationsResponse);
+}
+
+message CreateOrganizationRequest {
+  string name = 1;
+  string domain = 2;
+  string gst_number = 3;
+  string email = 4;
+  string contact_person_name = 5;
+  string contact_person_number = 6;
+  string note = 7;
+  string industry = 8;
+  int32  size = 9;
+  string address = 10; // store JSON as stringified JSON
+}
+
+message GetOrganizationRequest {
+  string id = 1;
+}
+
+message Organization {
+  string id = 1;
+  string name = 2;
+  string domain = 3;
+  string gst_number = 4;
+  string email = 5;
+  string contact_person_name = 6;
+  string contact_person_number = 7;
+  string note = 8;
+  string industry = 9;
+  int32  size = 10;
+  string address = 11;
+  string created_at = 12;
+  string updated_at = 13;
+}
+
+message OrganizationResponse {
+  Organization organization = 1;
+}
+
+message ListOrganizationsRequest {}
+
+message ListOrganizationsResponse {
+  repeated Organization organizations = 1;
+}

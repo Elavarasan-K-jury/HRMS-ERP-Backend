@@ -1,0 +1,14 @@
+{
+    "name": "@jury-hrms/api-gateway",
+    "version": "0.1.0",
+    "type": "module",
+    "scripts": {
+        "dev": "bun --watch server.js"
+    },
+    "dependencies": {
+        "hono": "latest",
+        "@grpc/grpc-js": "latest",
+        "@grpc/proto-loader": "latest",
+        "@jury-hrms/proto": "workspace:*"
+    }
+}
