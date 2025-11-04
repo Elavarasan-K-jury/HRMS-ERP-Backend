@@ -160,22 +160,50 @@ export default function registerOrganizationRoutes(app) {
         }
     );
 
-    // 🟡 List Organizations — PAGINATED ✅
+    // 🟡 List Organizations — Paginated + Search + Sort
     app.openapi(
         {
             method: 'get',
             path: '/organizations',
             tags: ['Organization'],
-            summary: 'List all organizations (paginated)',
+            summary: 'List organizations with pagination, search, and sorting',
             request: {
                 query: z.object({
-                    page: z.string().optional().default('1'),
-                    limit: z.string().optional().default('10')
-                })
+                    page: z
+                        .string()
+                        .optional()
+                        .default('1')
+                        .transform((v) => parseInt(v, 10)),
+                    limit: z
+                        .string()
+                        .optional()
+                        .default('10')
+                        .transform((v) => parseInt(v, 10)),
+                    search: z.string().optional().default(''),
+                    sort_by: z
+                        .string()
+                        .optional()
+                        .default('createdAt')
+                        .refine(
+                            (val) =>
+                                ['name', 'domain', 'industry', 'size', 'created_at', 'updated_at', 'createdAt', 'updatedAt'].includes(val),
+                            {
+                                message:
+                                    'Invalid sort field. Allowed: name, domain, industry, size, created_at, updated_at',
+                            }
+                        ),
+                    sort_order: z
+                        .string()
+                        .optional()
+                        .default('desc')
+                        .refine((val) => ['asc', 'desc'].includes(val.toLowerCase()), {
+                            message: 'Sort order must be "asc" or "desc"',
+                        }),
+                }),
             },
             responses: {
                 200: {
-                    description: 'Paginated list of organizations',
+                    description: 'Paginated, searchable list of organizations',
                     content: {
                         'application/json': {
                             schema: z.object({
@@ -184,37 +212,47 @@ export default function registerOrganizationRoutes(app) {
                                         id: z.string(),
                                         name: z.string(),
                                         domain: z.string(),
-                                        email: z.string().optional()
+                                        email: z.string().optional(),
+                                        industry: z.string().optional(),
+                                        size: z.number().optional(),
+                                        created_at: z.string().optional(),
                                     })
                                 ),
                                 total: z.number(),
                                 page: z.number(),
                                 limit: z.number(),
-                                total_pages: z.number()
-                            })
-                        }
-                    }
-                }
-            }
+                                total_pages: z.number(),
+                            }),
+                        },
+                    },
+                },
+            },
         },
         async (c) => {
             try {
-                const query = c.req.query();
-
-                const page = parseInt(query.page || '1', 10);
-                const limit = parseInt(query.limit || '10', 10);
+                const query = c.req.valid('query');
 
                 const response = await new Promise((resolve, reject) => {
-                    orgClient.ListOrganizations({ page, limit }, (err, resp) => {
-                        if (err) return reject(err);
-                        resolve(resp);
-                    });
+                    orgClient.ListOrganizations(
+                        {
+                            page: query.page,
+                            limit: query.limit,
+                            search: query.search,
+                            sort_by: query.sort_by,
+                            sort_order: query.sort_order,
+                        },
+                        (err, resp) => {
+                            if (err) return reject(err);
+                            resolve(resp);
+                        }
+                    );
                 });
 
-                return c.json(response);
+                return c.json(response, 200);
             } catch (error) {
                 return c.json({ error: error.message }, 500);
             }
         }
     );
+
 }
