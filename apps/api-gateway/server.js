@@ -1,8 +1,11 @@
+console.log("🔍 EMP_CAT_SERVICE_ADDR =", process.env.EMP_CAT_SERVICE_ADDR);
+
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { swaggerUI } from '@hono/swagger-ui';
 import { rateLimiter } from './middlewares/rateLimiter.js';
 import { withQueue } from './middlewares/requestQueue.js';
 import registerOrganizationRoutes from './routes/organization.routes.js';
+import registerEmployeeCategoryRoutes from './routes/employee.routes.js';
 
 // ---- Initialize Hono App ---- //
 const app = new OpenAPIHono({
@@ -32,6 +35,12 @@ app.get('/', (c) => c.text('🚀 Jury-HRMS API Gateway is running!'));
 
 // ---- Register Routes ---- //
 registerOrganizationRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerEmployeeCategoryRoutes({
     openapi: (def, handler) => {
         // wrap each route handler in queue
         app.openapi(def, withQueue(handler));

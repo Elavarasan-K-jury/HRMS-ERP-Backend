@@ -1,0 +1,98 @@
+syntax = "proto3";
+
+package employee_category;
+
+
+service EmployeeCategoryService {
+  rpc CreateEmployeeCategory (CreateEmployeeCategoryRequest) returns (EmployeeCategoryResponse);
+  rpc GetEmployeeCategory    (GetEmployeeCategoryRequest)    returns (EmployeeCategoryResponse);
+  rpc ListEmployeeCategories (ListEmployeeCategoriesRequest) returns (ListEmployeeCategoriesResponse);
+  rpc UpdateEmployeeCategory (UpdateEmployeeCategoryRequest) returns (EmployeeCategoryResponse);
+  rpc DeleteEmployeeCategory (DeleteEmployeeCategoryRequest) returns (DeleteEmployeeCategoryResponse);
+}
+
+
+message CreateEmployeeCategoryRequest {
+  string organization_id       = 1;
+  string name                  = 2;
+  string code                  = 3;
+  string description           = 4;
+  string id_prefix             = 5;
+  bool   is_permanent          = 6;
+  bool   benefits_applicable   = 7;
+  string onboarding_workflow   = 8;
+  bool   is_active             = 9;
+  bool   training_required     = 10;
+  int32  training_months       = 11;
+  bool   probation_required    = 12;
+  int32  probation_months      = 13;
+  bool   notice_required       = 14;
+  int32  notice_months         = 15;
+}
+
+message GetEmployeeCategoryRequest {
+  string id = 1;
+}
+
+message UpdateEmployeeCategoryRequest {
+  string id                    = 1;
+  string organization_id       = 2;
+  string name                  = 3;
+  string code                  = 4;
+  string description           = 5;
+  string id_prefix             = 6;
+  bool   is_permanent          = 7;
+  bool   benefits_applicable   = 8;
+  string onboarding_workflow   = 9;
+  bool   is_active             = 10;
+  bool   training_required     = 11;
+  int32  training_months       = 12;
+  bool   probation_required    = 13;
+  int32  probation_months      = 14;
+  bool   notice_required       = 15;
+  int32  notice_months         = 16;
+}
+
+message DeleteEmployeeCategoryRequest {
+  string id = 1;
+}
+
+message DeleteEmployeeCategoryResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message EmployeeCategory {
+  string id                    = 1;
+  string organization_id       = 2;
+  string name                  = 3;
+  string code                  = 4;
+  string description           = 5;
+  string id_prefix             = 6;
+  bool   is_permanent          = 7;
+  bool   benefits_applicable   = 8;
+  string onboarding_workflow   = 9;
+  bool   is_active             = 10;
+  bool   training_required     = 11;
+  int32  training_months       = 12;
+  bool   probation_required    = 13;
+  int32  probation_months      = 14;
+  bool   notice_required       = 15;
+  int32  notice_months         = 16;
+  string created_at            = 17;
+  string updated_at            = 18;
+  string deleted_at            = 19;
+}
+
+
+message EmployeeCategoryResponse {
+  EmployeeCategory category = 1;
+}
+
+message ListEmployeeCategoriesRequest {
+  string organization_id = 1;
+}
+
+message ListEmployeeCategoriesResponse {
+  repeated EmployeeCategory categories = 1;
+}
