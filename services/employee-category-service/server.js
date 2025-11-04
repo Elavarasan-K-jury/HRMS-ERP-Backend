@@ -72,7 +72,7 @@ const impl = {
                 });
             }
 
-            const category = await prisma.employeeCategories.findUnique({
+            const category = await prisma.employeeCategories.findFirst({
                 where: { id, deletedAt: null },
             });
 
