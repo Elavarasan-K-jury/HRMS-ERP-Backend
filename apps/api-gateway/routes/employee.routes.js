@@ -1,4 +1,5 @@
 import { z, ZodError } from 'zod';
+import { ObjectId } from "mongodb";
 import { employeeClient } from '../grpc/employee.client.js';
 
 export default function registerEmployeeCategoryRoutes(app) {
@@ -190,4 +191,85 @@ export default function registerEmployeeCategoryRoutes(app) {
             }
         }
     );
+
+    // 🔵 Update Employee Category
+    app.openapi(
+        {
+            method: 'put',
+            path: '/employee-categories/{id}',
+            tags: ['Employee Categories'],
+            summary: 'Update an existing employee category',
+            request: {
+                params: z.object({
+                    id: z.string({ required_error: 'Category ID is required' })
+                }),
+                body: {
+                    content: {
+                        'application/json': {
+                            schema: createEmployeeCategorySchema.partial().extend({
+                                organization_id: z.string({ required_error: 'Organization ID is required' })
+                            })
+                        }
+                    }
+                }
+            },
+            responses: {
+                200: {
+                    description: 'Employee category updated successfully',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                id: z.string(),
+                                name: z.string(),
+                                organization_id: z.string(),
+                                updated_at: z.string().optional()
+                            })
+                        }
+                    }
+                },
+                400: { description: 'Validation failed' },
+                404: { description: 'Category not found' }
+            }
+        },
+        async (c) => {
+            try {
+                const id = c.req.param('id');
+                const body = await c.req.json();
+
+                // Validate input
+                const parsed = createEmployeeCategorySchema.partial().extend({
+                    organization_id: z.string({ required_error: 'Organization ID is required' })
+                }).parse(body);
+
+                const payload = {
+                    id,
+                    ...parsed
+                };
+
+                const response = await new Promise((resolve, reject) => {
+                    employeeClient.UpdateEmployeeCategory(payload, (err, resp) => {
+                        if (err) return reject(err);
+                        resolve(resp.category);
+                    });
+                });
+
+                if (!response) return c.json({ error: 'Employee category not found' }, 404);
+
+                return c.json(response);
+            } catch (error) {
+                if (error instanceof ZodError) {
+                    return c.json({
+                        error: 'Validation failed',
+                        details: error.errors.map(e => ({
+                            field: e.path.join('.'),
+                            message: e.message
+                        }))
+                    }, 400);
+                }
+                return c.json({ error: error.message }, 500);
+            }
+        }
+    );
+
 }
+
