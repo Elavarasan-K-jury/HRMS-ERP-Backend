@@ -8,12 +8,14 @@ export const queue = new PQueue({
     timeout: 30000, // 30s max wait per request
 });
 
-export async function withQueue(handler) {
-    return async (c) => {
+export function withQueue(handler) {
+    // ✅ return a function, not a promise
+    return async (c, next) => {
         if (queue.size >= queueLimit) {
             return c.json({ error: 'Server is busy. Try again shortly.' }, 429);
         }
 
-        return queue.add(() => handler(c));
+        // enqueue the handler execution
+        return queue.add(() => handler(c, next));
     };
 }
