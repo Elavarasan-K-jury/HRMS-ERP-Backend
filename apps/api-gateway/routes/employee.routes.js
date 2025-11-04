@@ -1,5 +1,5 @@
 import { z, ZodError } from 'zod';
-import { employeeClient } from '../grpc/employee.client.js'; 
+import { employeeClient } from '../grpc/employee.client.js';
 
 export default function registerEmployeeCategoryRoutes(app) {
     // ✅ Schema for creating Employee Category

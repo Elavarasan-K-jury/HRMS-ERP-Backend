@@ -73,15 +73,68 @@ const impl = {
         }
     },
 
-    ListOrganizations: async (_, callback) => {
+    ListOrganizations: async (call, callback) => {
         try {
+            const {
+                page = 1,
+                limit = 10,
+                search = "",
+                sort_by = "createdAt",
+                sort_order = "desc",
+            } = call.request;
+
+            const skip = (page - 1) * limit;
+
+            // 🟢 Search condition — matches name, domain, or industry (case-insensitive)
+            const where = {
+                deletedAt: null,
+                OR: search
+                    ? [
+                        { name: { contains: search, mode: "insensitive" } },
+                        { domain: { contains: search, mode: "insensitive" } },
+                        { industry: { contains: search, mode: "insensitive" } },
+                    ]
+                    : undefined,
+            };
+
+            // 🟣 Sorting — only allow safe columns
+            const validSortFields = {
+                name: "name",
+                domain: "domain",
+                industry: "industry",
+                size: "size",
+                created_at: "createdAt",
+                updated_at: "updatedAt",
+            };
+
+            const sortField = validSortFields[sort_by] || "createdAt";
+            const sortOrder = sort_order.toLowerCase() === "asc" ? "asc" : "desc";
+
+            // 🟡 Count total
+            const total = await prisma.organizations.count({ where });
+
+            // 🔵 Fetch filtered + sorted + paginated results
             const orgs = await prisma.organizations.findMany({
-                where: { deletedAt: null },
-                orderBy: { createdAt: 'desc' },
+                where,
+                orderBy: { [sortField]: sortOrder },
+                skip,
+                take: limit,
             });
-            callback(null, { organizations: orgs.map(mapOrg) });
+
+            const totalPages = Math.ceil(total / limit);
+
+            callback(null, {
+                organizations: orgs.map(mapOrg),
+                total,
+                page,
+                limit,
+                total_pages: totalPages,
+            });
         } catch (e) {
-            callback(e);
+            callback({
+                code: grpc.status.INTERNAL,
+                message: e.message,
+            });
         }
     },
 };
@@ -118,13 +171,58 @@ function mapOrg(org) {
     };
 }
 
-function main() {
+/* ------------------------------------------------------------------ */
+/* 🧩 Graceful shutdown-aware main()                                  */
+/* ------------------------------------------------------------------ */
+
+async function main() {
     const server = new grpc.Server();
+
     server.addService(organizationProto.OrganizationService.service, impl);
-    server.bindAsync(`0.0.0.0:${PORT}`, grpc.ServerCredentials.createInsecure(), (err) => {
-        if (err) throw err;
-        console.log(`[organization-service] gRPC running on :${PORT}`);
+
+    // Convert bindAsync to Promise
+    await new Promise((resolve, reject) => {
+        server.bindAsync(
+            `0.0.0.0:${PORT}`,
+            grpc.ServerCredentials.createInsecure(),
+            (err) => (err ? reject(err) : resolve())
+        );
     });
+
+    console.log(`[organization-service] gRPC running on :${PORT}`);
+
+    // Graceful shutdown handler
+    const shutdown = async (signal) => {
+        console.log(`\n[organization-service] Received ${signal}, shutting down gracefully...`);
+
+        try {
+            // 🧹 Stop accepting new gRPC calls
+            server.tryShutdown((err) => {
+                if (err) {
+                    console.error('[organization-service] Force closing due to error:', err);
+                    server.forceShutdown();
+                } else {
+                    console.log('[organization-service] gRPC server stopped.');
+                }
+            });
+
+            // 🧹 Disconnect Prisma cleanly
+            await prisma.$disconnect();
+            console.log('[organization-service] Prisma disconnected.');
+
+            process.exit(0);
+        } catch (e) {
+            console.error('[organization-service] Error during shutdown:', e);
+            process.exit(1);
+        }
+    };
+
+    // Handle termination signals
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
-main();
+main().catch((err) => {
+    console.error('[organization-service] Fatal error:', err);
+    process.exit(1);
+});

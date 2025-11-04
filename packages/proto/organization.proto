@@ -45,8 +45,18 @@ message OrganizationResponse {
   Organization organization = 1;
 }
 
-message ListOrganizationsRequest {}
+message ListOrganizationsRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string search = 3;      // optional search query
+  string sort_by = 4;     // field to sort (name, domain, industry, size, created_at)
+  string sort_order = 5;  // asc or desc
+}
 
 message ListOrganizationsResponse {
   repeated Organization organizations = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
 }

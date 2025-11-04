@@ -208,13 +208,58 @@ function mapCategory(category) {
     };
 }
 
-function main() {
+/* ------------------------------------------------------------------ */
+/* 🧩 Graceful shutdown-aware main()                                  */
+/* ------------------------------------------------------------------ */
+
+async function main() {
     const server = new grpc.Server();
+
     server.addService(employeeCategoryProto.EmployeeCategoryService.service, impl);
-    server.bindAsync(`0.0.0.0:${PORT}`, grpc.ServerCredentials.createInsecure(), (err) => {
-        if (err) throw err;
-        console.log(`[employee-category-service] gRPC running on :${PORT}`);
+
+    // Convert bindAsync to Promise
+    await new Promise((resolve, reject) => {
+        server.bindAsync(
+            `0.0.0.0:${PORT}`,
+            grpc.ServerCredentials.createInsecure(),
+            (err) => (err ? reject(err) : resolve())
+        );
     });
+
+    console.log(`[employee-category-service] gRPC running on :${PORT}`);
+
+    // Graceful shutdown handler
+    const shutdown = async (signal) => {
+        console.log(`\n[employee-category-service] Received ${signal}, shutting down gracefully...`);
+
+        try {
+            // 🧹 Stop accepting new gRPC calls
+            server.tryShutdown((err) => {
+                if (err) {
+                    console.error('[employee-category-service] Force closing due to error:', err);
+                    server.forceShutdown();
+                } else {
+                    console.log('[employee-category-service] gRPC server stopped.');
+                }
+            });
+
+            // 🧹 Disconnect Prisma cleanly
+            await prisma.$disconnect();
+            console.log('[employee-category-service] Prisma disconnected.');
+
+            process.exit(0);
+        } catch (e) {
+            console.error('[employee-category-service] Error during shutdown:', e);
+            process.exit(1);
+        }
+    };
+
+    // Handle termination signals
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
-main();
+main().catch((err) => {
+    console.error('[employee-category-service] Fatal error:', err);
+    process.exit(1);
+});

@@ -2,7 +2,7 @@ import { z, ZodError } from 'zod';
 import { orgClient } from '../grpc/organization.client.js';
 
 export default function registerOrganizationRoutes(app) {
-    // ✅ Zod schema with per-field messages
+    // ✅ Schema for creating an organization
     const createOrgSchema = z.object({
         name: z.string({ required_error: 'Organization name is required' })
             .min(2, 'Name must have at least 2 characters'),
@@ -73,7 +73,6 @@ export default function registerOrganizationRoutes(app) {
                 const body = await c.req.json();
                 const parsed = createOrgSchema.parse(body);
 
-                // normalize for proto field compatibility
                 const payload = {
                     name: parsed.name,
                     domain: parsed.domain,
@@ -161,25 +160,38 @@ export default function registerOrganizationRoutes(app) {
         }
     );
 
-    // 🟡 List all organizations
+    // 🟡 List Organizations — PAGINATED ✅
     app.openapi(
         {
             method: 'get',
             path: '/organizations',
             tags: ['Organization'],
-            summary: 'List all organizations',
+            summary: 'List all organizations (paginated)',
+            request: {
+                query: z.object({
+                    page: z.string().optional().default('1'),
+                    limit: z.string().optional().default('10')
+                })
+            },
             responses: {
                 200: {
-                    description: 'Array of organizations',
+                    description: 'Paginated list of organizations',
                     content: {
                         'application/json': {
-                            schema: z.array(
-                                z.object({
-                                    id: z.string(),
-                                    name: z.string(),
-                                    domain: z.string()
-                                })
-                            )
+                            schema: z.object({
+                                organizations: z.array(
+                                    z.object({
+                                        id: z.string(),
+                                        name: z.string(),
+                                        domain: z.string(),
+                                        email: z.string().optional()
+                                    })
+                                ),
+                                total: z.number(),
+                                page: z.number(),
+                                limit: z.number(),
+                                total_pages: z.number()
+                            })
                         }
                     }
                 }
@@ -187,10 +199,15 @@ export default function registerOrganizationRoutes(app) {
         },
         async (c) => {
             try {
+                const query = c.req.query();
+
+                const page = parseInt(query.page || '1', 10);
+                const limit = parseInt(query.limit || '10', 10);
+
                 const response = await new Promise((resolve, reject) => {
-                    orgClient.ListOrganizations({}, (err, resp) => {
+                    orgClient.ListOrganizations({ page, limit }, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.organizations);
+                        resolve(resp);
                     });
                 });
 
