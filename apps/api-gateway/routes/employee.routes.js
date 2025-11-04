@@ -270,6 +270,58 @@ export default function registerEmployeeCategoryRoutes(app) {
             }
         }
     );
+    // 🔴 Delete Employee Category
+    app.openapi(
+        {
+            method: 'delete',
+            path: '/employee-categories/{id}',
+            tags: ['Employee Categories'],
+            summary: 'Soft delete an employee category by ID',
+            request: {
+                params: z.object({
+                    id: z.string({ required_error: 'Category ID is required' })
+                })
+            },
+            responses: {
+                200: {
+                    description: 'Employee category deleted successfully',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                success: z.boolean(),
+                                message: z.string()
+                            })
+                        }
+                    }
+                },
+                400: { description: 'Validation failed' },
+                404: { description: 'Category not found' },
+                500: { description: 'Internal server error' }
+            }
+        },
+        async (c) => {
+            try {
+                const { id } = c.req.param();
+
+                // Validate ObjectId format
+                if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+                    return c.json({ error: 'Invalid category ID format' }, 400);
+                }
+
+                const response = await new Promise((resolve, reject) => {
+                    employeeClient.DeleteEmployeeCategory({ id }, (err, resp) => {
+                        if (err) return reject(err);
+                        resolve(resp);
+                    });
+                });
+
+                return c.json(response, 200);
+            } catch (error) {
+                console.error('DeleteEmployeeCategory API Error:', error);
+                return c.json({ error: error.message }, 500);
+            }
+        }
+    );
 
 }
 
