@@ -1,6 +1,5 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma } from '@jury-hrms/db/client.js';
-import { ObjectId } from "mongodb";
 
 const PORT = Number(process.env.EMP_CAT_SERVICE_PORT || 50052);
 const employeeCategoryProto = loadProto('employee_category');
@@ -21,6 +20,17 @@ const impl = {
                 });
             }
 
+            const organizationExists = await prisma.organizations.findUnique({
+                where: { id: data.organization_id },
+            });
+
+            if (!organizationExists) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Organization not found',
+                });
+            }
+
             const mappedData = {
                 organizationId: data.organization_id,
                 name: data.name,
@@ -29,9 +39,7 @@ const impl = {
                 idPrefix: data.id_prefix ?? null,
                 isPermanent: data.is_permanent,
                 benefitsApplicable: data.benefits_applicable,
-                onboardingWorkflow: ObjectId.isValid(data.onboarding_workflow)
-                    ? data.onboarding_workflow
-                    : null,
+                onboardingWorkflow: data.onboarding_workflow,
                 isActive: data.is_active,
                 trainingRequired: data.training_required,
                 trainingMonths: data.training_months,
@@ -132,7 +140,7 @@ const impl = {
 
             // ✅ Sanitize onboarding_workflow completely
             let validOnboardingWorkflow = null;
-            if (data.onboarding_workflow && ObjectId.isValid(data.onboarding_workflow)) {
+            if (data.onboarding_workflow) {
                 validOnboardingWorkflow = data.onboarding_workflow;
             } else {
                 console.warn(
@@ -140,20 +148,21 @@ const impl = {
                 );
             }
 
-            // ✅ Also sanitize organization_id (if it's ObjectId in DB)
-            let validOrganizationId = null;
-            if (data.organization_id && ObjectId.isValid(data.organization_id)) {
-                validOrganizationId = data.organization_id;
-            } else {
-                console.warn(
-                    `⚠️ Invalid organization_id "${data.organization_id}" replaced with null`
-                );
+            // ✅ Also sanitize organization_id completely
+            const organization = await prisma.organizations.findUnique({
+                where: { id: data.organization_id },
+            })
+            if (!organization) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Organization not found',
+                });
             }
 
             const updated = await prisma.employeeCategories.update({
                 where: { id: data.id },
                 data: {
-                    organizationId: validOrganizationId,
+                    organizationId: data.organization_id,
                     name: data.name,
                     code: data.code ?? null,
                     description: data.description ?? null,
