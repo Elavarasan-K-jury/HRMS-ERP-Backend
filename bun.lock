@@ -65,6 +65,15 @@
         "@prisma/client": "latest",
       },
     },
+    "services/employee-service": {
+      "name": "@jury-hrms/employee-service",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "@prisma/client": "latest",
+      },
+    },
     "services/organization-service": {
       "name": "@jury-hrms/organization-service",
       "version": "0.1.0",
@@ -123,6 +132,8 @@
     "@jury-hrms/db": ["@jury-hrms/db@workspace:packages/db"],
 
     "@jury-hrms/employee-category-service": ["@jury-hrms/employee-category-service@workspace:services/employee-category-service"],
+
+    "@jury-hrms/employee-service": ["@jury-hrms/employee-service@workspace:services/employee-service"],
 
     "@jury-hrms/organization-service": ["@jury-hrms/organization-service@workspace:services/organization-service"],
 

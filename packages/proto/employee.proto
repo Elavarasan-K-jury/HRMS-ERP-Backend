@@ -1,0 +1,93 @@
+syntax = "proto3";
+
+package employee;
+
+
+service EmployeeService {
+  rpc CreateEmployee (CreateEmployeeRequest) returns (EmployeeResponse);
+  rpc GetEmployee    (GetEmployeeRequest)    returns (EmployeeResponse);
+  rpc ListEmployees  (ListEmployeesRequest)  returns (ListEmployeesResponse);
+  rpc UpdateEmployee (UpdateEmployeeRequest) returns (EmployeeResponse);
+  rpc DeleteEmployee (DeleteEmployeeRequest) returns (DeleteEmployeeResponse);
+}
+
+
+enum Gender {
+  GENDER_UNKNOWN = 0;
+  GENDER_MALE    = 1;
+  GENDER_FEMALE  = 2;
+  GENDER_OTHER   = 3;
+}
+
+message CreateEmployeeRequest {
+  string organization_id   = 1;
+  string category_id       = 2;
+  string department_id     = 3;
+  string first_name        = 4;
+  string last_name         = 5;
+  string full_name         = 6;
+  string email             = 7;
+  string phone             = 8;
+  string alt_phone         = 9;
+  Gender gender            = 10;
+  string date_of_birth     = 11; // ISO date string: YYYY-MM-DD
+}
+
+message GetEmployeeRequest {
+  string id = 1;
+}
+
+message UpdateEmployeeRequest {
+  string id                = 1;
+  string organization_id   = 2;
+  string category_id       = 3;
+  string department_id     = 4;
+  string first_name        = 5;
+  string last_name         = 6;
+  string full_name         = 7;
+  string email             = 8;
+  string phone             = 9;
+  string alt_phone         = 10;
+  Gender gender            = 11;
+  string date_of_birth     = 12;
+}
+
+message DeleteEmployeeRequest {
+  string id = 1;
+}
+
+message DeleteEmployeeResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+
+message Employee {
+  string id                = 1;
+  string organization_id   = 2;
+  string category_id       = 3;
+  string department_id     = 4;
+  string first_name        = 5;
+  string last_name         = 6;
+  string full_name         = 7;
+  string email             = 8;
+  string phone             = 9;
+  string alt_phone         = 10;
+  Gender gender            = 11;
+  string date_of_birth     = 12;
+}
+
+
+message EmployeeResponse {
+  Employee employee = 1;
+}
+
+message ListEmployeesRequest {
+  string organization_id = 1;
+  string category_id     = 2;
+  string department_id   = 3;
+}
+
+message ListEmployeesResponse {
+  repeated Employee employees = 1;
+}
