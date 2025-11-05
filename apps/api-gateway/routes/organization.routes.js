@@ -8,17 +8,22 @@ export default function registerOrganizationRoutes(app) {
             .min(2, 'Name must have at least 2 characters'),
         domain: z.string({ required_error: 'Domain is required' })
             .url('Domain must be a valid URL'),
-        gstNumber: z.string()
+
+        gst_number: z.string()
             .regex(/^$|^[0-9A-Z]{15}$/, 'GST number must be 15 alphanumeric characters')
             .optional(),
         email: z.string().email('Invalid email format').optional(),
-        contactPersonName: z.string().optional(),
-        contactPersonNumber: z.string().optional(),
+        contact_person_name: z.string().optional(),
+        contact_person_number: z.string().optional(),
         note: z.string().optional(),
         industry: z.string().optional(),
-        size: z.number().int('Size must be an integer').positive('Size must be positive').optional(),
-        address: z.string().optional()
-    });
+
+        // accept "85" as well as 85
+        size: z.coerce.number().int('Size must be an integer').positive('Size must be positive').optional(),
+
+        // allow either stringified JSON or object
+        address: z.union([z.string(), z.record(z.any())]).optional()
+    }).strict(); // catch typos
 
     // 🟢 Create Organization
     app.openapi(
@@ -45,7 +50,7 @@ export default function registerOrganizationRoutes(app) {
                                 id: z.string(),
                                 name: z.string(),
                                 domain: z.string(),
-                                created_at: z.string()
+                                created_at: z.string().optional()
                             })
                         }
                     }
@@ -71,20 +76,26 @@ export default function registerOrganizationRoutes(app) {
         async (c) => {
             try {
                 const body = await c.req.json();
+
+                // validate with snake_case schema
                 const parsed = createOrgSchema.parse(body);
 
+                // send exactly what proto expects (already snake_case)
                 const payload = {
-                    name: parsed.name,
-                    domain: parsed.domain,
-                    gst_number: parsed.gstNumber,
-                    email: parsed.email,
-                    contact_person_name: parsed.contactPersonName,
-                    contact_person_number: parsed.contactPersonNumber,
-                    note: parsed.note,
-                    industry: parsed.industry,
-                    size: parsed.size,
-                    address: parsed.address
+                    ...parsed,
+                    // ensure optional fields are transmitted (gRPC drops undefined)
+                    gst_number: parsed.gst_number ?? null,
+                    email: parsed.email ?? null,
+                    contact_person_name: parsed.contact_person_name ?? null,
+                    contact_person_number: parsed.contact_person_number ?? null,
+                    note: parsed.note ?? null,
+                    industry: parsed.industry ?? null,
+                    size: parsed.size ?? null,
+                    address: parsed.address ?? null
                 };
+
+                // optional: debug
+                // console.log('payload to gRPC:', payload);
 
                 const response = await new Promise((resolve, reject) => {
                     orgClient.CreateOrganization(payload, (err, resp) => {
@@ -254,5 +265,127 @@ export default function registerOrganizationRoutes(app) {
             }
         }
     );
+    // ================================
+    // 🟠 Update Organization
+    // ================================
+    app.openapi(
+        {
+            method: 'put',
+            path: '/organizations/{id}',
+            tags: ['Organization'],
+            summary: 'Update an existing organization',
+            request: {
+                params: z.object({
+                    id: z.string({ required_error: 'Organization ID is required' }),
+                }),
+                body: {
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                name: z.string().optional(),
+                                domain: z.string().url('Domain must be a valid URL').optional(),
+                                gst_number: z.string()
+                                    .regex(/^$|^[0-9A-Z]{15}$/, 'GST number must be 15 alphanumeric characters')
+                                    .optional(),
+                                email: z.string().email('Invalid email format').optional(),
+                                contact_person_name: z.string().optional(),
+                                contact_person_number: z.string().optional(),
+                                note: z.string().optional(),
+                                industry: z.string().optional(),
+                                size: z.number().optional(),
+                                address: z.string().optional()
+                            })
+                        }
+                    }
+                },
+            },
+            responses: {
+                200: {
+                    description: 'Organization updated successfully',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                id: z.string(),
+                                name: z.string(),
+                                domain: z.string(),
+                                updated_at: z.string().optional(),
+                            })
+                        }
+                    }
+                },
+                404: {
+                    description: 'Organization not found'
+                }
+            }
+        },
+        async (c) => {
+            try {
+                const id = c.req.param('id');
+                const body = await c.req.json();
+
+                const payload = { id, ...body };
+
+                const response = await new Promise((resolve, reject) => {
+                    orgClient.UpdateOrganization(payload, (err, resp) => {
+                        if (err) return reject(err);
+                        resolve(resp.organization);
+                    });
+                });
+
+                return c.json(response, 200);
+            } catch (error) {
+                return c.json({ error: error.message }, 500);
+            }
+        }
+    );
+
+    // ================================
+    // 🔴 Delete Organization
+    // ================================
+    app.openapi(
+        {
+            method: 'delete',
+            path: '/organizations/{id}',
+            tags: ['Organization'],
+            summary: 'Soft delete an organization (sets deletedAt)',
+            request: {
+                params: z.object({
+                    id: z.string({ required_error: 'Organization ID is required' }),
+                }),
+            },
+            responses: {
+                200: {
+                    description: 'Organization deleted successfully',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                message: z.string(),
+                            })
+                        }
+                    }
+                },
+                404: {
+                    description: 'Organization not found'
+                }
+            }
+        },
+        async (c) => {
+            try {
+                const id = c.req.param('id');
+
+                const response = await new Promise((resolve, reject) => {
+                    orgClient.DeleteOrganization({ id }, (err, resp) => {
+                        if (err) return reject(err);
+                        resolve(resp);
+                    });
+                });
+
+                return c.json(response, 200);
+            } catch (error) {
+                return c.json({ error: error.message }, 500);
+            }
+        }
+    );
+
 
 }

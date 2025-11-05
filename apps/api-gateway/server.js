@@ -1,7 +1,9 @@
 console.log("🔍 EMP_CAT_SERVICE_ADDR =", process.env.EMP_CAT_SERVICE_ADDR);
 
 import { OpenAPIHono } from '@hono/zod-openapi';
+import { cors } from 'hono/cors';
 import { swaggerUI } from '@hono/swagger-ui';
+import { ipWhitelist } from './middlewares/ipWhitelist.js';
 import { rateLimiter } from './middlewares/rateLimiter.js';
 import { withQueue } from './middlewares/requestQueue.js';
 import registerOrganizationRoutes from './routes/organization.routes.js';
@@ -25,11 +27,17 @@ app.doc('/doc', {
     }
 });
 
+app.use('*', cors({
+    origin: ['http://localhost:3001', 'http://127.0.0.1:3001'],
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+}));
+
 // ---- Swagger UI ---- //
 app.get('/swagger', swaggerUI({ url: '/doc' }));
 
-// 🧩 Apply global middlewares
-app.use('*', rateLimiter);
+// 🧩 Apply middlewares
+app.use('*', ipWhitelist);   // 🛡️ Add this before others
+app.use('*', rateLimiter);   // ⏱️ Then rate limiting
 
 // ---- Health Check ---- //
 app.get('/', (c) => c.text('🚀 Jury-HRMS API Gateway is running!'));

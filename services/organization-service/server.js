@@ -137,6 +137,59 @@ const impl = {
             });
         }
     },
+    UpdateOrganization: async (call, callback) => {
+        try {
+            const data = call.request;
+            const existing = await prisma.organizations.findUnique({ where: { id: data.id, deletedAt: null } });
+            if (!existing)
+                return callback({ code: grpc.status.NOT_FOUND, message: 'Organization not found' });
+
+            const updated = await prisma.organizations.update({
+                where: { id: data.id },
+                data: {
+                    name: data.name,
+                    domain: data.domain,
+                    GSTNumber: data.gst_number ?? null,
+                    email: data.email ?? null,
+                    contactPersonName: data.contact_person_name ?? null,
+                    contactPersonNumber: data.contact_person_number ?? null,
+                    note: data.note ?? null,
+                    industry: data.industry ?? null,
+                    size: data.size ?? null,
+                    address:
+                        typeof data.address === 'string'
+                            ? JSON.parse(data.address)
+                            : data.address ?? null,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                },
+            });
+
+            callback(null, { organization: mapOrg(updated) });
+        } catch (e) {
+            callback({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
+
+    DeleteOrganization: async (call, callback) => {
+        try {
+            const { id } = call.request;
+            const org = await prisma.organizations.findUnique({ where: { id, deletedAt: null } });
+
+            if (!org)
+                return callback({ code: grpc.status.NOT_FOUND, message: 'Organization not found' });
+
+            await prisma.organizations.update({
+                where: { id },
+                data: { deletedAt: new Date() },
+            });
+
+            callback(null, { message: 'Organization soft-deleted successfully' });
+        } catch (e) {
+            callback({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
+
 };
 
 function mapOrg(org) {
