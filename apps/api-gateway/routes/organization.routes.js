@@ -1,32 +1,48 @@
 import { z, ZodError } from 'zod';
 import { orgClient } from '../grpc/organization.client.js';
 
-export default function registerOrganizationRoutes(app) {
-    // ✅ Schema for creating an organization
+export default function registerOrganizationRoutes({ openapi }) {
+    //
+    // ✅ Create Organization schema (Swagger-safe)
+    //
     const createOrgSchema = z.object({
-        name: z.string({ required_error: 'Organization name is required' })
+        name: z
+            .string({ required_error: 'Organization name is required' })
             .min(2, 'Name must have at least 2 characters'),
-        domain: z.string({ required_error: 'Domain is required' })
+
+        domain: z
+            .string({ required_error: 'Domain is required' })
             .url('Domain must be a valid URL'),
 
-        gst_number: z.string()
+        gst_number: z
+            .string()
             .regex(/^$|^[0-9A-Z]{15}$/, 'GST number must be 15 alphanumeric characters')
             .optional(),
+
         email: z.string().email('Invalid email format').optional(),
         contact_person_name: z.string().optional(),
         contact_person_number: z.string().optional(),
         note: z.string().optional(),
         industry: z.string().optional(),
+        size: z.number().int().positive().optional(),
 
-        // accept "85" as well as 85
-        size: z.coerce.number().int('Size must be an integer').positive('Size must be positive').optional(),
+        // ✅ replaced problematic union
+        address: z
+            .object({
+                line1: z.string().optional(),
+                line2: z.string().optional(),
+                city: z.string().optional(),
+                state: z.string().optional(),
+                postal_code: z.string().optional(),
+                country: z.string().optional(),
+            })
+            .optional(),
+    }).strict();
 
-        // allow either stringified JSON or object
-        address: z.union([z.string(), z.record(z.any())]).optional()
-    }).strict(); // catch typos
-
+    //
     // 🟢 Create Organization
-    app.openapi(
+    //
+    openapi(
         {
             method: 'post',
             path: '/organizations',
@@ -36,10 +52,10 @@ export default function registerOrganizationRoutes(app) {
                 body: {
                     content: {
                         'application/json': {
-                            schema: createOrgSchema
-                        }
-                    }
-                }
+                            schema: createOrgSchema,
+                        },
+                    },
+                },
             },
             responses: {
                 201: {
@@ -50,10 +66,10 @@ export default function registerOrganizationRoutes(app) {
                                 id: z.string(),
                                 name: z.string(),
                                 domain: z.string(),
-                                created_at: z.string().optional()
-                            })
-                        }
-                    }
+                                created_at: z.string().optional(),
+                            }),
+                        },
+                    },
                 },
                 400: {
                     description: 'Validation error',
@@ -64,26 +80,22 @@ export default function registerOrganizationRoutes(app) {
                                 details: z.array(
                                     z.object({
                                         field: z.string(),
-                                        message: z.string()
+                                        message: z.string(),
                                     })
-                                )
-                            })
-                        }
-                    }
-                }
-            }
+                                ),
+                            }),
+                        },
+                    },
+                },
+            },
         },
         async (c) => {
             try {
                 const body = await c.req.json();
-
-                // validate with snake_case schema
                 const parsed = createOrgSchema.parse(body);
 
-                // send exactly what proto expects (already snake_case)
                 const payload = {
                     ...parsed,
-                    // ensure optional fields are transmitted (gRPC drops undefined)
                     gst_number: parsed.gst_number ?? null,
                     email: parsed.email ?? null,
                     contact_person_name: parsed.contact_person_name ?? null,
@@ -91,11 +103,8 @@ export default function registerOrganizationRoutes(app) {
                     note: parsed.note ?? null,
                     industry: parsed.industry ?? null,
                     size: parsed.size ?? null,
-                    address: parsed.address ?? null
+                    address: parsed.address ?? null,
                 };
-
-                // optional: debug
-                // console.log('payload to gRPC:', payload);
 
                 const response = await new Promise((resolve, reject) => {
                     orgClient.CreateOrganization(payload, (err, resp) => {
@@ -107,28 +116,35 @@ export default function registerOrganizationRoutes(app) {
                 return c.json(response, 201);
             } catch (error) {
                 if (error instanceof ZodError) {
-                    return c.json({
-                        error: 'Validation failed',
-                        details: error.errors.map(e => ({
-                            field: e.path.join('.'),
-                            message: e.message
-                        }))
-                    }, 400);
+                    return c.json(
+                        {
+                            error: 'Validation failed',
+                            details: error.errors.map((e) => ({
+                                field: e.path.join('.'),
+                                message: e.message,
+                            })),
+                        },
+                        400
+                    );
                 }
                 return c.json({ error: error.message }, 500);
             }
         }
     );
 
+    //
     // 🟣 Get organization by ID
-    app.openapi(
+    //
+    openapi(
         {
             method: 'get',
             path: '/organizations/{id}',
             tags: ['Organization'],
             summary: 'Fetch organization by ID',
             request: {
-                params: z.object({ id: z.string({ required_error: 'ID is required' }) })
+                params: z.object({
+                    id: z.string({ required_error: 'ID is required' }),
+                }),
             },
             responses: {
                 200: {
@@ -139,31 +155,24 @@ export default function registerOrganizationRoutes(app) {
                                 id: z.string(),
                                 name: z.string(),
                                 domain: z.string(),
-                                email: z.string().optional()
-                            })
-                        }
-                    }
+                                email: z.string().optional(),
+                            }),
+                        },
+                    },
                 },
-                404: {
-                    description: 'Organization not found'
-                }
-            }
+                404: { description: 'Organization not found' },
+            },
         },
         async (c) => {
             try {
                 const id = c.req.param('id');
-
                 const response = await new Promise((resolve, reject) => {
                     orgClient.GetOrganization({ id }, (err, resp) => {
                         if (err) return reject(err);
                         resolve(resp.organization);
                     });
                 });
-
-                if (!response) {
-                    return c.json({ error: 'Organization not found' }, 404);
-                }
-
+                if (!response) return c.json({ error: 'Organization not found' }, 404);
                 return c.json(response);
             } catch (error) {
                 return c.json({ error: error.message }, 500);
@@ -171,8 +180,10 @@ export default function registerOrganizationRoutes(app) {
         }
     );
 
-    // 🟡 List Organizations — Paginated + Search + Sort
-    app.openapi(
+    //
+    // 🟡 List Organizations (pagination)
+    //
+    openapi(
         {
             method: 'get',
             path: '/organizations',
@@ -180,36 +191,14 @@ export default function registerOrganizationRoutes(app) {
             summary: 'List organizations with pagination, search, and sorting',
             request: {
                 query: z.object({
-                    page: z
-                        .string()
-                        .optional()
-                        .default('1')
-                        .transform((v) => parseInt(v, 10)),
-                    limit: z
-                        .string()
-                        .optional()
-                        .default('10')
-                        .transform((v) => parseInt(v, 10)),
+                    page: z.number().optional().default(1),
+                    limit: z.number().optional().default(10),
                     search: z.string().optional().default(''),
                     sort_by: z
-                        .string()
+                        .enum(['name', 'domain', 'industry', 'size', 'created_at', 'updated_at'])
                         .optional()
-                        .default('createdAt')
-                        .refine(
-                            (val) =>
-                                ['name', 'domain', 'industry', 'size', 'created_at', 'updated_at', 'createdAt', 'updatedAt'].includes(val),
-                            {
-                                message:
-                                    'Invalid sort field. Allowed: name, domain, industry, size, created_at, updated_at',
-                            }
-                        ),
-                    sort_order: z
-                        .string()
-                        .optional()
-                        .default('desc')
-                        .refine((val) => ['asc', 'desc'].includes(val.toLowerCase()), {
-                            message: 'Sort order must be "asc" or "desc"',
-                        }),
+                        .default('created_at'),
+                    sort_order: z.enum(['asc', 'desc']).optional().default('desc'),
                 }),
             },
             responses: {
@@ -242,7 +231,6 @@ export default function registerOrganizationRoutes(app) {
         async (c) => {
             try {
                 const query = c.req.valid('query');
-
                 const response = await new Promise((resolve, reject) => {
                     orgClient.ListOrganizations(
                         {
@@ -258,17 +246,17 @@ export default function registerOrganizationRoutes(app) {
                         }
                     );
                 });
-
                 return c.json(response, 200);
             } catch (error) {
                 return c.json({ error: error.message }, 500);
             }
         }
     );
-    // ================================
+
+    //
     // 🟠 Update Organization
-    // ================================
-    app.openapi(
+    //
+    openapi(
         {
             method: 'put',
             path: '/organizations/{id}',
@@ -284,7 +272,8 @@ export default function registerOrganizationRoutes(app) {
                             schema: z.object({
                                 name: z.string().optional(),
                                 domain: z.string().url('Domain must be a valid URL').optional(),
-                                gst_number: z.string()
+                                gst_number: z
+                                    .string()
                                     .regex(/^$|^[0-9A-Z]{15}$/, 'GST number must be 15 alphanumeric characters')
                                     .optional(),
                                 email: z.string().email('Invalid email format').optional(),
@@ -293,10 +282,10 @@ export default function registerOrganizationRoutes(app) {
                                 note: z.string().optional(),
                                 industry: z.string().optional(),
                                 size: z.number().optional(),
-                                address: z.string().optional()
-                            })
-                        }
-                    }
+                                address: z.string().optional(),
+                            }),
+                        },
+                    },
                 },
             },
             responses: {
@@ -309,20 +298,17 @@ export default function registerOrganizationRoutes(app) {
                                 name: z.string(),
                                 domain: z.string(),
                                 updated_at: z.string().optional(),
-                            })
-                        }
-                    }
+                            }),
+                        },
+                    },
                 },
-                404: {
-                    description: 'Organization not found'
-                }
-            }
+                404: { description: 'Organization not found' },
+            },
         },
         async (c) => {
             try {
                 const id = c.req.param('id');
                 const body = await c.req.json();
-
                 const payload = { id, ...body };
 
                 const response = await new Promise((resolve, reject) => {
@@ -339,10 +325,10 @@ export default function registerOrganizationRoutes(app) {
         }
     );
 
-    // ================================
+    //
     // 🔴 Delete Organization
-    // ================================
-    app.openapi(
+    //
+    openapi(
         {
             method: 'delete',
             path: '/organizations/{id}',
@@ -358,34 +344,26 @@ export default function registerOrganizationRoutes(app) {
                     description: 'Organization deleted successfully',
                     content: {
                         'application/json': {
-                            schema: z.object({
-                                message: z.string(),
-                            })
-                        }
-                    }
+                            schema: z.object({ message: z.string() }),
+                        },
+                    },
                 },
-                404: {
-                    description: 'Organization not found'
-                }
-            }
+                404: { description: 'Organization not found' },
+            },
         },
         async (c) => {
             try {
                 const id = c.req.param('id');
-
                 const response = await new Promise((resolve, reject) => {
                     orgClient.DeleteOrganization({ id }, (err, resp) => {
                         if (err) return reject(err);
                         resolve(resp);
                     });
                 });
-
                 return c.json(response, 200);
             } catch (error) {
                 return c.json({ error: error.message }, 500);
             }
         }
     );
-
-
 }

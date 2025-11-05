@@ -1,5 +1,4 @@
 import { z, ZodError } from 'zod';
-import { ObjectId } from "mongodb";
 import { employeeClient } from '../grpc/employee-category.client.js';
 
 export default function registerEmployeeCategoryRoutes(app) {
@@ -236,6 +235,15 @@ export default function registerEmployeeCategoryRoutes(app) {
                 const id = c.req.param('id');
                 const body = await c.req.json();
 
+                const categoryExists = await new Promise((resolve, reject) => {
+                    employeeClient.GetEmployeeCategory({ id }, (err, resp) => {
+                        if (err) return reject(err);
+                        resolve(resp.category);
+                    });
+                })
+
+                if (!categoryExists) return c.json({ error: 'Category not found' }, 404);
+
                 // Validate input
                 const parsed = createEmployeeCategorySchema.partial().extend({
                     organization_id: z.string({ required_error: 'Organization ID is required' })
@@ -303,10 +311,14 @@ export default function registerEmployeeCategoryRoutes(app) {
             try {
                 const { id } = c.req.param();
 
-                // Validate ObjectId format
-                if (!/^[0-9a-fA-F]{24}$/.test(id)) {
-                    return c.json({ error: 'Invalid category ID format' }, 400);
-                }
+                const categoryExists = await new Promise((resolve, reject) => {
+                    employeeClient.GetEmployeeCategory({ id }, (err, resp) => {
+                        if (err) return reject(err);
+                        resolve(resp.category);
+                    });
+                })
+
+                if (!categoryExists) return c.json({ error: 'Category not found' }, 404);
 
                 const response = await new Promise((resolve, reject) => {
                     employeeClient.DeleteEmployeeCategory({ id }, (err, resp) => {

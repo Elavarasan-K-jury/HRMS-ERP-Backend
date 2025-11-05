@@ -1,4 +1,6 @@
 console.log("🔍 EMP_CAT_SERVICE_ADDR =", process.env.EMP_CAT_SERVICE_ADDR);
+console.log("🔍 ORG_SERVICE_ADDR =", process.env.ORG_SERVICE_ADDR);
+console.log("🔍 EMP_SERVICE_ADDR =", process.env.EMP_SERVICE_ADDR);
 
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { cors } from 'hono/cors';
@@ -23,9 +25,10 @@ app.doc('/doc', {
     info: {
         title: 'Jury HRMS API Gateway',
         version: '1.0.0',
-        description: 'REST gateway for Jury HRMS microservices (Organization, etc.)'
-    }
+        description: 'REST gateway for Jury HRMS microservices (Organization, etc.)',
+    },
 });
+
 
 app.use('*', cors({
     origin: ['http://localhost:3001', 'http://127.0.0.1:3001'],
