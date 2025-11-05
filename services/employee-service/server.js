@@ -29,7 +29,7 @@ const impl = {
                 email: data.email || null,
                 phone: data.phone,
                 altPhone: data.alt_phone || null,
-                gender: mapGender(data.gender),
+                gender: data.gender ? data.gender.toUpperCase() : null,
                 dateOfBirth: new Date(data.date_of_birth),
                 // createdAt / updatedAt / deletedAt are set by Prisma defaults
             };
@@ -48,12 +48,9 @@ const impl = {
         try {
             const { id } = call.request;
 
-            if (!/^[0-9a-fA-F]{24}$/.test(id))
-                return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid employee id' });
+            const emp = await prisma.organizationEmployees.findUnique({ where: { id, deletedAt: null } });
 
-            const emp = await prisma.organizationEmployees.findUnique({ where: { id } });
-
-            if (!emp || emp.deletedAt)
+            if (!emp)
                 return callback({ code: grpc.status.NOT_FOUND, message: 'Employee not found' });
 
             callback(null, { employee: mapEmployee(emp) });
@@ -85,20 +82,13 @@ const impl = {
     UpdateEmployee: async (call, callback) => {
         try {
             const data = call.request;
-            if (!/^[0-9a-fA-F]{24}$/.test(data.id))
-                return callback({
-                    code: grpc.status.INVALID_ARGUMENT,
-                    message: 'Invalid employee id',
-                });
 
             const existing = await prisma.organizationEmployees.findUnique({
-                where: { id: data.id },
+                where: { id: data.id, deletedAt: null },
             });
-            if (!existing || existing.deletedAt)
-                return callback({
-                    code: grpc.status.NOT_FOUND,
-                    message: 'Employee not found',
-                });
+
+            if (!existing)
+                return callback({ code: grpc.status.NOT_FOUND, message: 'Employee not found' });
 
             const updateData = {
                 organizationId: data.organization_id ?? existing.organizationId,
@@ -108,11 +98,11 @@ const impl = {
                 lastName: data.last_name ?? existing.lastName,
                 fullName:
                     data.full_name ||
-                    `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim(),
-                email: data.email ?? existing.email,
-                phone: data.phone ?? existing.phone,
-                altPhone: data.alt_phone ?? existing.altPhone,
-                gender: mapGender(data.gender) ?? existing.gender,
+                    `${data.first_name || ''} ${data.last_name || ''}`.trim(),
+                email: data.email || existing.email,
+                phone: data.phone || existing.phone,
+                altPhone: data.alt_phone || existing.altPhone,
+                gender: data.gender ? data.gender.toUpperCase() : null,
                 dateOfBirth: data.date_of_birth
                     ? new Date(data.date_of_birth)
                     : existing.dateOfBirth,
@@ -134,11 +124,8 @@ const impl = {
         try {
             const { id } = call.request;
 
-            if (!/^[0-9a-fA-F]{24}$/.test(id))
-                return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid employee id' });
-
-            const emp = await prisma.organizationEmployees.findUnique({ where: { id } });
-            if (!emp || emp.deletedAt)
+            const emp = await prisma.organizationEmployees.findUnique({ where: { id, deletedAt: null } });
+            if (!emp)
                 return callback({ code: grpc.status.NOT_FOUND, message: 'Employee not found' });
 
             await prisma.organizationEmployees.update({
@@ -168,40 +155,39 @@ function mapEmployee(emp) {
         email: emp.email ?? '',
         phone: emp.phone ?? '',
         alt_phone: emp.altPhone ?? '',
-        gender: reverseGender(emp.gender),
-        date_of_birth: emp.dateOfBirth?.toISOString().split('T')[0] ?? '',
-        created_at: emp.createdAt?.toISOString() ?? '',
-        updated_at: emp.updatedAt?.toISOString() ?? '',
-        deleted_at: emp.deletedAt?.toISOString() ?? null,
+        gender: emp.gender ?? '',
+        date_of_birth: emp.dateOfBirth ? new Date(emp.dateOfBirth).toLocaleString('en-IN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+        }) : '',
+        created_at: emp.createdAt ? new Date(emp.dateOfBirth).toLocaleString('en-IN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        }) : '',
+        updated_at: emp.updatedAt ? new Date(emp.dateOfBirth).toLocaleString('en-IN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        }) : '',
+        deleted_at: emp.deletedAt ? new Date(emp.dateOfBirth).toLocaleString('en-IN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        }) : '',
     };
 }
 
-function mapGender(protoGender) {
-    switch (protoGender) {
-        case 1:
-            return 'MALE';     // Prisma will auto-convert string to enum if field is enum
-        case 2:
-            return 'FEMALE';
-        case 3:
-            return 'OTHER';
-        default:
-            return 'UNKNOWN';
-    }
-}
-
-function reverseGender(dbGender) {
-    // dbGender is already the enum value → get its string name
-    switch (dbGender) {
-        case 'MALE':
-            return 1;
-        case 'FEMALE':
-            return 2;
-        case 'OTHER':
-            return 3;
-        default:
-            return 0; // UNKNOWN
-    }
-}
 async function main() {
     const server = new grpc.Server();
     server.addService(employeeProto.EmployeeService.service, impl);
