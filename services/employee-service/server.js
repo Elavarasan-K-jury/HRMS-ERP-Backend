@@ -48,12 +48,9 @@ const impl = {
         try {
             const { id } = call.request;
 
-            if (!/^[0-9a-fA-F]{24}$/.test(id))
-                return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid employee id' });
+            const emp = await prisma.organizationEmployees.findUnique({ where: { id, deletedAt: null } });
 
-            const emp = await prisma.organizationEmployees.findUnique({ where: { id } });
-
-            if (!emp || emp.deletedAt)
+            if (!emp)
                 return callback({ code: grpc.status.NOT_FOUND, message: 'Employee not found' });
 
             callback(null, { employee: mapEmployee(emp) });
