@@ -10,8 +10,9 @@
   "scripts": {
     "start:org": "bun services/organization-service/server.js",
     "start:emp-cat": "bun services/employee-category-service/server.js",
+    "start:emp": "bun services/employee-service/server.js",
     "start:gateway": "bun apps/api-gateway/server.js",
-    "start": "bunx concurrently -k -n org,gateway -c auto \"bun run start:org\" \"bun run start:emp-cat\" \"bun run start:gateway\"",
+    "start": "bunx concurrently -k -n org,gateway,emp-cat,emp -c auto \"bun run start:org\" \"bun run start:emp-cat\" \"bun run start:emp\" \"bun run start:gateway\"",
     "prisma:generate": "bunx prisma generate --schema=packages/db/prisma/schema.prisma",
     "prisma:push": "bunx prisma db push --schema=packages/db/prisma/schema.prisma",
     "prisma:studio": "bunx prisma studio --schema=packages/db/prisma/schema.prisma",
@@ -27,6 +28,7 @@
     "@hono/zod-openapi": "^1.1.4",
     "hono": "^4.10.4",
     "hono-rate-limit": "^1.0.2",
+    "mongodb": "^6.20.0",
     "p-queue": "^9.0.0",
     "redlock": "^5.0.0-beta.2",
     "swagger-ui-dist": "^5.30.1",

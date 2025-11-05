@@ -1,0 +1,252 @@
+import { grpc, loadProto } from '@jury-hrms/proto';
+import { prisma } from '@jury-hrms/db/client.js';
+
+const PORT = process.env.EMP_SERVICE_PORT || 50053;
+const employeeProto = loadProto('employee');
+
+const impl = {
+    CreateEmployee: async (call, callback) => {
+        try {
+            const data = call.request;
+
+            if (!data.organization_id || !data.category_id || !data.phone) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: 'organization_id, category_id, and phone are required.',
+                });
+            }
+
+            const mappedData = {
+                organizationId: data.organization_id,
+                categoryId: data.category_id,
+                departmentId: data.department_id || null,
+                firstName: data.first_name || null,
+                lastName: data.last_name || null,
+                fullName:
+                    data.full_name ||
+                    `${data.first_name || ''} ${data.last_name || ''}`.trim(),
+                email: data.email || null,
+                phone: data.phone,
+                altPhone: data.alt_phone || null,
+                gender: mapGender(data.gender),
+                dateOfBirth: new Date(data.date_of_birth),
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                deletedAt: null,
+            };
+
+            const employee = await prisma.organizationEmployees.create({ data: mappedData });
+            callback(null, { employee: mapEmployee(employee) });
+        } catch (e) {
+            callback({
+                code: grpc.status.INTERNAL,
+                message: e.message,
+            });
+        }
+    },
+
+    GetEmployee: async (call, callback) => {
+        try {
+            const { id } = call.request;
+
+            if (!/^[0-9a-fA-F]{24}$/.test(id))
+                return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid employee id' });
+
+            const emp = await prisma.organizationEmployees.findUnique({ where: { id } });
+
+            if (!emp || emp.deletedAt)
+                return callback({ code: grpc.status.NOT_FOUND, message: 'Employee not found' });
+
+            callback(null, { employee: mapEmployee(emp) });
+        } catch (e) {
+            callback({
+                code: grpc.status.INTERNAL,
+                message: e.message,
+            });
+        }
+    },
+
+    ListEmployees: async (call, callback) => {
+        try {
+            const { organization_id, category_id, department_id } = call.request;
+
+            const where = {
+                deletedAt: null,
+                ...(organization_id ? { organizationId: organization_id } : {}),
+                ...(category_id ? { categoryId: category_id } : {}),
+                ...(department_id ? { departmentId: department_id } : {}),
+            };
+
+            const employees = await prisma.organizationEmployees.findMany({ where });
+            callback(null, { employees: employees.map(mapEmployee) });
+        } catch (e) {
+            callback({
+                code: grpc.status.INTERNAL,
+                message: e.message,
+            });
+        }
+    },
+
+    UpdateEmployee: async (call, callback) => {
+        try {
+            const data = call.request;
+
+            if (!/^[0-9a-fA-F]{24}$/.test(data.id))
+                return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid employee id' });
+
+            const existing = await prisma.organizationEmployees.findUnique({
+                where: { id: data.id },
+            });
+
+            if (!existing || existing.deletedAt)
+                return callback({ code: grpc.status.NOT_FOUND, message: 'Employee not found' });
+
+            const updateData = {
+                organizationId: data.organization_id || existing.organizationId,
+                categoryId: data.category_id || existing.categoryId,
+                departmentId: data.department_id || existing.departmentId,
+                firstName: data.first_name || existing.firstName,
+                lastName: data.last_name || existing.lastName,
+                fullName:
+                    data.full_name ||
+                    `${data.first_name || ''} ${data.last_name || ''}`.trim(),
+                email: data.email || existing.email,
+                phone: data.phone || existing.phone,
+                altPhone: data.alt_phone || existing.altPhone,
+                gender: mapGender(data.gender) || existing.gender,
+                dateOfBirth: data.date_of_birth
+                    ? new Date(data.date_of_birth)
+                    : existing.dateOfBirth,
+                updatedAt: new Date(),
+            };
+
+            const updated = await prisma.organizationEmployees.update({
+                where: { id: data.id },
+                data: updateData,
+            });
+
+            callback(null, { employee: mapEmployee(updated) });
+        } catch (e) {
+            callback({
+                code: grpc.status.INTERNAL,
+                message: e.message,
+            });
+        }
+    },
+
+    DeleteEmployee: async (call, callback) => {
+        try {
+            const { id } = call.request;
+
+            if (!/^[0-9a-fA-F]{24}$/.test(id))
+                return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid employee id' });
+
+            const emp = await prisma.organizationEmployees.findUnique({ where: { id } });
+            if (!emp || emp.deletedAt)
+                return callback({ code: grpc.status.NOT_FOUND, message: 'Employee not found' });
+
+            await prisma.organizationEmployees.update({
+                where: { id },
+                data: { deletedAt: new Date() },
+            });
+
+            callback(null, { success: true, message: 'Employee deleted successfully' });
+        } catch (e) {
+            callback({
+                code: grpc.status.INTERNAL,
+                message: e.message,
+            });
+        }
+    },
+};
+
+function mapEmployee(emp) {
+    return {
+        id: emp.id,
+        organization_id: emp.organizationId,
+        category_id: emp.categoryId,
+        department_id: emp.departmentId ?? '',
+        first_name: emp.firstName ?? '',
+        last_name: emp.lastName ?? '',
+        full_name: emp.fullName ?? '',
+        email: emp.email ?? '',
+        phone: emp.phone ?? '',
+        alt_phone: emp.altPhone ?? '',
+        gender: reverseGender(emp.gender),
+        date_of_birth: emp.dateOfBirth?.toISOString().split('T')[0] ?? '',
+        created_at: emp.createdAt,
+        updated_at: emp.updatedAt,
+        deleted_at: emp.deletedAt,
+    };
+}
+
+function mapGender(protoGender) {
+    switch (protoGender) {
+        case 1:
+            return 'MALE';
+        case 2:
+            return 'FEMALE';
+        case 3:
+            return 'OTHER';
+        default:
+            return 'UNKNOWN';
+    }
+}
+
+function reverseGender(dbGender) {
+    switch (dbGender?.toUpperCase()) {
+        case 'MALE':
+            return 1;
+        case 'FEMALE':
+            return 2;
+        case 'OTHER':
+            return 3;
+        default:
+            return 0;
+    }
+}
+
+async function main() {
+    const server = new grpc.Server();
+    server.addService(employeeProto.EmployeeService.service, impl);
+
+    // ✅ Same as organization-service
+    await new Promise((resolve, reject) => {
+        server.bindAsync(
+            `0.0.0.0:${PORT}`,
+            grpc.ServerCredentials.createInsecure(),
+            (err) => (err ? reject(err) : resolve())
+        );
+    });
+
+    console.log(`[employee-service] gRPC running on :${PORT}`);
+
+    const shutdown = async (signal) => {
+        console.log(`\n[employee-service] Received ${signal}, shutting down gracefully...`);
+        try {
+            server.tryShutdown((err) => {
+                if (err) {
+                    console.error('[employee-service] Force closing due to error:', err);
+                    server.forceShutdown();
+                } else {
+                    console.log('[employee-service] gRPC server stopped.');
+                }
+            });
+
+            await prisma.$disconnect();
+            console.log('[employee-service] Prisma disconnected.');
+            process.exit(0);
+        } catch (e) {
+            console.error('[employee-service] Error during shutdown:', e);
+            process.exit(1);
+        }
+    };
+
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+}
+
+main().catch((err) => {
+    console.error('[employee-service] Fatal error:', err);
+    process.exit(1);
+});
