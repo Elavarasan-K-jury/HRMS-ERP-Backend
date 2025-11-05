@@ -66,6 +66,7 @@ model OrganizationDesignations {
   description    String?
   organization   Organizations            @relation(fields: [organizationId], references: [id])
   department     OrganizationDepartments? @relation(fields: [departmentId], references: [id])
+   employees      OrganizationEmployees[]
   createdAt      DateTime                 @map("created_at")
   updatedAt      DateTime                 @map("updated_at")
   deletedAt      DateTime?                @map("deleted_at")
@@ -107,7 +108,8 @@ model OrganizationEmployees {
   organization        Organizations         @relation(fields: [organizationId], references: [id])
   categoryId          String                @map("category_id") @db.ObjectId
   category            EmployeeCategories    @relation(fields: [categoryId], references: [id])
-  departmentId        String?               @map("department_id") @db.ObjectId
+  designationId        String?               @map("designation_id") @db.ObjectId
+  designation        OrganizationDesignations?         @relation(fields: [designationId], references: [id])
   firstName           String?               @map("first_name")
   lastName            String?               @map("last_name")
   fullName            String                @map("full_name")

@@ -9,6 +9,7 @@ const impl = {
         try {
             const data = call.request;
 
+            // required fields (unchanged)
             if (!data.organization_id || !data.category_id || !data.phone) {
                 return callback({
                     code: grpc.status.INVALID_ARGUMENT,
@@ -19,7 +20,7 @@ const impl = {
             const mappedData = {
                 organizationId: data.organization_id,
                 categoryId: data.category_id,
-                departmentId: data.department_id || null,
+                designationId: data.designation_id || null,          // ← NEW
                 firstName: data.first_name || null,
                 lastName: data.last_name || null,
                 fullName:
@@ -30,18 +31,16 @@ const impl = {
                 altPhone: data.alt_phone || null,
                 gender: mapGender(data.gender),
                 dateOfBirth: new Date(data.date_of_birth),
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                deletedAt: null,
+                // createdAt / updatedAt / deletedAt are set by Prisma defaults
             };
 
-            const employee = await prisma.organizationEmployees.create({ data: mappedData });
+            const employee = await prisma.organizationEmployees.create({
+                data: mappedData,
+            });
+
             callback(null, { employee: mapEmployee(employee) });
         } catch (e) {
-            callback({
-                code: grpc.status.INTERNAL,
-                message: e.message,
-            });
+            callback({ code: grpc.status.INTERNAL, message: e.message });
         }
     },
 
@@ -68,52 +67,52 @@ const impl = {
 
     ListEmployees: async (call, callback) => {
         try {
-            const { organization_id, category_id, department_id } = call.request;
-
+            const { organization_id, category_id, designation_id } = call.request; // ← NEW filter
             const where = {
                 deletedAt: null,
                 ...(organization_id ? { organizationId: organization_id } : {}),
                 ...(category_id ? { categoryId: category_id } : {}),
-                ...(department_id ? { departmentId: department_id } : {}),
+                ...(designation_id ? { designationId: designation_id } : {}),
             };
 
             const employees = await prisma.organizationEmployees.findMany({ where });
             callback(null, { employees: employees.map(mapEmployee) });
         } catch (e) {
-            callback({
-                code: grpc.status.INTERNAL,
-                message: e.message,
-            });
+            callback({ code: grpc.status.INTERNAL, message: e.message });
         }
     },
 
     UpdateEmployee: async (call, callback) => {
         try {
             const data = call.request;
-
             if (!/^[0-9a-fA-F]{24}$/.test(data.id))
-                return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid employee id' });
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: 'Invalid employee id',
+                });
 
             const existing = await prisma.organizationEmployees.findUnique({
                 where: { id: data.id },
             });
-
             if (!existing || existing.deletedAt)
-                return callback({ code: grpc.status.NOT_FOUND, message: 'Employee not found' });
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Employee not found',
+                });
 
             const updateData = {
-                organizationId: data.organization_id || existing.organizationId,
-                categoryId: data.category_id || existing.categoryId,
-                departmentId: data.department_id || existing.departmentId,
-                firstName: data.first_name || existing.firstName,
-                lastName: data.last_name || existing.lastName,
+                organizationId: data.organization_id ?? existing.organizationId,
+                categoryId: data.category_id ?? existing.categoryId,
+                designationId: data.designation_id ?? existing.designationId, // ← NEW
+                firstName: data.first_name ?? existing.firstName,
+                lastName: data.last_name ?? existing.lastName,
                 fullName:
                     data.full_name ||
-                    `${data.first_name || ''} ${data.last_name || ''}`.trim(),
-                email: data.email || existing.email,
-                phone: data.phone || existing.phone,
-                altPhone: data.alt_phone || existing.altPhone,
-                gender: mapGender(data.gender) || existing.gender,
+                    `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim(),
+                email: data.email ?? existing.email,
+                phone: data.phone ?? existing.phone,
+                altPhone: data.alt_phone ?? existing.altPhone,
+                gender: mapGender(data.gender) ?? existing.gender,
                 dateOfBirth: data.date_of_birth
                     ? new Date(data.date_of_birth)
                     : existing.dateOfBirth,
@@ -127,10 +126,7 @@ const impl = {
 
             callback(null, { employee: mapEmployee(updated) });
         } catch (e) {
-            callback({
-                code: grpc.status.INTERNAL,
-                message: e.message,
-            });
+            callback({ code: grpc.status.INTERNAL, message: e.message });
         }
     },
 
@@ -165,7 +161,7 @@ function mapEmployee(emp) {
         id: emp.id,
         organization_id: emp.organizationId,
         category_id: emp.categoryId,
-        department_id: emp.departmentId ?? '',
+        designation_id: emp.designationId ?? '',               // ← NEW
         first_name: emp.firstName ?? '',
         last_name: emp.lastName ?? '',
         full_name: emp.fullName ?? '',
@@ -174,16 +170,16 @@ function mapEmployee(emp) {
         alt_phone: emp.altPhone ?? '',
         gender: reverseGender(emp.gender),
         date_of_birth: emp.dateOfBirth?.toISOString().split('T')[0] ?? '',
-        created_at: emp.createdAt,
-        updated_at: emp.updatedAt,
-        deleted_at: emp.deletedAt,
+        created_at: emp.createdAt?.toISOString() ?? '',
+        updated_at: emp.updatedAt?.toISOString() ?? '',
+        deleted_at: emp.deletedAt?.toISOString() ?? null,
     };
 }
 
 function mapGender(protoGender) {
     switch (protoGender) {
         case 1:
-            return 'MALE';
+            return 'MALE';     // Prisma will auto-convert string to enum if field is enum
         case 2:
             return 'FEMALE';
         case 3:
@@ -194,7 +190,8 @@ function mapGender(protoGender) {
 }
 
 function reverseGender(dbGender) {
-    switch (dbGender?.toUpperCase()) {
+    // dbGender is already the enum value → get its string name
+    switch (dbGender) {
         case 'MALE':
             return 1;
         case 'FEMALE':
@@ -202,10 +199,9 @@ function reverseGender(dbGender) {
         case 'OTHER':
             return 3;
         default:
-            return 0;
+            return 0; // UNKNOWN
     }
 }
-
 async function main() {
     const server = new grpc.Server();
     server.addService(employeeProto.EmployeeService.service, impl);
