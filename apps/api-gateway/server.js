@@ -7,7 +7,8 @@ import { ipWhitelist } from './middlewares/ipWhitelist.js';
 import { rateLimiter } from './middlewares/rateLimiter.js';
 import { withQueue } from './middlewares/requestQueue.js';
 import registerOrganizationRoutes from './routes/organization.routes.js';
-import registerEmployeeCategoryRoutes from './routes/employee.routes.js';
+import registerEmployeeCategoryRoutes from './routes/employee_category.routes.js';
+import registerEmployeeRoutes from './routes/employee.routes.js';
 
 // ---- Initialize Hono App ---- //
 const app = new OpenAPIHono({
@@ -49,6 +50,12 @@ registerOrganizationRoutes({
     },
 });
 registerEmployeeCategoryRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerEmployeeRoutes({
     openapi: (def, handler) => {
         // wrap each route handler in queue
         app.openapi(def, withQueue(handler));

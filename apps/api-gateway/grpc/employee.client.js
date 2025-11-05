@@ -1,9 +1,13 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 
-const employeeCategoryProto = loadProto('employee_category');
-const EMP_CAT_SERVICE_ADDR = process.env.EMP_CAT_SERVICE_ADDR || 'localhost:50052';
+// Load the compiled proto definition
+const employeeProto = loadProto('employee');
 
-export const employeeClient = new employeeCategoryProto.EmployeeCategoryService(
-    EMP_CAT_SERVICE_ADDR,
+// Use env variable or fallback
+const EMP_SERVICE_ADDR = process.env.EMP_SERVICE_ADDR || 'localhost:50053';
+
+// Export client instance
+export const employeeClient = new employeeProto.EmployeeService(
+    EMP_SERVICE_ADDR,
     grpc.credentials.createInsecure()
 );

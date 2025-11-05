@@ -1,5 +1,6 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma } from '@jury-hrms/db/client.js';
+import { ObjectId } from "mongodb";
 
 const PORT = Number(process.env.EMP_CAT_SERVICE_PORT || 50052);
 const employeeCategoryProto = loadProto('employee_category');
@@ -9,7 +10,7 @@ const impl = {
         try {
             const data = call.request;
 
-            const existing = await prisma.employeeCategories.findUnique({
+            const existing = await prisma.employeeCategories.findFirst({
                 where: { name: data.name },
             });
 
@@ -28,7 +29,9 @@ const impl = {
                 idPrefix: data.id_prefix ?? null,
                 isPermanent: data.is_permanent,
                 benefitsApplicable: data.benefits_applicable,
-                onboardingWorkflow: data.onboarding_workflow ?? null,
+                onboardingWorkflow: ObjectId.isValid(data.onboarding_workflow)
+                    ? data.onboarding_workflow
+                    : null,
                 isActive: data.is_active,
                 trainingRequired: data.training_required,
                 trainingMonths: data.training_months,
@@ -118,6 +121,7 @@ const impl = {
     UpdateEmployeeCategory: async (call, callback) => {
         try {
             const data = call.request;
+            console.log('🔹 Incoming update payload:', data);
 
             if (!/^[0-9a-fA-F]{24}$/.test(data.id)) {
                 return callback({
@@ -126,17 +130,37 @@ const impl = {
                 });
             }
 
+            // ✅ Sanitize onboarding_workflow completely
+            let validOnboardingWorkflow = null;
+            if (data.onboarding_workflow && ObjectId.isValid(data.onboarding_workflow)) {
+                validOnboardingWorkflow = data.onboarding_workflow;
+            } else {
+                console.warn(
+                    `⚠️ Invalid onboarding_workflow "${data.onboarding_workflow}" replaced with null`
+                );
+            }
+
+            // ✅ Also sanitize organization_id (if it's ObjectId in DB)
+            let validOrganizationId = null;
+            if (data.organization_id && ObjectId.isValid(data.organization_id)) {
+                validOrganizationId = data.organization_id;
+            } else {
+                console.warn(
+                    `⚠️ Invalid organization_id "${data.organization_id}" replaced with null`
+                );
+            }
+
             const updated = await prisma.employeeCategories.update({
                 where: { id: data.id },
                 data: {
-                    organizationId: data.organization_id,
+                    organizationId: validOrganizationId,
                     name: data.name,
                     code: data.code ?? null,
                     description: data.description ?? null,
                     idPrefix: data.id_prefix ?? null,
                     isPermanent: data.is_permanent,
                     benefitsApplicable: data.benefits_applicable,
-                    onboardingWorkflow: data.onboarding_workflow ?? null,
+                    onboardingWorkflow: validOnboardingWorkflow,
                     isActive: data.is_active,
                     trainingRequired: data.training_required,
                     trainingMonths: data.training_months,
@@ -150,7 +174,7 @@ const impl = {
 
             callback(null, { category: mapCategory(updated) });
         } catch (e) {
-            console.error('UpdateEmployeeCategory Error:', e);
+            console.error('❌ UpdateEmployeeCategory Error:', e);
             callback({
                 code: grpc.status.INTERNAL,
                 message: e.message,
@@ -208,9 +232,7 @@ function mapCategory(category) {
     };
 }
 
-/* ------------------------------------------------------------------ */
-/* 🧩 Graceful shutdown-aware main()                                  */
-/* ------------------------------------------------------------------ */
+
 
 async function main() {
     const server = new grpc.Server();
