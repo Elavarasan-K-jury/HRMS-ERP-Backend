@@ -39,7 +39,7 @@ const impl = {
                 idPrefix: data.id_prefix ?? null,
                 isPermanent: data.is_permanent,
                 benefitsApplicable: data.benefits_applicable,
-                onboardingWorkflow: data.onboarding_workflow,
+                onboardingWorkflow: null, // data.onboarding_workflow,
                 isActive: data.is_active,
                 trainingRequired: data.training_required,
                 trainingMonths: data.training_months,
@@ -137,17 +137,6 @@ const impl = {
                     message: 'Invalid category id',
                 });
             }
-
-            // ✅ Sanitize onboarding_workflow completely
-            let validOnboardingWorkflow = null;
-            if (data.onboarding_workflow) {
-                validOnboardingWorkflow = data.onboarding_workflow;
-            } else {
-                console.warn(
-                    `⚠️ Invalid onboarding_workflow "${data.onboarding_workflow}" replaced with null`
-                );
-            }
-
             // ✅ Also sanitize organization_id completely
             const organization = await prisma.organizations.findUnique({
                 where: { id: data.organization_id },
@@ -169,7 +158,7 @@ const impl = {
                     idPrefix: data.id_prefix ?? null,
                     isPermanent: data.is_permanent,
                     benefitsApplicable: data.benefits_applicable,
-                    onboardingWorkflow: validOnboardingWorkflow,
+                    onboardingWorkflow: null, // data.onboarding_workflow,
                     isActive: data.is_active,
                     trainingRequired: data.training_required,
                     trainingMonths: data.training_months,
