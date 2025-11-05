@@ -15,14 +15,14 @@ service EmployeeService {
 message CreateEmployeeRequest {
   string organization_id   = 1;
   string category_id       = 2;
-  string department_id     = 3;
+  string designation_id     = 3;
   string first_name        = 4;
   string last_name         = 5;
   string full_name         = 6;
   string email             = 7;
   string phone             = 8;
   string alt_phone         = 9;
-  String gender            = 10;
+  string gender            = 10;
   string date_of_birth     = 11; // ISO date string: YYYY-MM-DD
 }
 
@@ -34,14 +34,14 @@ message UpdateEmployeeRequest {
   string id                = 1;
   string organization_id   = 2;
   string category_id       = 3;
-  string department_id     = 4;
+  string designation_id     = 4;
   string first_name        = 5;
   string last_name         = 6;
   string full_name         = 7;
   string email             = 8;
   string phone             = 9;
   string alt_phone         = 10;
-  String gender            = 11;
+  string gender            = 11;
   string date_of_birth     = 12;
 }
 
@@ -66,7 +66,7 @@ message Employee {
   string email             = 8;
   string phone             = 9;
   string alt_phone         = 10;
-  String gender            = 11;
+  string gender            = 11;
   string date_of_birth     = 12;
 }
 

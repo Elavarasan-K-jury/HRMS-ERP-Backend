@@ -14,9 +14,22 @@ datasource db {
 }
 
 model Admins {
-  id    String @id @default(auto()) @map("_id") @db.ObjectId
-  email String
-  phone String
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  email     String
+  phone     String
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+}
+
+model AdminOtps {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  adminId   String    @map("admin_id") @db.ObjectId
+  otp       String
+  purpose   String?
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
 }
 
 model Organizations {
@@ -66,11 +79,7 @@ model OrganizationDesignations {
   description    String?
   organization   Organizations            @relation(fields: [organizationId], references: [id])
   department     OrganizationDepartments? @relation(fields: [departmentId], references: [id])
-<<<<<<< HEAD
   employees      OrganizationEmployees[]
-=======
-   employees      OrganizationEmployees[]
->>>>>>> b6b3717b6dd5c97449eeba31e2d10737b13eabcd
   createdAt      DateTime                 @map("created_at")
   updatedAt      DateTime                 @map("updated_at")
   deletedAt      DateTime?                @map("deleted_at")
@@ -107,7 +116,6 @@ enum Gender {
 }
 
 model OrganizationEmployees {
-<<<<<<< HEAD
   id                  String                    @id @default(auto()) @map("_id") @db.ObjectId
   organizationId      String                    @map("organization_id") @db.ObjectId
   organization        Organizations             @relation(fields: [organizationId], references: [id])
@@ -118,18 +126,6 @@ model OrganizationEmployees {
   firstName           String?                   @map("first_name")
   lastName            String?                   @map("last_name")
   fullName            String                    @map("full_name")
-=======
-  id                  String                @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId      String                @map("organization_id") @db.ObjectId
-  organization        Organizations         @relation(fields: [organizationId], references: [id])
-  categoryId          String                @map("category_id") @db.ObjectId
-  category            EmployeeCategories    @relation(fields: [categoryId], references: [id])
-  designationId        String?               @map("designation_id") @db.ObjectId
-  designation        OrganizationDesignations?         @relation(fields: [designationId], references: [id])
-  firstName           String?               @map("first_name")
-  lastName            String?               @map("last_name")
-  fullName            String                @map("full_name")
->>>>>>> b6b3717b6dd5c97449eeba31e2d10737b13eabcd
   email               String?
   phone               String
   altPhone            String?                   @map("alt_phone")
