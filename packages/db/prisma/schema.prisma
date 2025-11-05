@@ -66,6 +66,7 @@ model OrganizationDesignations {
   description    String?
   organization   Organizations            @relation(fields: [organizationId], references: [id])
   department     OrganizationDepartments? @relation(fields: [departmentId], references: [id])
+  employees      OrganizationEmployees[]
   createdAt      DateTime                 @map("created_at")
   updatedAt      DateTime                 @map("updated_at")
   deletedAt      DateTime?                @map("deleted_at")
@@ -102,20 +103,21 @@ enum Gender {
 }
 
 model OrganizationEmployees {
-  id                  String                @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId      String                @map("organization_id") @db.ObjectId
-  organization        Organizations         @relation(fields: [organizationId], references: [id])
-  categoryId          String                @map("category_id") @db.ObjectId
-  category            EmployeeCategories    @relation(fields: [categoryId], references: [id])
-  departmentId        String?               @map("department_id") @db.ObjectId
-  firstName           String?               @map("first_name")
-  lastName            String?               @map("last_name")
-  fullName            String                @map("full_name")
+  id                  String                    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId      String                    @map("organization_id") @db.ObjectId
+  organization        Organizations             @relation(fields: [organizationId], references: [id])
+  categoryId          String                    @map("category_id") @db.ObjectId
+  category            EmployeeCategories        @relation(fields: [categoryId], references: [id])
+  designationId       String?                   @map("designation_id") @db.ObjectId
+  designation         OrganizationDesignations? @relation(fields: [designationId], references: [id])
+  firstName           String?                   @map("first_name")
+  lastName            String?                   @map("last_name")
+  fullName            String                    @map("full_name")
   email               String?
   phone               String
-  altPhone            String?               @map("alt_phone")
+  altPhone            String?                   @map("alt_phone")
   gender              Gender
-  dateOfBirth         DateTime              @db.Date
+  dateOfBirth         DateTime                  @db.Date
   EmployeeDepartments EmployeeDepartments[]
 }
 

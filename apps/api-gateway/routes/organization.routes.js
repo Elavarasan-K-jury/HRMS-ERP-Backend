@@ -191,11 +191,11 @@ export default function registerOrganizationRoutes({ openapi }) {
             summary: 'List organizations with pagination, search, and sorting',
             request: {
                 query: z.object({
-                    page: z.number().optional().default(1),
-                    limit: z.number().optional().default(10),
+                    page: z.string().optional().default(1),
+                    limit: z.string().optional().default(10),
                     search: z.string().optional().default(''),
                     sort_by: z
-                        .enum(['name', 'domain', 'industry', 'size', 'created_at', 'updated_at'])
+                        .enum(['name', 'domain', 'industry', 'size', 'createdAt', 'updatedAt'])
                         .optional()
                         .default('created_at'),
                     sort_order: z.enum(['asc', 'desc']).optional().default('desc'),
@@ -234,8 +234,8 @@ export default function registerOrganizationRoutes({ openapi }) {
                 const response = await new Promise((resolve, reject) => {
                     orgClient.ListOrganizations(
                         {
-                            page: query.page,
-                            limit: query.limit,
+                            page: Number(query.page),
+                            limit: Number(query.limit),
                             search: query.search,
                             sort_by: query.sort_by,
                             sort_order: query.sort_order,

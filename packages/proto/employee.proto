@@ -12,13 +12,6 @@ service EmployeeService {
 }
 
 
-enum Gender {
-  GENDER_UNKNOWN = 0;
-  GENDER_MALE    = 1;
-  GENDER_FEMALE  = 2;
-  GENDER_OTHER   = 3;
-}
-
 message CreateEmployeeRequest {
   string organization_id   = 1;
   string category_id       = 2;
@@ -29,7 +22,7 @@ message CreateEmployeeRequest {
   string email             = 7;
   string phone             = 8;
   string alt_phone         = 9;
-  Gender gender            = 10;
+  String gender            = 10;
   string date_of_birth     = 11; // ISO date string: YYYY-MM-DD
 }
 
@@ -48,7 +41,7 @@ message UpdateEmployeeRequest {
   string email             = 8;
   string phone             = 9;
   string alt_phone         = 10;
-  Gender gender            = 11;
+  String gender            = 11;
   string date_of_birth     = 12;
 }
 
@@ -73,7 +66,7 @@ message Employee {
   string email             = 8;
   string phone             = 9;
   string alt_phone         = 10;
-  Gender gender            = 11;
+  String gender            = 11;
   string date_of_birth     = 12;
 }
 
