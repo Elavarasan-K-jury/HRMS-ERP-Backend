@@ -9,6 +9,7 @@ const impl = {
         try {
             const data = call.request;
 
+            // required fields (unchanged)
             if (!data.organization_id || !data.category_id || !data.phone) {
                 return callback({
                     code: grpc.status.INVALID_ARGUMENT,
@@ -19,7 +20,7 @@ const impl = {
             const mappedData = {
                 organizationId: data.organization_id,
                 categoryId: data.category_id,
-                departmentId: data.department_id || null,
+                designationId: data.designation_id || null,          // ← NEW
                 firstName: data.first_name || null,
                 lastName: data.last_name || null,
                 fullName:
@@ -30,18 +31,16 @@ const impl = {
                 altPhone: data.alt_phone || null,
                 gender: data.gender ? data.gender.toUpperCase() : null,
                 dateOfBirth: new Date(data.date_of_birth),
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                deletedAt: null,
+                // createdAt / updatedAt / deletedAt are set by Prisma defaults
             };
 
-            const employee = await prisma.organizationEmployees.create({ data: mappedData });
+            const employee = await prisma.organizationEmployees.create({
+                data: mappedData,
+            });
+
             callback(null, { employee: mapEmployee(employee) });
         } catch (e) {
-            callback({
-                code: grpc.status.INTERNAL,
-                message: e.message,
-            });
+            callback({ code: grpc.status.INTERNAL, message: e.message });
         }
     },
 
@@ -68,22 +67,18 @@ const impl = {
 
     ListEmployees: async (call, callback) => {
         try {
-            const { organization_id, category_id, department_id } = call.request;
-
+            const { organization_id, category_id, designation_id } = call.request; // ← NEW filter
             const where = {
                 deletedAt: null,
                 ...(organization_id ? { organizationId: organization_id } : {}),
                 ...(category_id ? { categoryId: category_id } : {}),
-                ...(department_id ? { departmentId: department_id } : {}),
+                ...(designation_id ? { designationId: designation_id } : {}),
             };
 
             const employees = await prisma.organizationEmployees.findMany({ where });
             callback(null, { employees: employees.map(mapEmployee) });
         } catch (e) {
-            callback({
-                code: grpc.status.INTERNAL,
-                message: e.message,
-            });
+            callback({ code: grpc.status.INTERNAL, message: e.message });
         }
     },
 
@@ -99,11 +94,11 @@ const impl = {
                 return callback({ code: grpc.status.NOT_FOUND, message: 'Employee not found' });
 
             const updateData = {
-                organizationId: data.organization_id || existing.organizationId,
-                categoryId: data.category_id || existing.categoryId,
-                departmentId: data.department_id || existing.departmentId,
-                firstName: data.first_name || existing.firstName,
-                lastName: data.last_name || existing.lastName,
+                organizationId: data.organization_id ?? existing.organizationId,
+                categoryId: data.category_id ?? existing.categoryId,
+                designationId: data.designation_id ?? existing.designationId, // ← NEW
+                firstName: data.first_name ?? existing.firstName,
+                lastName: data.last_name ?? existing.lastName,
                 fullName:
                     data.full_name ||
                     `${data.first_name || ''} ${data.last_name || ''}`.trim(),
@@ -124,10 +119,7 @@ const impl = {
 
             callback(null, { employee: mapEmployee(updated) });
         } catch (e) {
-            callback({
-                code: grpc.status.INTERNAL,
-                message: e.message,
-            });
+            callback({ code: grpc.status.INTERNAL, message: e.message });
         }
     },
 
@@ -159,7 +151,7 @@ function mapEmployee(emp) {
         id: emp.id,
         organization_id: emp.organizationId,
         category_id: emp.categoryId,
-        department_id: emp.departmentId ?? '',
+        designation_id: emp.designationId ?? '',               // ← NEW
         first_name: emp.firstName ?? '',
         last_name: emp.lastName ?? '',
         full_name: emp.fullName ?? '',

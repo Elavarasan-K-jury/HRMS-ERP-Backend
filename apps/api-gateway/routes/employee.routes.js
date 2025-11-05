@@ -4,20 +4,19 @@ import { employeeClient } from '../grpc/employee.client.js';
 export default function registerEmployeeRoutes(app) {
     // ✅ Schema for creating an employee
     const createEmployeeSchema = z.object({
-        firstName: z.string({ required_error: 'First name is required' })
-            .min(2, 'First name must have at least 2 characters'),
-        lastName: z.string({ required_error: 'Last name is required' })
-            .min(2, 'Last name must have at least 2 characters'),
-        email: z.string({ required_error: 'Email is required' })
-            .email('Invalid email format'),
-        phone: z.string({ required_error: 'Phone number is required' })
-            .regex(/^[0-9]{10}$/, 'Phone number must be 10 digits'),
         organizationId: z.string({ required_error: 'Organization ID is required' }),
-        departmentId: z.string().optional(),
-        designation: z.string().optional(),
-        salary: z.number().optional(),
-        dateOfJoining: z.string().optional(), // ISO date
-        address: z.string().optional()
+        categoryId: z.string({ required_error: 'Category ID is required' }),
+        designationId: z.string().optional(),               // ← NEW
+        firstName: z.string().min(2, 'First name must have at least 2 characters').optional(),
+        lastName: z.string().min(2, 'Last name must have at least 2 characters').optional(),
+        fullName: z.string().optional(),
+        email: z.string().email('Invalid email format').optional(),
+        phone: z.string().regex(/^[0-9]{10}$/, 'Phone number must be 10 digits'),
+        altPhone: z.string().optional(),
+        gender: z.enum(['MALE', 'FEMALE', 'OTHER', 'UNKNOWN']).optional(),
+        dateOfBirth: z.string().refine(v => !isNaN(Date.parse(v)), {
+            message: 'dateOfBirth must be a valid ISO date',
+        }).optional(),
     });
 
     // 🟢 Create Employee
@@ -28,13 +27,7 @@ export default function registerEmployeeRoutes(app) {
             tags: ['Employee'],
             summary: 'Create a new employee',
             request: {
-                body: {
-                    content: {
-                        'application/json': {
-                            schema: createEmployeeSchema
-                        }
-                    }
-                }
+                body: { content: { 'application/json': { schema: createEmployeeSchema } } },
             },
             responses: {
                 201: {
@@ -43,14 +36,22 @@ export default function registerEmployeeRoutes(app) {
                         'application/json': {
                             schema: z.object({
                                 id: z.string(),
-                                firstName: z.string(),
-                                lastName: z.string(),
-                                email: z.string(),
-                                organizationId: z.string(),
-                                created_at: z.string()
-                            })
-                        }
-                    }
+                                organization_id: z.string(),
+                                category_id: z.string(),
+                                designation_id: z.string().optional(),
+                                first_name: z.string().optional(),
+                                last_name: z.string().optional(),
+                                full_name: z.string(),
+                                email: z.string().optional(),
+                                phone: z.string(),
+                                alt_phone: z.string().optional(),
+                                gender: z.number(),
+                                date_of_birth: z.string(),
+                                created_at: z.string(),
+                                updated_at: z.string(),
+                            }),
+                        },
+                    },
                 },
                 400: {
                     description: 'Validation error',
@@ -68,15 +69,29 @@ export default function registerEmployeeRoutes(app) {
                         }
                     }
                 }
-            }
+            },
         },
         async (c) => {
             try {
                 const body = await c.req.json();
                 const parsed = createEmployeeSchema.parse(body);
 
+                const grpcPayload = {
+                    organization_id: parsed.organizationId,
+                    category_id: parsed.categoryId,
+                    designation_id: parsed.designationId ?? null,
+                    first_name: parsed.firstName ?? null,
+                    last_name: parsed.lastName ?? null,
+                    full_name: parsed.fullName ?? null,
+                    email: parsed.email ?? null,
+                    phone: parsed.phone,
+                    alt_phone: parsed.altPhone ?? null,
+                    gender: parsed.gender ? mapGenderClient(parsed.gender) : 0,
+                    date_of_birth: parsed.dateOfBirth ?? null,
+                };
+
                 const response = await new Promise((resolve, reject) => {
-                    employeeClient.CreateEmployee(parsed, (err, resp) => {
+                    employeeClient.CreateEmployee(grpcPayload, (err, resp) => {
                         if (err) return reject(err);
                         resolve(resp.employee);
                     });
@@ -95,7 +110,7 @@ export default function registerEmployeeRoutes(app) {
                 }
                 return c.json({ error: error.message }, 500);
             }
-        }
+        },
     );
 
     // 🟣 Get Employee by ID
@@ -117,16 +132,19 @@ export default function registerEmployeeRoutes(app) {
                         'application/json': {
                             schema: z.object({
                                 id: z.string(),
-                                firstName: z.string(),
-                                lastName: z.string(),
-                                email: z.string(),
-                                organizationId: z.string(),
-                                departmentId: z.string().optional(),
-                                designation: z.string().optional(),
-                                salary: z.number().optional(),
-                                dateOfJoining: z.string().optional(),
-                                address: z.string().optional(),
-                                created_at: z.string().optional()
+                                organization_id: z.string(),
+                                category_id: z.string(),
+                                designation_id: z.string().optional(),
+                                first_name: z.string().optional(),
+                                last_name: z.string().optional(),
+                                full_name: z.string(),
+                                email: z.string().optional(),
+                                phone: z.string(),
+                                alt_phone: z.string().optional(),
+                                gender: z.number(),
+                                date_of_birth: z.string(),
+                                created_at: z.string(),
+                                updated_at: z.string(),
                             })
                         }
                     }
@@ -166,15 +184,13 @@ export default function registerEmployeeRoutes(app) {
             summary: 'List employees with pagination, search, and sorting',
             request: {
                 query: z.object({
-                    page: z.string().optional().default('1').transform(v => parseInt(v, 10)),
-                    limit: z.string().optional().default('10').transform(v => parseInt(v, 10)),
-                    search: z.string().optional().default(''),
+                    organization_id: z.string().optional(),
+                    category_id: z.string().optional(),
+                    designation_id: z.string().optional(),   // ← NEW filter
+                    search: z.string().optional(),
                     sort_by: z.string().optional().default('created_at'),
-                    sort_order: z.string().optional().default('desc')
-                        .refine(val => ['asc', 'desc'].includes(val.toLowerCase()), {
-                            message: 'Sort order must be "asc" or "desc"'
-                        })
-                })
+                    sort_order: z.enum(['asc', 'desc']).optional().default('desc'),
+                }),
             },
             responses: {
                 200: {
@@ -185,17 +201,25 @@ export default function registerEmployeeRoutes(app) {
                                 employees: z.array(
                                     z.object({
                                         id: z.string(),
-                                        firstName: z.string(),
-                                        lastName: z.string(),
-                                        email: z.string(),
-                                        organizationId: z.string(),
-                                        created_at: z.string().optional()
+                                        organization_id: z.string(),
+                                        category_id: z.string(),
+                                        designation_id: z.string().optional(),
+                                        first_name: z.string().optional(),
+                                        last_name: z.string().optional(),
+                                        full_name: z.string(),
+                                        email: z.string().optional(),
+                                        phone: z.string(),
+                                        alt_phone: z.string().optional(),
+                                        gender: z.number(),
+                                        date_of_birth: z.string(),
+                                        created_at: z.string(),
+                                        updated_at: z.string(),
                                     })
                                 ),
                                 total: z.number(),
                                 page: z.number(),
                                 limit: z.number(),
-                                total_pages: z.number()
+                                total_pages: z.number(),
                             })
                         }
                     }
@@ -209,6 +233,9 @@ export default function registerEmployeeRoutes(app) {
                 const response = await new Promise((resolve, reject) => {
                     employeeClient.ListEmployees(
                         {
+                            organization_id: query.organization_id,
+                            category_id: query.category_id,
+                            designation_id: query.designation_id,
                             page: query.page,
                             limit: query.limit,
                             search: query.search,
@@ -229,11 +256,11 @@ export default function registerEmployeeRoutes(app) {
         }
     );
 
+    const updateEmployeeSchema = createEmployeeSchema
+        .extend({ id: z.string({ required_error: 'Employee ID is required' }) })
+        .partial();
+    
     // 🟠 Update Employee
-    const updateEmployeeSchema = createEmployeeSchema.extend({
-        id: z.string({ required_error: 'Employee ID is required' })
-    });
-
     app.openapi(
         {
             method: 'put',
@@ -244,11 +271,9 @@ export default function registerEmployeeRoutes(app) {
                 params: z.object({ id: z.string() }),
                 body: {
                     content: {
-                        'application/json': {
-                            schema: updateEmployeeSchema.omit({ id: true })
-                        }
-                    }
-                }
+                        'application/json': { schema: updateEmployeeSchema.omit({ id: true }) },
+                    },
+                },
             },
             responses: {
                 200: {
@@ -262,8 +287,23 @@ export default function registerEmployeeRoutes(app) {
                 const body = await c.req.json();
                 const parsed = updateEmployeeSchema.parse({ ...body, id });
 
+                const grpcPayload = {
+                    id,
+                    organization_id: parsed.organizationId,
+                    category_id: parsed.categoryId,
+                    designation_id: parsed.designationId,
+                    first_name: parsed.firstName,
+                    last_name: parsed.lastName,
+                    full_name: parsed.fullName,
+                    email: parsed.email,
+                    phone: parsed.phone,
+                    alt_phone: parsed.altPhone,
+                    gender: parsed.gender ? mapGenderClient(parsed.gender) : undefined,
+                    date_of_birth: parsed.dateOfBirth,
+                };
+
                 const response = await new Promise((resolve, reject) => {
-                    employeeClient.UpdateEmployee(parsed, (err, resp) => {
+                    employeeClient.UpdateEmployee(grpcPayload, (err, resp) => {
                         if (err) return reject(err);
                         resolve(resp.employee);
                     });
@@ -282,8 +322,9 @@ export default function registerEmployeeRoutes(app) {
                 }
                 return c.json({ error: error.message }, 500);
             }
-        }
+        },
     );
+
 
     // 🔴 Delete Employee
     app.openapi(
@@ -320,4 +361,9 @@ export default function registerEmployeeRoutes(app) {
             }
         }
     );
+}
+
+function mapGenderClient(g) {
+    const map = { MALE: 1, FEMALE: 2, OTHER: 3, UNKNOWN: 0 };
+    return map[g.toUpperCase()] ?? 0;
 }
