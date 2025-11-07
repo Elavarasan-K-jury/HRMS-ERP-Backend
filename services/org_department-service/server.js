@@ -1,17 +1,13 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma } from '@jury-hrms/db/client.js';
 
-const PORT = process.env.ORG_DEPT_SERVICE_PORT || 50054;
+const PORT = Number(process.env.ORG_DEPT_SERVICE_PORT || 50054);
 const departmentProto = loadProto('org_department');
 
 const impl = {
-    // ──────────────────────────────────────────────────────────────────────
-    // CREATE DEPARTMENT
-    // ──────────────────────────────────────────────────────────────────────
     CreateDepartment: async (call, callback) => {
         try {
             const data = call.request;
-
             if (!data.organization_id || !data.name) {
                 return callback({
                     code: grpc.status.INVALID_ARGUMENT,
@@ -35,6 +31,34 @@ const impl = {
                 });
             }
 
+            console.log('====================================');
+            console.log(data);
+            console.log('====================================');
+            // Validate department head exists if provided
+            if (data.department_head_id) {
+                const employeeExists = await prisma.organizationEmployees.findFirst({
+                    where: {
+                        id: data.department_head_id,
+                        organizationId: data.organization_id,
+                        deletedAt: null,
+                    },
+                });
+                console.log('====================================');
+                console.log({
+                    id: data.department_head_id,
+                    organizationId: data.organization_id,
+                    deletedAt: null,
+                });
+                console.log('====================================');
+
+                if (!employeeExists) {
+                    return callback({
+                        code: grpc.status.NOT_FOUND,
+                        message: 'Department head employee not found in organization.',
+                    });
+                }
+            }
+
             const mappedData = {
                 organizationId: data.organization_id,
                 name: data.name,
@@ -52,6 +76,9 @@ const impl = {
 
             const dept = await prisma.organizationDepartments.create({
                 data: mappedData,
+                include: {
+                    organization: true,
+                },
             });
 
             callback(null, {
@@ -60,6 +87,7 @@ const impl = {
                 success: true,
             });
         } catch (e) {
+            console.error('CreateDepartment Error:', e);
             callback({
                 code: grpc.status.INTERNAL,
                 message: e.message,
@@ -67,22 +95,34 @@ const impl = {
         }
     },
 
-    // ──────────────────────────────────────────────────────────────────────
-    // GET DEPARTMENT
-    // ──────────────────────────────────────────────────────────────────────
     GetDepartment: async (call, callback) => {
         try {
             const { id } = call.request;
 
-            const dept = await prisma.organizationDepartments.findUnique({
+            if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: 'Invalid department id',
+                });
+            }
+
+            const dept = await prisma.organizationDepartments.findFirst({
                 where: { id, deletedAt: null },
+                include: {
+                    organization: true,
+                    DepartmentDesignation: {
+                        where: { deletedAt: null },
+                        select: { id: true, name: true }
+                    },
+                },
             });
 
-            if (!dept)
+            if (!dept) {
                 return callback({
                     code: grpc.status.NOT_FOUND,
                     message: 'Department not found',
                 });
+            }
 
             callback(null, {
                 department: mapDepartment(dept),
@@ -90,6 +130,7 @@ const impl = {
                 success: true,
             });
         } catch (e) {
+            console.error('GetDepartment Error:', e);
             callback({
                 code: grpc.status.INTERNAL,
                 message: e.message,
@@ -97,9 +138,6 @@ const impl = {
         }
     },
 
-    // ──────────────────────────────────────────────────────────────────────
-    // LIST DEPARTMENTS (with filters, pagination, search, sort)
-    // ──────────────────────────────────────────────────────────────────────
     ListDepartments: async (call, callback) => {
         try {
             const {
@@ -112,7 +150,6 @@ const impl = {
             } = call.request;
 
             const skip = (page - 1) * limit;
-
             let where = {
                 deletedAt: null,
             };
@@ -123,7 +160,8 @@ const impl = {
                     organizationId: organization_id,
                 }
             }
-            if (search != null || search != '') {
+
+            if (search) {
                 where = {
                     ...where,
                     OR: [
@@ -148,6 +186,15 @@ const impl = {
 
             const depts = await prisma.organizationDepartments.findMany({
                 where,
+                include: {
+                    DepartmentEmployees: {
+                        where: { deletedAt: null },
+                        select: { id: true }
+                    },
+                    organization: {
+                        select: { name: true }
+                    }
+                },
                 orderBy: { [sortField]: order },
                 skip,
                 take: limit,
@@ -156,7 +203,11 @@ const impl = {
             const totalPages = Math.ceil(total / limit);
 
             callback(null, {
-                departments: depts.map(mapDepartment),
+                departments: depts.map(dept => ({
+                    ...mapDepartment(dept),
+                    employee_count: dept.DepartmentEmployees.length,
+                    organization_name: dept.organization.name,
+                })),
                 total,
                 page,
                 limit,
@@ -165,6 +216,7 @@ const impl = {
                 message: 'Departments found successfully',
             });
         } catch (e) {
+            console.error('ListDepartments Error:', e);
             callback({
                 code: grpc.status.INTERNAL,
                 message: e.message,
@@ -172,28 +224,27 @@ const impl = {
         }
     },
 
-    // ──────────────────────────────────────────────────────────────────────
-    // UPDATE DEPARTMENT
-    // ──────────────────────────────────────────────────────────────────────
     UpdateDepartment: async (call, callback) => {
         try {
             const data = call.request;
 
-            if (!/^[0-9a-fA-F]{24}$/.test(data.id))
+            if (!/^[0-9a-fA-F]{24}$/.test(data.id)) {
                 return callback({
                     code: grpc.status.INVALID_ARGUMENT,
                     message: 'Invalid department id',
                 });
+            }
 
-            const existing = await prisma.organizationDepartments.findUnique({
+            const existing = await prisma.organizationDepartments.findFirst({
                 where: { id: data.id, deletedAt: null },
             });
 
-            if (!existing)
+            if (!existing) {
                 return callback({
                     code: grpc.status.NOT_FOUND,
                     message: 'Department not found',
                 });
+            }
 
             // Prevent name conflict within same org
             if (data.name && data.name !== existing.name) {
@@ -210,6 +261,24 @@ const impl = {
                     return callback({
                         code: grpc.status.ALREADY_EXISTS,
                         message: 'Another department with this name already exists.',
+                    });
+                }
+            }
+
+            // Validate department head if provided
+            if (data.department_head_id && data.department_head_id !== existing.departmentHeadId) {
+                const employeeExists = await prisma.organizationEmployees.findFirst({
+                    where: {
+                        id: data.department_head_id,
+                        organizationId: data.organization_id || existing.organizationId,
+                        deletedAt: null,
+                    },
+                });
+
+                if (!employeeExists) {
+                    return callback({
+                        code: grpc.status.NOT_FOUND,
+                        message: 'Department head employee not found.',
                     });
                 }
             }
@@ -238,6 +307,7 @@ const impl = {
                 success: true,
             });
         } catch (e) {
+            console.error('UpdateDepartment Error:', e);
             callback({
                 code: grpc.status.INTERNAL,
                 message: e.message,
@@ -245,28 +315,27 @@ const impl = {
         }
     },
 
-    // ──────────────────────────────────────────────────────────────────────
-    // DELETE DEPARTMENT (Soft Delete)
-    // ──────────────────────────────────────────────────────────────────────
     DeleteDepartment: async (call, callback) => {
         try {
             const { id } = call.request;
 
-            if (!/^[0-9a-fA-F]{24}$/.test(id))
+            if (!/^[0-9a-fA-F]{24}$/.test(id)) {
                 return callback({
                     code: grpc.status.INVALID_ARGUMENT,
                     message: 'Invalid department id',
                 });
+            }
 
-            const dept = await prisma.organizationDepartments.findUnique({
+            const dept = await prisma.organizationDepartments.findFirst({
                 where: { id, deletedAt: null },
             });
 
-            if (!dept)
+            if (!dept) {
                 return callback({
                     code: grpc.status.NOT_FOUND,
                     message: 'Department not found',
                 });
+            }
 
             await prisma.organizationDepartments.update({
                 where: { id },
@@ -278,6 +347,7 @@ const impl = {
                 message: 'Department deleted successfully',
             });
         } catch (e) {
+            console.error('DeleteDepartment Error:', e);
             callback({
                 code: grpc.status.INTERNAL,
                 message: e.message,
@@ -286,9 +356,6 @@ const impl = {
     },
 };
 
-// ──────────────────────────────────────────────────────────────────────────
-// MAPPER: Prisma → gRPC Response
-// ──────────────────────────────────────────────────────────────────────────
 function mapDepartment(dept) {
     return {
         id: dept.id,
@@ -296,8 +363,7 @@ function mapDepartment(dept) {
         name: dept.name,
         code: dept.code ?? '',
         department_head_id: dept.departmentHeadId ?? '',
-        department_head_start_date:
-            dept.departmentHeadStratDate?.toISOString() ?? '',
+        department_head_start_date: dept.departmentHeadStratDate?.toISOString() ?? '',
         description: dept.description ?? '',
         note: dept.note ?? '',
         created_at: dept.createdAt?.toISOString() ?? '',
@@ -306,9 +372,6 @@ function mapDepartment(dept) {
     };
 }
 
-// ──────────────────────────────────────────────────────────────────────────
-// GRACEFUL SHUTDOWN + SERVER START
-// ──────────────────────────────────────────────────────────────────────────
 async function main() {
     const server = new grpc.Server();
     server.addService(departmentProto.OrgDepartmentService.service, impl);
