@@ -1,0 +1,9 @@
+{
+    "name": "@jury-hrms/auth",
+    "version": "0.1.0",
+    "type": "module",
+    "main": "jwt.js",
+    "dependencies": {
+        "jose": "^6.1.0"
+    }
+}

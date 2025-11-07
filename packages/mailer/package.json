@@ -1,0 +1,9 @@
+{
+    "name": "@jury-hrms/mailer",
+    "version": "1.0.0",
+    "type": "module",
+    "main": "index.js",
+    "dependencies": {
+        "nodemailer": "^7.0.10"
+    }
+}

@@ -1,6 +1,7 @@
 console.log("🔍 EMP_CAT_SERVICE_ADDR =", process.env.EMP_CAT_SERVICE_ADDR);
 console.log("🔍 ORG_SERVICE_ADDR =", process.env.ORG_SERVICE_ADDR);
 console.log("🔍 EMP_SERVICE_ADDR =", process.env.EMP_SERVICE_ADDR);
+console.log("🔍 ADMIN_SERVICE_ADDR =", process.env.ADMIN_SERVICE_ADDR);
 
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { cors } from 'hono/cors';
@@ -11,6 +12,7 @@ import { withQueue } from './middlewares/requestQueue.js';
 import registerOrganizationRoutes from './routes/organization.routes.js';
 import registerEmployeeCategoryRoutes from './routes/employee_category.routes.js';
 import registerEmployeeRoutes from './routes/employee.routes.js';
+import registerAdminRoutes from './routes/admin.routes.js';
 
 // ---- Initialize Hono App ---- //
 const app = new OpenAPIHono({
@@ -59,6 +61,12 @@ registerEmployeeCategoryRoutes({
     },
 });
 registerEmployeeRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerAdminRoutes({
     openapi: (def, handler) => {
         // wrap each route handler in queue
         app.openapi(def, withQueue(handler));
