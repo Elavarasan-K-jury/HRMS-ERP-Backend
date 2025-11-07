@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+package org_designation;
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Organization Designation Service – CRUD + List
+// ─────────────────────────────────────────────────────────────────────────────
+service OrgDesignationService {
+  rpc CreateDesignation (CreateDesignationRequest) returns (DesignationResponse);
+  rpc GetDesignation    (GetDesignationRequest)    returns (DesignationResponse);
+  rpc ListDesignations  (ListDesignationsRequest)  returns (ListDesignationsResponse);
+  rpc UpdateDesignation (UpdateDesignationRequest) returns (DesignationResponse);
+  rpc DeleteDesignation (DeleteDesignationRequest) returns (DeleteDesignationResponse);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Request Messages
+// ─────────────────────────────────────────────────────────────────────────────
+message CreateDesignationRequest {
+  string organization_id = 1;
+  string department_id   = 2;  // optional
+  string name            = 3;
+  string level           = 4;  // optional
+  string description     = 5;  // optional
+}
+
+message GetDesignationRequest {
+  string id = 1;
+}
+
+message UpdateDesignationRequest {
+  string id              = 1;
+  string organization_id = 2;
+  string department_id   = 3;
+  string name            = 4;
+  string level           = 5;
+  string description     = 6;
+}
+
+message DeleteDesignationRequest {
+  string id = 1;
+}
+
+message ListDesignationsRequest {
+  string organization_id = 1;
+  string department_id   = 2;  // optional filter
+  // pagination
+  int32  page            = 3;
+  int32  limit           = 4;
+  string search          = 5;
+  string sort_by         = 6;
+  string sort_order      = 7;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Response Messages
+// ─────────────────────────────────────────────────────────────────────────────
+message Designation {
+  string id              = 1;
+  string organization_id = 2;
+  string department_id   = 3;
+  string name            = 4;
+  string level           = 5;
+  string description     = 6;
+  string created_at      = 7;
+  string updated_at      = 8;
+  string deleted_at      = 9;
+}
+
+message DesignationResponse {
+  Designation designation = 1;
+}
+
+message ListDesignationsResponse {
+  repeated Designation designations = 1;
+  int32  total             = 2;
+  int32  page              = 3;
+  int32  limit             = 4;
+  int32  total_pages       = 5;
+}
+
+message DeleteDesignationResponse {
+  bool   success = 1;
+  string message = 2;
+}

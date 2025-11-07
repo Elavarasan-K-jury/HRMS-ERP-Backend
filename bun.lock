@@ -79,8 +79,17 @@
         "@jury-hrms/db": "workspace:*",
         "@jury-hrms/mailer": "workspace:*",
         "@jury-hrms/proto": "workspace:*",
-        "@prisma/client": "latest",
-      },
+        "@prisma/client": "latest"
+      }
+    },
+    "services/emp-department-service": {
+      "name": "@jury-hrms/emp-department-service",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "@prisma/client": "latest"
+      }
     },
     "services/employee-category-service": {
       "name": "@jury-hrms/employee-category-service",
@@ -93,6 +102,24 @@
     },
     "services/employee-service": {
       "name": "@jury-hrms/employee-service",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "@prisma/client": "latest",
+      },
+    },
+    "services/org_department-service": {
+      "name": "@jury-hrms/org_department-service",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "@prisma/client": "latest",
+      },
+    },
+    "services/org_designation-service": {
+      "name": "@jury-hrms/org_designation-service",
       "version": "0.1.0",
       "dependencies": {
         "@jury-hrms/db": "workspace:*",
@@ -161,11 +188,17 @@
 
     "@jury-hrms/db": ["@jury-hrms/db@workspace:packages/db"],
 
+    "@jury-hrms/emp-department-service": ["@jury-hrms/emp-department-service@workspace:services/emp-department-service"],
+
     "@jury-hrms/employee-category-service": ["@jury-hrms/employee-category-service@workspace:services/employee-category-service"],
 
     "@jury-hrms/employee-service": ["@jury-hrms/employee-service@workspace:services/employee-service"],
 
     "@jury-hrms/mailer": ["@jury-hrms/mailer@workspace:packages/mailer"],
+    
+    "@jury-hrms/org_department-service": ["@jury-hrms/org_department-service@workspace:services/org_department-service"],
+
+    "@jury-hrms/org_designation-service": ["@jury-hrms/org_designation-service@workspace:services/org_designation-service"],
 
     "@jury-hrms/organization-service": ["@jury-hrms/organization-service@workspace:services/organization-service"],
 

@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package org_department;
+
+service OrgDepartmentService {
+  rpc CreateDepartment (CreateDepartmentRequest) returns (DepartmentResponse);
+  rpc GetDepartment    (GetDepartmentRequest)    returns (DepartmentResponse);
+  rpc ListDepartments  (ListDepartmentsRequest)  returns (ListDepartmentsResponse);
+  rpc UpdateDepartment (UpdateDepartmentRequest) returns (DepartmentResponse);
+  rpc DeleteDepartment (DeleteDepartmentRequest) returns (DeleteDepartmentResponse);
+}
+
+message CreateDepartmentRequest {
+  string organization_id            = 1;
+  string name                       = 2;
+  string code                       = 3;
+  string department_head_id         = 4;  // optional
+  string department_head_start_date = 5;  // ISO string, optional
+  string description                = 6;
+  string note                       = 7;
+}
+
+message GetDepartmentRequest {
+  string id = 1;
+}
+
+message UpdateDepartmentRequest {
+  string id                         = 1;
+  string organization_id            = 2;
+  string name                       = 3;
+  string code                       = 4;
+  string department_head_id         = 5;
+  string department_head_start_date = 6;
+  string description                = 7;
+  string note                       = 8;
+}
+
+message DeleteDepartmentRequest {
+  string id = 1;
+}
+
+message ListDepartmentsRequest {
+  string organization_id = 1;
+  // Optional: add pagination/search later
+  // int32 page = 2;
+  // int32 limit = 3;
+  // string search = 4;
+}
+
+
+message Department {
+  string id                         = 1;
+  string organization_id            = 2;
+  string name                       = 3;
+  string code                       = 4;
+  string department_head_id         = 5;
+  string department_head_start_date = 6;  // ISO string
+  string description                = 7;
+  string note                       = 8;
+  string created_at                 = 9;  // ISO string
+  string updated_at                 = 10; // ISO string
+  string deleted_at                 = 11; // empty if null
+}
+
+message DepartmentResponse {
+  Department department = 1;
+  string message = 2;
+  bool success = 3;
+}
+
+message ListDepartmentsResponse {
+  repeated Department departments = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  string success = 6;
+  string message = 7;
+}
+
+message DeleteDepartmentResponse {
+  bool   success = 1;
+  string message = 2;
+}
