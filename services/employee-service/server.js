@@ -31,7 +31,7 @@ const impl = {
                 altPhone: data.alt_phone || null,
                 gender: data.gender ? data.gender.toUpperCase() : null,
                 dateOfBirth: new Date(data.date_of_birth),
-                // createdAt / updatedAt / deletedAt are set by Prisma defaults
+                createdAt: new Date()
             };
 
             const employee = await prisma.organizationEmployees.create({
