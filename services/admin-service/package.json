@@ -1,0 +1,13 @@
+{
+    "name": "@jury-hrms/admin-service",
+    "version": "0.1.0",
+    "type": "module",
+    "main": "server.js",
+    "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "@jury-hrms/auth": "workspace:*",
+        "@jury-hrms/mailer": "workspace:*",
+        "@prisma/client": "latest"
+    }
+}

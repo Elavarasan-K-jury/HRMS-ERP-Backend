@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+package admin;
+
+service AdminService {
+  // Auth
+  rpc RequestLoginOtp (RequestLoginOtpRequest) returns (RequestLoginOtpResponse);
+  rpc VerifyLoginOtp  (VerifyLoginOtpRequest)  returns (AuthResponse);
+  rpc RefreshTokens   (RefreshTokensRequest)   returns (AuthResponse);
+
+  // CRUD
+  rpc CreateAdmin     (CreateAdminRequest)     returns (AdminResponse);
+  rpc UpdateAdmin     (UpdateAdminRequest)     returns (AdminResponse);
+  rpc GetAdmin        (GetAdminRequest)        returns (AdminResponse);
+  rpc ListAdmins      (ListAdminsRequest)      returns (ListAdminsResponse);
+  rpc DeleteAdmin     (DeleteAdminRequest)     returns (DeleteAdminResponse);
+  rpc VerifyToken     (VerifyTokenRequest)     returns (VerifyTokenResponse);
+
+}
+
+// ========== Auth ==========
+
+message RequestLoginOtpRequest {
+  // one of: email or phone (if phone provided, OTP is still emailed to the admin's email)
+  string email = 1;
+  string phone = 2;
+  string purpose = 3; // e.g. "login" (optional)
+}
+
+message RequestLoginOtpResponse {
+  string message = 1; // "OTP sent to registered email"
+  string success = 2;
+}
+
+message VerifyLoginOtpRequest {
+    string email = 1;   // OR phone (fill one)
+    string phone = 2;
+    string otp = 3;
+}
+
+message RefreshTokensRequest {
+    string refresh_token = 1;
+}
+
+message AuthResponse {
+    string access_token = 1;
+    string refresh_token = 2;
+    string token_type = 3; // "Bearer"
+    string expires_in = 4; // seconds for access token
+    Admin admin = 5;
+    string success = 6;
+}
+
+// ========== Admin ==========
+
+message Admin {
+    string id = 1;
+    string email = 2;
+    string phone = 3;
+    string created_at = 4;
+    string updated_at = 5;
+    string deleted_at = 6;
+}
+
+message CreateAdminRequest {
+    string email = 1;
+    string phone = 2;
+}
+
+message UpdateAdminRequest {
+    string id = 1;
+    string email = 2;
+    string phone = 3;
+}
+
+message GetAdminRequest { string id = 1; }
+
+message ListAdminsRequest {
+    int32 page = 1;
+    int32 limit = 2;
+    string search = 3; // optional: email/phone contains
+    string sort_by = 4; // email, phone, created_at
+    string sort_order = 5; // asc|desc
+}
+
+message ListAdminsResponse {
+    repeated Admin admins = 1;
+    int32 total = 2;
+    int32 page = 3;
+    int32 limit = 4;
+    int32 total_pages = 5;
+    string success = 6;
+    string message = 7;
+}
+
+message AdminResponse { Admin admin = 1; string message = 2; string success = 3; }
+
+message DeleteAdminRequest { string id = 1; }
+
+message DeleteAdminResponse { string message = 1; string success = 2; }
+
+message VerifyTokenRequest {
+  string token = 1; // Access or Refresh token (JWT)
+}
+
+message VerifyTokenResponse {
+  string sub = 1;        // Subject (admin id)
+  string email = 2;      // Admin email
+  string scope = 3;      // Token scope
+  string typ = 4;        // Token type (access / refresh)
+  string iat = 5;        // Issued at
+  string exp = 6;        // Expiry timestamp
+  string success = 7;    // true/false
+  string message = 8;    // Status message
+  string user = 9;      // Token scope
+}
