@@ -64,10 +64,18 @@ message Department {
 
 message DepartmentResponse {
   Department department = 1;
+  string message = 2;
+  bool success = 3;
 }
 
 message ListDepartmentsResponse {
   repeated Department departments = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  string success = 6;
+  string message = 7;
 }
 
 message DeleteDepartmentResponse {

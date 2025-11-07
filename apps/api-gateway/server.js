@@ -1,6 +1,13 @@
 console.log("🔍 EMP_CAT_SERVICE_ADDR =", process.env.EMP_CAT_SERVICE_ADDR);
 console.log("🔍 ORG_SERVICE_ADDR =", process.env.ORG_SERVICE_ADDR);
 console.log("🔍 EMP_SERVICE_ADDR =", process.env.EMP_SERVICE_ADDR);
+console.log("🔍 ADMIN_SERVICE_ADDR =", process.env.ADMIN_SERVICE_ADDR);
+console.log("🔍 ORG_DEPT_SERVICE_ADDR =", process.env.ORG_DEPT_SERVICE_ADDR);
+console.log("🔍 EMP_DEPT_SERVICE_ADDR =", process.env.EMP_DEPT_SERVICE_ADDR)
+console.log("🔍 ORG_DESIGNATION_SERVICE_ADDR =", process.env.ORG_DESIGNATION_SERVICE_ADDR);
+console.log("🔍 EMP_ONBOARDING_FLOW_SERVICE_ADDR =", process.env.EMP_ONBOARDING_FLOW_SERVICE_ADDR);
+console.log("🔍 EMP_ONBOARDING_STEP_SERVICE_ADDR =", process.env.EMP_ONBOARDING_STEP_SERVICE_ADDR);
+console.log("🔍 EMP_ONBOARDING_FEATURE_SERVICE_ADDR =", process.env.EMP_ONBOARDING_FEATURE_SERVICE_ADDR);
 
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { cors } from 'hono/cors';
@@ -11,6 +18,7 @@ import { withQueue } from './middlewares/requestQueue.js';
 import registerOrganizationRoutes from './routes/organization.routes.js';
 import registerEmployeeCategoryRoutes from './routes/employee_category.routes.js';
 import registerEmployeeRoutes from './routes/employee.routes.js';
+import registerAdminRoutes from './routes/admin.routes.js';
 import registerOrgDepartmentRoutes from './routes/org_department.routes.js';
 import registerorgDesignationRoutes from './routes/org_designation.routes.js';
 import registerEmployeeDepartmentRoutes from './routes/emp_department.routes.js';
@@ -62,6 +70,12 @@ registerEmployeeCategoryRoutes({
     },
 });
 registerEmployeeRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerAdminRoutes({
     openapi: (def, handler) => {
         // wrap each route handler in queue
         app.openapi(def, withQueue(handler));

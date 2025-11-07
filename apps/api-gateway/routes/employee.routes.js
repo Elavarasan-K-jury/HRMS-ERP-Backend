@@ -259,7 +259,7 @@ export default function registerEmployeeRoutes(app) {
     const updateEmployeeSchema = createEmployeeSchema
         .extend({ id: z.string({ required_error: 'Employee ID is required' }) })
         .partial();
-    
+
     // 🟠 Update Employee
     app.openapi(
         {

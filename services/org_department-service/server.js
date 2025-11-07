@@ -54,7 +54,11 @@ const impl = {
                 data: mappedData,
             });
 
-            callback(null, { department: mapDepartment(dept) });
+            callback(null, {
+                department: mapDepartment(dept),
+                message: 'Department created successfully',
+                success: true,
+            });
         } catch (e) {
             callback({
                 code: grpc.status.INTERNAL,
@@ -70,12 +74,6 @@ const impl = {
         try {
             const { id } = call.request;
 
-            if (!/^[0-9a-fA-F]{24}$/.test(id))
-                return callback({
-                    code: grpc.status.INVALID_ARGUMENT,
-                    message: 'Invalid department id',
-                });
-
             const dept = await prisma.organizationDepartments.findUnique({
                 where: { id, deletedAt: null },
             });
@@ -86,7 +84,11 @@ const impl = {
                     message: 'Department not found',
                 });
 
-            callback(null, { department: mapDepartment(dept) });
+            callback(null, {
+                department: mapDepartment(dept),
+                message: 'Department found successfully',
+                success: true,
+            });
         } catch (e) {
             callback({
                 code: grpc.status.INTERNAL,
@@ -109,28 +111,28 @@ const impl = {
                 sort_order = 'desc',
             } = call.request;
 
-            if (!organization_id) {
-                return callback({
-                    code: grpc.status.INVALID_ARGUMENT,
-                    message: 'organization_id is required.',
-                });
-            }
-
             const skip = (page - 1) * limit;
 
-            const where = {
-                organizationId: organization_id,
+            let where = {
                 deletedAt: null,
-                ...(search
-                    ? {
-                        OR: [
-                            { name: { contains: search, mode: 'insensitive' } },
-                            { code: { contains: search, mode: 'insensitive' } },
-                            { description: { contains: search, mode: 'insensitive' } },
-                        ],
-                    }
-                    : {}),
             };
+
+            if (organization_id) {
+                where = {
+                    ...where,
+                    organizationId: organization_id,
+                }
+            }
+            if (search != null || search != '') {
+                where = {
+                    ...where,
+                    OR: [
+                        { name: { contains: search, mode: 'insensitive' } },
+                        { code: { contains: search, mode: 'insensitive' } },
+                        { description: { contains: search, mode: 'insensitive' } },
+                    ],
+                }
+            }
 
             const validSortFields = {
                 name: 'name',
@@ -159,6 +161,8 @@ const impl = {
                 page,
                 limit,
                 total_pages: totalPages,
+                success: true,
+                message: 'Departments found successfully',
             });
         } catch (e) {
             callback({
@@ -228,7 +232,11 @@ const impl = {
                 data: updateData,
             });
 
-            callback(null, { department: mapDepartment(updated) });
+            callback(null, {
+                department: mapDepartment(updated),
+                message: 'Department updated successfully',
+                success: true,
+            });
         } catch (e) {
             callback({
                 code: grpc.status.INTERNAL,

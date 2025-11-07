@@ -200,9 +200,7 @@ export default function registerOrgDepartmentRoutes({ openapi }) {
             summary: 'List departments with pagination, search, and sorting',
             request: {
                 query: z.object({
-                    organization_id: z
-                        .string({ required_error: 'organization_id is required' })
-                        .regex(/^[0-9a-fA-F]{24}$/, 'Invalid organization_id'),
+                    organization_id: z.string().optional(),
                     page: z
                         .string()
                         .optional()
