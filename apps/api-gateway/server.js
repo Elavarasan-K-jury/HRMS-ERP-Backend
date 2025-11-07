@@ -11,6 +11,9 @@ import { withQueue } from './middlewares/requestQueue.js';
 import registerOrganizationRoutes from './routes/organization.routes.js';
 import registerEmployeeCategoryRoutes from './routes/employee_category.routes.js';
 import registerEmployeeRoutes from './routes/employee.routes.js';
+import registerOrgDepartmentRoutes from './routes/org_department.routes.js';
+import registerorgDesignationRoutes from './routes/org_designation.routes.js';
+import registerEmployeeDepartmentRoutes from './routes/emp_department.routes.js';
 
 // ---- Initialize Hono App ---- //
 const app = new OpenAPIHono({
@@ -64,6 +67,25 @@ registerEmployeeRoutes({
         app.openapi(def, withQueue(handler));
     },
 });
+registerOrgDepartmentRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerorgDesignationRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerEmployeeDepartmentRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+
 
 // ---- Start Server (HMR-safe) ---- //
 if (import.meta.main) {

@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package employee_department;
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Employee Department Assignment Service – CRUD + List
+// ─────────────────────────────────────────────────────────────────────────────
+service EmployeeDepartmentService {
+  rpc AssignDepartment       (AssignDepartmentRequest)       returns (EmployeeDepartmentResponse);
+  rpc GetEmployeeDepartment  (GetEmployeeDepartmentRequest)  returns (EmployeeDepartmentResponse);
+  rpc ListEmployeeDepartments(ListEmployeeDepartmentsRequest) returns (ListEmployeeDepartmentsResponse);
+  rpc UpdateEmployeeDepartment(UpdateEmployeeDepartmentRequest) returns (EmployeeDepartmentResponse);
+  rpc RemoveEmployeeDepartment(RemoveEmployeeDepartmentRequest) returns (RemoveEmployeeDepartmentResponse);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Request Messages
+// ─────────────────────────────────────────────────────────────────────────────
+message AssignDepartmentRequest {
+  string department_id = 1;
+  string employee_id   = 2;
+  string start_date    = 3;  // ISO date string
+  string end_date      = 4;  // optional
+}
+
+message GetEmployeeDepartmentRequest {
+  string id = 1;
+}
+
+message UpdateEmployeeDepartmentRequest {
+  string id            = 1;
+  string department_id = 2;
+  string employee_id   = 3;
+  string start_date    = 4;
+  string end_date      = 5;
+}
+
+message RemoveEmployeeDepartmentRequest {
+  string id = 1;
+}
+
+message ListEmployeeDepartmentsRequest {
+  string employee_id     = 1;  // required
+  string department_id   = 2;  // optional
+  int32  page            = 3;
+  int32  limit           = 4;
+  string search          = 5;
+  string sort_by         = 6;
+  string sort_order      = 7;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Response Messages
+// ─────────────────────────────────────────────────────────────────────────────
+message EmployeeDepartment {
+  string id            = 1;
+  string department_id = 2;
+  string employee_id   = 3;
+  string start_date    = 4;  // ISO
+  string end_date      = 5;  // ISO or empty
+}
+
+message EmployeeDepartmentResponse {
+  EmployeeDepartment employee_department = 1;
+}
+
+message ListEmployeeDepartmentsResponse {
+  repeated EmployeeDepartment employee_departments = 1;
+  int32  total          = 2;
+  int32  page           = 3;
+  int32  limit          = 4;
+  int32  total_pages    = 5;
+}
+
+message RemoveEmployeeDepartmentResponse {
+  bool   success = 1;
+  string message = 2;
+}
