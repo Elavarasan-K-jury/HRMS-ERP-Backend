@@ -22,6 +22,10 @@ import registerAdminRoutes from './routes/admin.routes.js';
 import registerOrgDepartmentRoutes from './routes/org_department.routes.js';
 import registerorgDesignationRoutes from './routes/org_designation.routes.js';
 import registerEmployeeDepartmentRoutes from './routes/emp_department.routes.js';
+import registerEmployeeOnboardingFlowRoutes from './routes/emp_onboard_flow.routes.js';
+import registerEmployeeOnboardingStepRoutes from './routes/emp_onboard_step.routes.js';
+import registerEmployeeOnboardingFeatureRoutes from './routes/emp_onboard_feature.routes.js';
+import registerEmployeeOnboardingProgressRoutes from './routes/emp_onboard_progress.routes.js';
 
 // ---- Initialize Hono App ---- //
 const app = new OpenAPIHono({
@@ -99,7 +103,30 @@ registerEmployeeDepartmentRoutes({
         app.openapi(def, withQueue(handler));
     },
 });
-
+registerEmployeeOnboardingFlowRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerEmployeeOnboardingStepRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerEmployeeOnboardingFeatureRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerEmployeeOnboardingProgressRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
 
 // ---- Start Server (HMR-safe) ---- //
 if (import.meta.main) {

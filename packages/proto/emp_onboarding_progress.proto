@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package emp_onboarding_progress;
+
+service EmployeeOnboardingProgressService {
+  rpc CreateEmployeeOnboardingProgress (CreateEmployeeOnboardingProgressRequest) returns (EmployeeOnboardingProgressResponse);
+  rpc GetEmployeeOnboardingProgress    (GetEmployeeOnboardingProgressRequest)    returns (EmployeeOnboardingProgressResponse);
+  rpc ListEmployeeOnboardingProgresses (ListEmployeeOnboardingProgressesRequest) returns (ListEmployeeOnboardingProgressesResponse);
+  rpc UpdateEmployeeOnboardingProgress (UpdateEmployeeOnboardingProgressRequest) returns (EmployeeOnboardingProgressResponse);
+  rpc DeleteEmployeeOnboardingProgress (DeleteEmployeeOnboardingProgressRequest) returns (DeleteEmployeeOnboardingProgressResponse);
+}
+
+// -----------------------------
+// Requests
+// -----------------------------
+message CreateEmployeeOnboardingProgressRequest {
+  string employee_id        = 1;
+  string flow_id            = 2;
+  string step_id            = 3;
+  string step_feature_id    = 4;
+  string step_feature_value = 5;
+}
+
+message GetEmployeeOnboardingProgressRequest {
+  string id = 1;
+}
+
+message UpdateEmployeeOnboardingProgressRequest {
+  string id                 = 1;
+  string step_feature_value = 2;
+}
+
+message DeleteEmployeeOnboardingProgressRequest {
+  string id = 1;
+}
+
+message ListEmployeeOnboardingProgressesRequest {
+  string employee_id = 1;
+  string flow_id     = 2;
+}
+
+// -----------------------------
+// Responses
+// -----------------------------
+message EmployeeOnboardingProgress {
+  string id                 = 1;
+  string employee_id        = 2;
+  string flow_id            = 3;
+  string step_id            = 4;
+  string step_feature_id    = 5;
+  string step_feature_value = 6;
+}
+
+message EmployeeOnboardingProgressResponse {
+  EmployeeOnboardingProgress progress = 1;
+}
+
+message ListEmployeeOnboardingProgressesResponse {
+  repeated EmployeeOnboardingProgress progresses = 1;
+}
+
+message DeleteEmployeeOnboardingProgressResponse {
+  bool success = 1;
+  string message = 2;
+}

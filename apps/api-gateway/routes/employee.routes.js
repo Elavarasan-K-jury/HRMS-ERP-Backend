@@ -86,7 +86,7 @@ export default function registerEmployeeRoutes(app) {
                     email: parsed.email ?? null,
                     phone: parsed.phone,
                     alt_phone: parsed.altPhone ?? null,
-                    gender: parsed.gender ? mapGenderClient(parsed.gender) : 0,
+                    gender: parsed.gender,
                     date_of_birth: parsed.dateOfBirth ?? null,
                 };
 

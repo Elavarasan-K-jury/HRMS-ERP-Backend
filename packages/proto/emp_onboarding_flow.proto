@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package emp_onboarding_flow;
+
+
+service EmployeeOnboardingFlowService {
+  rpc CreateEmployeeOnboardingFlow (CreateEmployeeOnboardingFlowRequest) returns (EmployeeOnboardingFlowResponse);
+  rpc GetEmployeeOnboardingFlow    (GetEmployeeOnboardingFlowRequest)    returns (EmployeeOnboardingFlowResponse);
+  rpc ListEmployeeOnboardingFlows  (ListEmployeeOnboardingFlowsRequest)  returns (ListEmployeeOnboardingFlowsResponse);
+  rpc UpdateEmployeeOnboardingFlow (UpdateEmployeeOnboardingFlowRequest) returns (EmployeeOnboardingFlowResponse);
+  rpc DeleteEmployeeOnboardingFlow (DeleteEmployeeOnboardingFlowRequest) returns (DeleteEmployeeOnboardingFlowResponse);
+}
+
+// ---------- Create ----------
+message CreateEmployeeOnboardingFlowRequest {
+  string organization_id = 1;
+  string name            = 2;
+  string description     = 3;
+  int32  steps           = 4;
+  int32  estimated_days  = 5;
+}
+
+// ---------- Get ----------
+message GetEmployeeOnboardingFlowRequest {
+  string id = 1;
+}
+
+// ---------- Update ----------
+message UpdateEmployeeOnboardingFlowRequest {
+  string id              = 1;
+  string organization_id = 2;
+  string name            = 3;
+  string description     = 4;
+  int32  steps           = 5;
+  int32  estimated_days  = 6;
+}
+
+// ---------- Delete ----------
+message DeleteEmployeeOnboardingFlowRequest {
+  string id = 1;
+}
+
+message DeleteEmployeeOnboardingFlowResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// ---------- Entity ----------
+message EmployeeOnboardingFlow {
+  string id              = 1;
+  string organization_id = 2;
+  string name            = 3;
+  string description     = 4;
+  int32  steps           = 5;
+  int32  estimated_days  = 6;
+  string created_at      = 7;
+  string updated_at      = 8;
+  string deleted_at      = 9;
+}
+
+// ---------- Responses ----------
+message EmployeeOnboardingFlowResponse {
+  EmployeeOnboardingFlow flow = 1;
+}
+
+message ListEmployeeOnboardingFlowsRequest {
+  string organization_id = 1;
+}
+
+message ListEmployeeOnboardingFlowsResponse {
+  repeated EmployeeOnboardingFlow flows = 1;
+}
