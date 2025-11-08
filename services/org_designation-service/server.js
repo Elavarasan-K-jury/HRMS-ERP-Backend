@@ -1,22 +1,36 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma } from '@jury-hrms/db/client.js';
 
-const PORT = process.env.ORG_DESG_SERVICE_PORT || 50055;
+const PORT = Number(process.env.ORG_DESG_SERVICE_PORT || 50055);
 const designationProto = loadProto('org_designation');
 
 const impl = {
-    // ──────────────────────────────────────────────────────────────────────
-    // CREATE DESIGNATION
-    // ──────────────────────────────────────────────────────────────────────
     CreateDesignation: async (call, callback) => {
         try {
             const data = call.request;
-
             if (!data.organization_id || !data.name) {
                 return callback({
                     code: grpc.status.INVALID_ARGUMENT,
                     message: 'organization_id and name are required.',
                 });
+            }
+
+            // Validate department exists if provided
+            if (data.department_id) {
+                const departmentExists = await prisma.organizationDepartments.findFirst({
+                    where: {
+                        id: data.department_id,
+                        organizationId: data.organization_id,
+                        deletedAt: null,
+                    },
+                });
+
+                if (!departmentExists) {
+                    return callback({
+                        code: grpc.status.NOT_FOUND,
+                        message: 'Department not found in organization.',
+                    });
+                }
             }
 
             const nameExists = await prisma.organizationDesignations.findFirst({
@@ -47,10 +61,19 @@ const impl = {
 
             const designation = await prisma.organizationDesignations.create({
                 data: mappedData,
+                include: {
+                    organization: true,
+                    department: true,
+                },
             });
 
-            callback(null, { designation: mapDesignation(designation) });
+            callback(null, {
+                designation: mapDesignation(designation),
+                message: 'Designation created successfully',
+                success: true
+            });
         } catch (e) {
+            console.error('CreateDesignation Error:', e);
             callback({
                 code: grpc.status.INTERNAL,
                 message: e.message,
@@ -58,31 +81,43 @@ const impl = {
         }
     },
 
-    // ──────────────────────────────────────────────────────────────────────
-    // GET DESIGNATION
-    // ──────────────────────────────────────────────────────────────────────
     GetDesignation: async (call, callback) => {
         try {
             const { id } = call.request;
 
-            if (!/^[0-9a-fA-F]{24}$/.test(id))
+            if (!/^[0-9a-fA-F]{24}$/.test(id)) {
                 return callback({
                     code: grpc.status.INVALID_ARGUMENT,
                     message: 'Invalid designation id',
                 });
+            }
 
-            const designation = await prisma.organizationDesignations.findUnique({
+            const designation = await prisma.organizationDesignations.findFirst({
                 where: { id, deletedAt: null },
+                include: {
+                    organization: true,
+                    department: true,
+                    employees: {
+                        where: { deletedAt: null },
+                        select: { id: true, fullName: true }
+                    }
+                },
             });
 
-            if (!designation)
+            if (!designation) {
                 return callback({
                     code: grpc.status.NOT_FOUND,
                     message: 'Designation not found',
                 });
+            }
 
-            callback(null, { designation: mapDesignation(designation) });
+            callback(null, {
+                designation: mapDesignation(designation),
+                message: 'Designation found successfully',
+                success: true
+            });
         } catch (e) {
+            console.error('GetDesignation Error:', e);
             callback({
                 code: grpc.status.INTERNAL,
                 message: e.message,
@@ -90,9 +125,6 @@ const impl = {
         }
     },
 
-    // ──────────────────────────────────────────────────────────────────────
-    // LIST DESIGNATIONS
-    // ──────────────────────────────────────────────────────────────────────
     ListDesignations: async (call, callback) => {
         try {
             const {
@@ -141,9 +173,17 @@ const impl = {
             const order = sort_order.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
             const total = await prisma.organizationDesignations.count({ where });
-
             const designations = await prisma.organizationDesignations.findMany({
                 where,
+                include: {
+                    department: {
+                        select: { name: true }
+                    },
+                    employees: {
+                        where: { deletedAt: null },
+                        select: { id: true }
+                    }
+                },
                 orderBy: { [sortField]: order },
                 skip,
                 take: limit,
@@ -155,13 +195,20 @@ const impl = {
             const totalPages = Math.ceil(total / limit);
 
             callback(null, {
-                designations: designations.map(mapDesignation),
+                designations: designations.map(desg => ({
+                    ...mapDesignation(desg),
+                    employee_count: desg.employees.length,
+                    department_name: desg.department?.name || '',
+                })),
                 total,
                 page,
                 limit,
                 total_pages: totalPages,
+                success: true,
+                message: 'Designations found successfully',
             });
         } catch (e) {
+            console.error('ListDesignations Error:', e);
             callback({
                 code: grpc.status.INTERNAL,
                 message: e.message,
@@ -169,28 +216,27 @@ const impl = {
         }
     },
 
-    // ──────────────────────────────────────────────────────────────────────
-    // UPDATE DESIGNATION
-    // ──────────────────────────────────────────────────────────────────────
     UpdateDesignation: async (call, callback) => {
         try {
             const data = call.request;
 
-            if (!/^[0-9a-fA-F]{24}$/.test(data.id))
+            if (!/^[0-9a-fA-F]{24}$/.test(data.id)) {
                 return callback({
                     code: grpc.status.INVALID_ARGUMENT,
                     message: 'Invalid designation id',
                 });
+            }
 
-            const existing = await prisma.organizationDesignations.findUnique({
+            const existing = await prisma.organizationDesignations.findFirst({
                 where: { id: data.id, deletedAt: null },
             });
 
-            if (!existing)
+            if (!existing) {
                 return callback({
                     code: grpc.status.NOT_FOUND,
                     message: 'Designation not found',
                 });
+            }
 
             if (data.name && data.name !== existing.name) {
                 const conflict = await prisma.organizationDesignations.findFirst({
@@ -210,6 +256,24 @@ const impl = {
                 }
             }
 
+            // Validate department if provided
+            if (data.department_id && data.department_id !== existing.departmentId) {
+                const departmentExists = await prisma.organizationDepartments.findFirst({
+                    where: {
+                        id: data.department_id,
+                        organizationId: data.organization_id || existing.organizationId,
+                        deletedAt: null,
+                    },
+                });
+
+                if (!departmentExists) {
+                    return callback({
+                        code: grpc.status.NOT_FOUND,
+                        message: 'Department not found in organization.',
+                    });
+                }
+            }
+
             const updateData = {
                 organizationId: data.organization_id || existing.organizationId,
                 departmentId: data.department_id ?? existing.departmentId,
@@ -224,8 +288,13 @@ const impl = {
                 data: updateData,
             });
 
-            callback(null, { designation: mapDesignation(updated) });
+            callback(null, {
+                designation: mapDesignation(updated),
+                message: 'Designation updated successfully',
+                success: true
+            });
         } catch (e) {
+            console.error('UpdateDesignation Error:', e);
             callback({
                 code: grpc.status.INTERNAL,
                 message: e.message,
@@ -233,28 +302,27 @@ const impl = {
         }
     },
 
-    // ──────────────────────────────────────────────────────────────────────
-    // DELETE DESIGNATION (Soft)
-    // ──────────────────────────────────────────────────────────────────────
     DeleteDesignation: async (call, callback) => {
         try {
             const { id } = call.request;
 
-            if (!/^[0-9a-fA-F]{24}$/.test(id))
+            if (!/^[0-9a-fA-F]{24}$/.test(id)) {
                 return callback({
                     code: grpc.status.INVALID_ARGUMENT,
                     message: 'Invalid designation id',
                 });
+            }
 
-            const designation = await prisma.organizationDesignations.findUnique({
+            const designation = await prisma.organizationDesignations.findFirst({
                 where: { id, deletedAt: null },
             });
 
-            if (!designation)
+            if (!designation) {
                 return callback({
                     code: grpc.status.NOT_FOUND,
                     message: 'Designation not found',
                 });
+            }
 
             await prisma.organizationDesignations.update({
                 where: { id },
@@ -266,6 +334,7 @@ const impl = {
                 message: 'Designation deleted successfully',
             });
         } catch (e) {
+            console.error('DeleteDesignation Error:', e);
             callback({
                 code: grpc.status.INTERNAL,
                 message: e.message,
@@ -274,9 +343,6 @@ const impl = {
     },
 };
 
-// ──────────────────────────────────────────────────────────────────────────
-// MAPPER
-// ──────────────────────────────────────────────────────────────────────────
 function mapDesignation(d) {
     return {
         id: d.id,
@@ -291,9 +357,6 @@ function mapDesignation(d) {
     };
 }
 
-// ──────────────────────────────────────────────────────────────────────────
-// SERVER START + GRACEFUL SHUTDOWN
-// ──────────────────────────────────────────────────────────────────────────
 async function main() {
     const server = new grpc.Server();
     server.addService(designationProto.OrgDesignationService.service, impl);
