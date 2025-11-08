@@ -137,28 +137,30 @@ const impl = {
                 sort_order = 'desc',
             } = call.request;
 
-            if (!organization_id) {
-                return callback({
-                    code: grpc.status.INVALID_ARGUMENT,
-                    message: 'organization_id is required.',
-                });
-            }
-
             const skip = (page - 1) * limit;
-            const where = {
-                organizationId: organization_id,
+
+            let where = {
                 deletedAt: null,
-                ...(department_id ? { departmentId: department_id } : {}),
-                ...(search
-                    ? {
-                        OR: [
-                            { name: { contains: search, mode: 'insensitive' } },
-                            { level: { contains: search, mode: 'insensitive' } },
-                            { description: { contains: search, mode: 'insensitive' } },
-                        ],
-                    }
-                    : {}),
             };
+            if (organization_id) {
+                where = {
+                    organizationId: organization_id,
+                };
+            }
+            if (department_id) {
+                where = {
+                    departmentId: department_id,
+                };
+            }
+            if (search) {
+                where = {
+                    OR: [
+                        { name: { contains: search, mode: 'insensitive' } },
+                        { level: { contains: search, mode: 'insensitive' } },
+                        { description: { contains: search, mode: 'insensitive' } },
+                    ],
+                };
+            }
 
             const validSortFields = {
                 name: 'name',
@@ -185,7 +187,10 @@ const impl = {
                 orderBy: { [sortField]: order },
                 skip,
                 take: limit,
+                include: { organization: true, department: true },
             });
+
+            console.log('server.js @ Line 153:', designations);
 
             const totalPages = Math.ceil(total / limit);
 

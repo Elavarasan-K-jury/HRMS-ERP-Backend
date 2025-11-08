@@ -69,6 +69,8 @@ message Designation {
 
 message DesignationResponse {
   Designation designation = 1;
+  string      message     = 2;
+  bool        success     = 3;
 }
 
 message ListDesignationsResponse {
@@ -77,6 +79,8 @@ message ListDesignationsResponse {
   int32  page              = 3;
   int32  limit             = 4;
   int32  total_pages       = 5;
+  string success           = 6;
+  string message           = 7;
 }
 
 message DeleteDesignationResponse {

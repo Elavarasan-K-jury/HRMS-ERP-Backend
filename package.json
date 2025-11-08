@@ -15,7 +15,7 @@
     "start:org-dep": "bun services/org_department-service/server.js",
     "start:org-desg": "bun services/org_designation-service/server.js",
     "start:emp-dept": "bun services/emp-department-service/server.js",
-        "start:emp-onboard-flow": "bun services/emp-onboarding-flow-service/server.js",
+    "start:emp-onboard-flow": "bun services/emp-onboarding-flow-service/server.js",
     "start:emp-onboard-step": "bun services/emp-onboarding-step-service/server.js",
     "start:emp-onboard-feature": "bun services/emp-onboarding-feature-service/server.js",
     "start:emp-onboard-progress": "bun services/emp-onboarding-progress-service/server.js",
