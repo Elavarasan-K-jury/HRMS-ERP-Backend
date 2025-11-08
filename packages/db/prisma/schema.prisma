@@ -49,7 +49,7 @@ model Organizations {
   createdAt           DateTime                 @map("created_at")
   updatedAt           DateTime                 @map("updated_at")
   deletedAt           DateTime?                @map("deleted_at")
-
+  attendance          Attendance[]
   departments         OrganizationDepartments[]
   designations        OrganizationDesignations[]
   employees           OrganizationEmployees[]
@@ -191,7 +191,7 @@ model OrganizationEmployees {
   organization          Organizations            @relation(fields: [organizationId], references: [id])
   category              EmployeeCategories       @relation(fields: [categoryId], references: [id])
   designation           OrganizationDesignations? @relation(fields: [designationId], references: [id])
-
+  attendance            Attendance[]
   departmentAssignments EmployeeDepartments[]
   onboardingProgress    OnboardingProgress[]     @relation("EmployeeOnboardingProgress")
 
@@ -208,4 +208,40 @@ model EmployeeDepartments {
   employee     OrganizationEmployees    @relation(fields: [employeeId], references: [id])
   startDate    DateTime                 @map("start_date")
   endDate      DateTime?                @map("end_date")
+}
+
+model Attendance {
+  id                 String                  @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId     String                  @map("organization_id") @db.ObjectId
+  employeeId         String                  @map("employee_id") @db.ObjectId
+  date               DateTime                @db.Date
+  checkIn            DateTime?               @map("check_in")
+  checkOut           DateTime?               @map("check_out")
+  location           Json?
+  grossHours         Float?                  @map("gross_hours")
+  effectiveHours     Float?                  @map("effective_hours")
+  lateArrivalMinutes String?                 @map("late_arrival_minutes")
+  status             String                  @default("Pending")
+  isHoliday          Boolean                 @default(false) @map("is_holiday")
+  requests           Json?
+  notes              String?
+  createdAt          DateTime                @default(now()) @map("created_at")
+  updatedAt          DateTime                @updatedAt @map("updated_at")
+  deletedAt          DateTime?               @map("deleted_at")
+
+  // Relations
+  organization       Organizations            @relation(fields: [organizationId], references: [id])
+  employee           OrganizationEmployees    @relation(fields: [employeeId], references: [id])
+  logs               AttendanceLogs[]
+}
+
+model AttendanceLogs {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  attendanceId   String        @map("attendance_id") @db.ObjectId
+  type           String
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  deletedAt      DateTime?     @map("deleted_at")
+
+  attendance     Attendance    @relation(fields: [attendanceId], references: [id])
 }
