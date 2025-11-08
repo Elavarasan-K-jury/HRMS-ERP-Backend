@@ -151,6 +151,9 @@ const impl = {
                 orderBy: { [sortField]: order },
                 skip,
                 take: limit,
+                include: {
+                    organization: true
+                }
             });
 
             const totalPages = Math.ceil(total / limit);
@@ -286,6 +289,38 @@ const impl = {
     },
 };
 
+function mapOrg(org) {
+    return {
+        id: org.id,
+        name: org.name,
+        domain: org.domain,
+        gst_number: org.GSTNumber ?? '',
+        email: org.email ?? '',
+        contact_person_name: org.contactPersonName ?? '',
+        contact_person_number: org.contactPersonNumber ?? '',
+        note: org.note ?? '',
+        industry: org.industry ?? '',
+        size: org.size ?? 0,
+        address: org.address ? JSON.stringify(org.address) : '',
+        created_at: org.createdAt ? new Date(org.createdAt).toLocaleString('en-IN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        }) : '',
+        updated_at: org.updatedAt ? new Date(org.updatedAt).toLocaleString('en-IN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        }) : '',
+    };
+}
+
 // ──────────────────────────────────────────────────────────────────────────
 // MAPPER: Prisma → gRPC Response
 // ──────────────────────────────────────────────────────────────────────────
@@ -300,6 +335,7 @@ function mapDepartment(dept) {
             dept.departmentHeadStratDate?.toISOString() ?? '',
         description: dept.description ?? '',
         note: dept.note ?? '',
+        organization: JSON.stringify(mapOrg(dept.organization)),
         created_at: dept.createdAt?.toISOString() ?? '',
         updated_at: dept.updatedAt?.toISOString() ?? '',
         deleted_at: dept.deletedAt?.toISOString() ?? '',
