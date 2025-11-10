@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "node-js-grpc-backend",
@@ -79,8 +80,8 @@
         "@jury-hrms/db": "workspace:*",
         "@jury-hrms/mailer": "workspace:*",
         "@jury-hrms/proto": "workspace:*",
-        "@prisma/client": "latest"
-      }
+        "@prisma/client": "latest",
+      },
     },
     "services/emp-department-service": {
       "name": "@jury-hrms/emp-department-service",
@@ -88,8 +89,8 @@
       "dependencies": {
         "@jury-hrms/db": "workspace:*",
         "@jury-hrms/proto": "workspace:*",
-        "@prisma/client": "latest"
-      }
+        "@prisma/client": "latest",
+      },
     },
     "services/emp-onboarding-feature-service": {
       "name": "@jury-hrms/emp-onboarding-feature-service",
@@ -239,7 +240,7 @@
     "@jury-hrms/employee-service": ["@jury-hrms/employee-service@workspace:services/employee-service"],
 
     "@jury-hrms/mailer": ["@jury-hrms/mailer@workspace:packages/mailer"],
-    
+
     "@jury-hrms/org_department-service": ["@jury-hrms/org_department-service@workspace:services/org_department-service"],
 
     "@jury-hrms/org_designation-service": ["@jury-hrms/org_designation-service@workspace:services/org_designation-service"],
