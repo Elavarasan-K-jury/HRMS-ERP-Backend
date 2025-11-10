@@ -187,20 +187,13 @@ const impl = {
             const depts = await prisma.organizationDepartments.findMany({
                 where,
                 include: {
-                    DepartmentEmployees: {
-                        where: { deletedAt: null },
-                        select: { id: true }
-                    },
-                    organization: {
-                        select: { name: true }
-                    }
+                    DepartmentEmployees: true,
+                    organization: true,
+                    departmentHead: true
                 },
                 orderBy: { [sortField]: order },
                 skip,
                 take: limit,
-                include: {
-                    organization: true
-                }
             });
 
             const totalPages = Math.ceil(total / limit);
@@ -372,24 +365,42 @@ function mapOrg(org) {
         industry: org.industry ?? '',
         size: org.size ?? 0,
         address: org.address ? JSON.stringify(org.address) : '',
-        created_at: org.createdAt ? new Date(org.createdAt).toLocaleString('en-IN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-        }) : '',
-        updated_at: org.updatedAt ? new Date(org.updatedAt).toLocaleString('en-IN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-        }) : '',
+        created_at: formatDate(org.createdAt),
+        updated_at: formatDate(org.updatedAt),
     };
 }
+
+function mapDepartmentHead(head) {
+    return {
+        id: head?.id ?? '',
+        full_name: head?.fullName ?? '',
+        email: head?.email ?? '',
+        phone: head?.phone ?? '',
+        designation_id: head?.designationId ?? '',
+        gender: head?.gender ?? '',
+        date_of_birth: new Date(head?.dateOfBirth).toLocaleString('en-IN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+        }),
+        created_at: formatDate(head?.createdAt),
+        updated_at: formatDate(head?.updatedAt),
+    }
+}
+
+
+function formatDate(date) {
+    if (!date) return '';
+    return new Date(date).toLocaleString('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+    });
+}
+
 
 // ──────────────────────────────────────────────────────────────────────────
 // MAPPER: Prisma → gRPC Response
@@ -404,7 +415,8 @@ function mapDepartment(dept) {
         department_head_start_date: dept.departmentHeadStratDate?.toISOString() ?? '',
         description: dept.description ?? '',
         note: dept.note ?? '',
-        organization: JSON.stringify(mapOrg(dept.organization)),
+        department_head: mapDepartmentHead(dept.departmentHead),
+        organization: mapOrg(dept.organization),
         created_at: dept.createdAt?.toISOString() ?? '',
         updated_at: dept.updatedAt?.toISOString() ?? '',
         deleted_at: dept.deletedAt?.toISOString() ?? '',

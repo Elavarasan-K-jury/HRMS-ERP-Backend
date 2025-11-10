@@ -89,8 +89,8 @@ export default function registerorgDesignationRoutes({ openapi }) {
             tags: ['Org-Designation'],
             request: {
                 query: z.object({
-                    organization_id: z.string().regex(/^[0-9a-fA-F]{24}$/),
-                    department_id: z.string().regex(/^[0-9a-fA-F]{24}$/).optional(),
+                    organization_id: z.string().optional(),
+                    department_id: z.string().optional(),
                     page: z.string().transform(Number).default('1'),
                     limit: z.string().transform(Number).default('10'),
                     search: z.string().default(''),

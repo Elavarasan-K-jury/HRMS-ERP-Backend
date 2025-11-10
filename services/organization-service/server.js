@@ -4,7 +4,13 @@ import { prisma } from '@jury-hrms/db/client.js';
 const PORT = process.env.ORG_SERVICE_PORT || 50051;
 const organizationProto = loadProto('organization');
 
+/* ------------------------------------------------------------------ */
+/* 🧩 Implementation                                                  */
+/* ------------------------------------------------------------------ */
 const impl = {
+    /* ------------------------------------------------------------------ */
+    /* 🟢 Create Organization                                             */
+    /* ------------------------------------------------------------------ */
     CreateOrganization: async (call, callback) => {
         try {
             const data = call.request;
@@ -27,28 +33,46 @@ const impl = {
                     typeof data.address === 'string'
                         ? JSON.parse(data.address)
                         : data.address ?? null,
+
+                // ✅ new fields
+                maxEmployees: data.max_employees ?? 20,
+                maxStorageInGB: data.max_storage_in_gb ?? 10,
+                maxApiRatePerMin: data.max_api_rate_per_minute ?? 1000,
+                maxPayrollRunsPerMonth: data.max_payroll_runs_per_month ?? 1,
+                maxLeavePolicies: data.max_leave_policies ?? 5,
+                maxAdminAccounts: data.max_admin_accounts ?? 3,
+
                 createdAt: new Date(),
                 updatedAt: new Date(),
-                deletedAt: null
+                deletedAt: null,
             };
 
-            if (domainExists && domainExists.deletedAt === null)
+            if (domainExists && domainExists.deletedAt === null) {
                 return callback({
                     code: grpc.status.ALREADY_EXISTS,
                     message: 'Domain already exists',
                 });
+            }
 
+            // Restore soft-deleted org if domain matches
             if (domainExists && domainExists.deletedAt !== null) {
                 const restored = await prisma.organizations.update({
                     where: { id: domainExists.id },
                     data: mappedData,
                 });
-                return callback(null, { organization: mapOrg(restored) });
+                return callback(null, {
+                    organization: mapOrg(restored),
+                    success: true,
+                    message: 'Organization restored successfully',
+                });
             }
 
             const org = await prisma.organizations.create({ data: mappedData });
-            callback(null, { organization: mapOrg(org) });
-
+            callback(null, {
+                organization: mapOrg(org),
+                success: true,
+                message: 'Organization created successfully',
+            });
         } catch (e) {
             callback({
                 code: grpc.status.INTERNAL,
@@ -57,63 +81,75 @@ const impl = {
         }
     },
 
-
+    /* ------------------------------------------------------------------ */
+    /* 🟣 Get Organization by ID                                           */
+    /* ------------------------------------------------------------------ */
     GetOrganization: async (call, callback) => {
         try {
             const { id } = call.request;
-            // Check if the id is a valid object id
+
             if (!/^[0-9a-fA-F]{24}$/.test(id))
-                return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid organization id' });
-            const org = await prisma.organizations.findUnique({ where: { id, deletedAt: null } });
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: 'Invalid organization id',
+                });
+
+            const org = await prisma.organizations.findUnique({
+                where: { id, deletedAt: null },
+            });
+
             if (!org)
-                return callback({ code: grpc.status.NOT_FOUND, message: 'Organization not found' });
-            callback(null, { organization: mapOrg(org) });
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Organization not found',
+                });
+
+            callback(null, { organization: mapOrg(org), success: true });
         } catch (e) {
-            callback(e);
+            callback({ code: grpc.status.INTERNAL, message: e.message });
         }
     },
 
+    /* ------------------------------------------------------------------ */
+    /* 🔵 List Organizations                                               */
+    /* ------------------------------------------------------------------ */
     ListOrganizations: async (call, callback) => {
         try {
             const {
                 page = 1,
                 limit = 10,
-                search = "",
-                sort_by = "createdAt",
-                sort_order = "desc",
+                search = '',
+                sort_by = 'createdAt',
+                sort_order = 'desc',
             } = call.request;
 
             const skip = (page - 1) * limit;
 
-            // 🟢 Search condition — matches name, domain, or industry (case-insensitive)
             const where = {
                 deletedAt: null,
                 OR: search
                     ? [
-                        { name: { contains: search, mode: "insensitive" } },
-                        { domain: { contains: search, mode: "insensitive" } },
-                        { industry: { contains: search, mode: "insensitive" } },
+                        { name: { contains: search, mode: 'insensitive' } },
+                        { domain: { contains: search, mode: 'insensitive' } },
+                        { industry: { contains: search, mode: 'insensitive' } },
                     ]
                     : undefined,
             };
 
-            // 🟣 Sorting — only allow safe columns
             const validSortFields = {
-                name: "name",
-                domain: "domain",
-                industry: "industry",
-                size: "size",
-                created_at: "createdAt",
-                updated_at: "updatedAt",
+                name: 'name',
+                domain: 'domain',
+                industry: 'industry',
+                size: 'size',
+                created_at: 'createdAt',
+                updated_at: 'updatedAt',
             };
 
-            const sortField = validSortFields[sort_by] || "createdAt";
-            const sortOrder = sort_order.toLowerCase() === "asc" ? "asc" : "desc";
+            const sortField = validSortFields[sort_by] || 'createdAt';
+            const sortOrder = sort_order.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
-            // 🟡 Count total
             const total = await prisma.organizations.count({ where });
 
-            // 🔵 Fetch filtered + sorted + paginated results
             const orgs = await prisma.organizations.findMany({
                 where,
                 orderBy: { [sortField]: sortOrder },
@@ -129,69 +165,114 @@ const impl = {
                 page,
                 limit,
                 total_pages: totalPages,
+                success: true,
+                message: 'Organizations fetched successfully',
             });
         } catch (e) {
+            console.log('server.js @ Line 173:', e);
             callback({
                 code: grpc.status.INTERNAL,
                 message: e.message,
             });
         }
     },
+
+    /* ------------------------------------------------------------------ */
+    /* 🟠 Update Organization                                              */
+    /* ------------------------------------------------------------------ */
     UpdateOrganization: async (call, callback) => {
         try {
             const data = call.request;
-            const existing = await prisma.organizations.findUnique({ where: { id: data.id, deletedAt: null } });
+            const existing = await prisma.organizations.findUnique({
+                where: { id: data.id, deletedAt: null },
+            });
+
             if (!existing)
-                return callback({ code: grpc.status.NOT_FOUND, message: 'Organization not found' });
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Organization not found',
+                });
 
             const updated = await prisma.organizations.update({
                 where: { id: data.id },
                 data: {
-                    name: data.name,
-                    domain: data.domain,
-                    GSTNumber: data.gst_number ?? null,
-                    email: data.email ?? null,
-                    contactPersonName: data.contact_person_name ?? null,
-                    contactPersonNumber: data.contact_person_number ?? null,
-                    note: data.note ?? null,
-                    industry: data.industry ?? null,
-                    size: data.size ?? null,
+                    name: data.name ?? existing.name,
+                    domain: data.domain ?? existing.domain,
+                    GSTNumber: data.gst_number ?? existing.GSTNumber,
+                    email: data.email ?? existing.email,
+                    contactPersonName:
+                        data.contact_person_name ?? existing.contactPersonName,
+                    contactPersonNumber:
+                        data.contact_person_number ?? existing.contactPersonNumber,
+                    note: data.note ?? existing.note,
+                    industry: data.industry ?? existing.industry,
+                    size: data.size ?? existing.size,
                     address:
                         typeof data.address === 'string'
                             ? JSON.parse(data.address)
-                            : data.address ?? null,
-                    createdAt: new Date(),
-                    updatedAt: new Date()
+                            : data.address ?? existing.address,
+
+                    // ✅ updated fields
+                    maxEmployees: data.max_employees ?? existing.maxEmployees,
+                    maxStorageInGB: data.max_storage_in_gb ?? existing.maxStorageInGB,
+                    maxApiRatePerMin:
+                        data.max_api_rate_per_minute ?? existing.maxApiRatePerMin,
+                    maxPayrollRunsPerMonth:
+                        data.max_payroll_runs_per_month ??
+                        existing.maxPayrollRunsPerMonth,
+                    maxLeavePolicies:
+                        data.max_leave_policies ?? existing.maxLeavePolicies,
+                    maxAdminAccounts:
+                        data.max_admin_accounts ?? existing.maxAdminAccounts,
+
+                    updatedAt: new Date(),
                 },
             });
 
-            callback(null, { organization: mapOrg(updated) });
+            callback(null, {
+                organization: mapOrg(updated),
+                success: true,
+                message: 'Organization updated successfully',
+            });
         } catch (e) {
             callback({ code: grpc.status.INTERNAL, message: e.message });
         }
     },
 
+    /* ------------------------------------------------------------------ */
+    /* 🔴 Soft Delete Organization                                        */
+    /* ------------------------------------------------------------------ */
     DeleteOrganization: async (call, callback) => {
         try {
             const { id } = call.request;
-            const org = await prisma.organizations.findUnique({ where: { id, deletedAt: null } });
+            const org = await prisma.organizations.findUnique({
+                where: { id, deletedAt: null },
+            });
 
             if (!org)
-                return callback({ code: grpc.status.NOT_FOUND, message: 'Organization not found' });
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Organization not found',
+                });
 
             await prisma.organizations.update({
                 where: { id },
                 data: { deletedAt: new Date() },
             });
 
-            callback(null, { message: 'Organization soft-deleted successfully' });
+            callback(null, {
+                success: true,
+                message: 'Organization soft-deleted successfully',
+            });
         } catch (e) {
             callback({ code: grpc.status.INTERNAL, message: e.message });
         }
     },
-
 };
 
+/* ------------------------------------------------------------------ */
+/* 🧭 Mapper                                                          */
+/* ------------------------------------------------------------------ */
 function mapOrg(org) {
     return {
         id: org.id,
@@ -205,35 +286,28 @@ function mapOrg(org) {
         industry: org.industry ?? '',
         size: org.size ?? 0,
         address: org.address ? JSON.stringify(org.address) : '',
-        created_at: org.createdAt ? new Date(org.createdAt).toLocaleString('en-IN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-        }) : '',
-        updated_at: org.updatedAt ? new Date(org.updatedAt).toLocaleString('en-IN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-        }) : '',
+        created_at: org.createdAt?.toISOString() ?? '',
+        updated_at: org.updatedAt?.toISOString() ?? '',
+        deleted_at: org.deletedAt?.toISOString() ?? '',
+
+        // ✅ new fields
+        max_employees: org.maxEmployees ?? 20,
+        max_storage_in_gb: org.maxStorageInGB ?? 10,
+        max_api_rate_per_minute: org.maxApiRatePerMin ?? 1000,
+        max_payroll_runs_per_month: org.maxPayrollRunsPerMonth ?? 1,
+        max_leave_policies: org.maxLeavePolicies ?? 5,
+        max_admin_accounts: org.maxAdminAccounts ?? 3,
     };
 }
 
 /* ------------------------------------------------------------------ */
-/* 🧩 Graceful shutdown-aware main()                                  */
+/* 🧩 Graceful Server Setup                                            */
 /* ------------------------------------------------------------------ */
-
 async function main() {
     const server = new grpc.Server();
 
     server.addService(organizationProto.OrganizationService.service, impl);
 
-    // Convert bindAsync to Promise
     await new Promise((resolve, reject) => {
         server.bindAsync(
             `0.0.0.0:${PORT}`,
@@ -244,12 +318,10 @@ async function main() {
 
     console.log(`[organization-service] gRPC running on :${PORT}`);
 
-    // Graceful shutdown handler
     const shutdown = async (signal) => {
         console.log(`\n[organization-service] Received ${signal}, shutting down gracefully...`);
 
         try {
-            // 🧹 Stop accepting new gRPC calls
             server.tryShutdown((err) => {
                 if (err) {
                     console.error('[organization-service] Force closing due to error:', err);
@@ -259,10 +331,8 @@ async function main() {
                 }
             });
 
-            // 🧹 Disconnect Prisma cleanly
             await prisma.$disconnect();
             console.log('[organization-service] Prisma disconnected.');
-
             process.exit(0);
         } catch (e) {
             console.error('[organization-service] Error during shutdown:', e);
@@ -270,7 +340,6 @@ async function main() {
         }
     };
 
-    // Handle termination signals
     process.on('SIGINT', () => shutdown('SIGINT'));
     process.on('SIGTERM', () => shutdown('SIGTERM'));
 }

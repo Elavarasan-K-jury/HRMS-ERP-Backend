@@ -23,7 +23,15 @@ message CreateOrganizationRequest {
   string note = 7;
   string industry = 8;
   int32  size = 9;
-  string address = 10; // store JSON as stringified JSON
+  string address = 10; // store JSON string
+
+  // ✅ new system config fields
+  int32 max_employees = 11;
+  int32 max_storage_in_gb = 12;
+  int32 max_api_rate_per_minute = 13;
+  int32 max_payroll_runs_per_month = 14;
+  int32 max_leave_policies = 15;
+  int32 max_admin_accounts = 16;
 }
 
 // =============================
@@ -50,7 +58,15 @@ message Organization {
   string address = 11;
   string created_at = 12;
   string updated_at = 13;
-  string deleted_at = 14; // new field for soft deletion
+  string deleted_at = 14;
+
+  // ✅ new system config fields
+  int32 max_employees = 15;
+  int32 max_storage_in_gb = 16;
+  int32 max_api_rate_per_minute = 17;
+  int32 max_payroll_runs_per_month = 18;
+  int32 max_leave_policies = 19;
+  int32 max_admin_accounts = 20;
 }
 
 // =============================
@@ -58,6 +74,8 @@ message Organization {
 // =============================
 message OrganizationResponse {
   Organization organization = 1;
+  bool success = 2;
+  string message = 3;
 }
 
 // =============================
@@ -77,6 +95,8 @@ message ListOrganizationsResponse {
   int32 page = 3;
   int32 limit = 4;
   int32 total_pages = 5;
+  bool success = 6;
+  string message = 7;
 }
 
 // =============================
@@ -94,6 +114,14 @@ message UpdateOrganizationRequest {
   string industry = 9;
   int32  size = 10;
   string address = 11;
+
+  // ✅ new system config fields
+  int32 max_employees = 12;
+  int32 max_storage_in_gb = 13;
+  int32 max_api_rate_per_minute = 14;
+  int32 max_payroll_runs_per_month = 15;
+  int32 max_leave_policies = 16;
+  int32 max_admin_accounts = 17;
 }
 
 // =============================
@@ -104,5 +132,6 @@ message DeleteOrganizationRequest {
 }
 
 message DeleteOrganizationResponse {
-  string message = 1;
+  bool success = 1;
+  string message = 2;
 }

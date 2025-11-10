@@ -23,6 +23,8 @@ function toApiAdmin(a) {
 }
 
 function genOtp() {
+    const env = process.env.ENVIRONMENT || 'DEVELOPMENT';
+    if (env === 'DEVELOPMENT') return '123456';
     return String(Math.floor(100000 + Math.random() * 900000)); // 6-digit
 }
 
@@ -67,7 +69,7 @@ const impl = {
             });
 
             // Always send OTP to the admin's email
-            await sendOtpEmail(admin.email, otp, OTP_TTL_MS / 60000);
+            sendOtpEmail(admin.email, otp, OTP_TTL_MS / 60000);
 
             cb(null, { message: 'OTP sent to registered email', success: true });
         } catch (e) {

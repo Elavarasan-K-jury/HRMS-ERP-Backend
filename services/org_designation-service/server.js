@@ -187,19 +187,20 @@ const impl = {
                 orderBy: { [sortField]: order },
                 skip,
                 take: limit,
-                include: { organization: true, department: true },
+                include: { organization: true, department: true, employees: true },
             });
-
-            console.log('server.js @ Line 153:', designations);
 
             const totalPages = Math.ceil(total / limit);
 
+            const mappedDesignations = designations.map(desg => ({
+                ...mapDesignation(desg),
+                employee_count: desg.employees.length,
+            }))
+
+            const designationList = await Promise.all(mappedDesignations)
+
             callback(null, {
-                designations: designations.map(desg => ({
-                    ...mapDesignation(desg),
-                    employee_count: desg.employees.length,
-                    department_name: desg.department?.name || '',
-                })),
+                designations: designationList,
                 total,
                 page,
                 limit,
@@ -343,18 +344,93 @@ const impl = {
     },
 };
 
-function mapDesignation(d) {
+
+function mapOrg(org = {}) {
     return {
-        id: d.id,
-        organization_id: d.organizationId,
+        id: org.id ?? '',
+        name: org.name ?? '',
+        domain: org.domain ?? '',
+        gst_number: org.GSTNumber ?? '',
+        email: org.email ?? '',
+        contact_person_name: org.contactPersonName ?? '',
+        contact_person_number: org.contactPersonNumber ?? '',
+        note: org.note ?? '',
+        industry: org.industry ?? '',
+        size: org.size ?? 0,
+        address: org.address ? JSON.stringify(org.address) : '',
+        created_at: formatDate(org.createdAt),
+        updated_at: formatDate(org.updatedAt),
+    };
+}
+
+function mapDepartment(dept = {}) {
+    return {
+        id: dept.id ?? '',
+        organization_id: dept.organizationId ?? '',
+        name: dept.name ?? '',
+        code: dept.code ?? '',
+        department_head_id: dept.departmentHeadId ?? '',
+        department_head_start_date: dept.departmentHeadStartDate
+            ? dept.departmentHeadStartDate.toISOString()
+            : '',
+        description: dept.description ?? '',
+        note: dept.note ?? '',
+        created_at: formatDate(dept.createdAt),
+        updated_at: formatDate(dept.updatedAt),
+    };
+}
+
+function mapEmployee(emp = {}) {
+    return {
+        id: emp.id ?? '',
+        organization_id: emp.organizationId ?? '',
+        category_id: emp.categoryId ?? '',
+        designation_id: emp.designationId ?? '',
+        first_name: emp.firstName ?? '',
+        last_name: emp.lastName ?? '',
+        full_name: emp.fullName ?? '',
+        email: emp.email ?? '',
+        phone: emp.phone ?? '',
+        alt_phone: emp.altPhone ?? '',
+        gender: emp.gender ?? '',
+        date_of_birth: emp.dateOfBirth
+            ? new Date(emp.dateOfBirth).toISOString()
+            : '',
+        created_at: formatDate(emp.createdAt),
+        updated_at: formatDate(emp.updatedAt),
+        deleted_at: emp.deletedAt ? new Date(emp.deletedAt).toISOString() : '',
+    };
+}
+
+function mapDesignation(d = {}) {
+    return {
+        id: d.id ?? '',
+        organization_id: d.organizationId ?? '',
         department_id: d.departmentId ?? '',
-        name: d.name,
+        name: d.name ?? '',
         level: d.level ?? '',
         description: d.description ?? '',
-        created_at: d.createdAt?.toISOString() ?? '',
-        updated_at: d.updatedAt?.toISOString() ?? '',
-        deleted_at: d.deletedAt?.toISOString() ?? '',
+        created_at: d.createdAt ? d.createdAt.toISOString() : '',
+        updated_at: d.updatedAt ? d.updatedAt.toISOString() : '',
+        deleted_at: d.deletedAt ? d.deletedAt.toISOString() : '',
+        organization: mapOrg(d.organization),
+        department: mapDepartment(d.department),
+        employees: Array.isArray(d.employees)
+            ? d.employees.map(mapEmployee)
+            : [],
     };
+}
+
+function formatDate(date) {
+    if (!date) return '';
+    return new Date(date).toLocaleString('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+    });
 }
 
 async function main() {
