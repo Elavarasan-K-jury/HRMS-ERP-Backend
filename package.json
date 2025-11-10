@@ -22,7 +22,7 @@
     "start:atte": "bun services/attendance-service/server.js",
     "start:atte-log": "bun services/attendance-log-service/server.js",
     "start:gateway": "bun apps/api-gateway/server.js",
-    "start": "bunx concurrently -k -n admin,org,gateway,emp-cat,emp,org-dep,org-desg,emp-dept,emp-onboard-flow,emp-onboard-step,emp-onboard-feature,gateway -c auto \"bun run start:admin\" \"bun run start:org\" \"bun run start:emp-cat\" \"bun run start:emp\" \"bun run start:org-dep\" \"bun run start:org-desg\"  \"bun run start:emp-dept\"  \"bun run start:emp-onboard-flow\" \"bun run start:emp-onboard-step\" \"bun run start:emp-onboard-feature\" \"bun run start:emp-onboard-progress\" \"bun run start:gateway\"",
+    "start": "bunx concurrently -k -c auto -n admin,org,emp-cat,emp,org-dep,org-desg,emp-dept,emp-onboard-flow,emp-onboard-step,emp-onboard-feature,emp-onboard-progress,gateway \"bun run start:admin\" \"bun run start:org\" \"bun run start:emp-cat\" \"bun run start:emp\" \"bun run start:org-dep\" \"bun run start:org-desg\" \"bun run start:emp-dept\" \"bun run start:emp-onboard-flow\" \"bun run start:emp-onboard-step\" \"bun run start:emp-onboard-feature\" \"bun run start:emp-onboard-progress\" \"bun run start:gateway\"",
     "prisma:generate": "bunx prisma generate --schema=packages/db/prisma/schema.prisma",
     "prisma:push": "bunx prisma db push --schema=packages/db/prisma/schema.prisma",
     "prisma:studio": "bunx prisma studio --schema=packages/db/prisma/schema.prisma",
