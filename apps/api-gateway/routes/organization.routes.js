@@ -2,30 +2,35 @@ import { z, ZodError } from 'zod';
 import { orgClient } from '../grpc/organization.client.js';
 
 export default function registerOrganizationRoutes({ openapi }) {
-    //
-    // ✅ Create Organization schema (Swagger-safe)
-    //
-    const createOrgSchema = z.object({
+    /* ----------------------------------------------------
+     🧩 Shared schemas
+    ---------------------------------------------------- */
+    const orgPlanSchema = {
+        max_employees: z.number().int().positive().optional().describe('Default: 20'),
+        max_storage_in_gb: z.number().int().positive().optional().describe('Default: 10'),
+        max_api_rate_per_minute: z.number().int().positive().optional().describe('Default: 1000'),
+        max_payroll_runs_per_month: z.number().int().positive().optional().describe('Default: 1'),
+        max_leave_policies: z.number().int().positive().optional().describe('Default: 5'),
+        max_admin_accounts: z.number().int().positive().optional().describe('Default: 3'),
+    };
+
+    const baseOrgSchema = {
         name: z
             .string({ required_error: 'Organization name is required' })
             .min(2, 'Name must have at least 2 characters'),
-
         domain: z
             .string({ required_error: 'Domain is required' })
             .url('Domain must be a valid URL'),
-
         gst_number: z
             .string()
             .regex(/^$|^[0-9A-Z]{15}$/, 'GST number must be 15 alphanumeric characters')
             .optional(),
-
         email: z.string().email('Invalid email format').optional(),
         contact_person_name: z.string().optional(),
         contact_person_number: z.string().optional(),
         note: z.string().optional(),
         industry: z.string().optional(),
         size: z.number().int().positive().optional(),
-
         address: z
             .object({
                 line1: z.string().optional(),
@@ -36,19 +41,16 @@ export default function registerOrganizationRoutes({ openapi }) {
                 country: z.string().optional(),
             })
             .optional(),
+    };
 
-        // ✅ new system config fields
-        max_employees: z.number().int().positive().optional().default(20),
-        max_storage_in_gb: z.number().int().positive().optional().default(10),
-        max_api_rate_per_minute: z.number().int().positive().optional().default(1000),
-        max_payroll_runs_per_month: z.number().int().positive().optional().default(1),
-        max_leave_policies: z.number().int().positive().optional().default(5),
-        max_admin_accounts: z.number().int().positive().optional().default(3),
+    /* ----------------------------------------------------
+     🟢 Create Organization
+    ---------------------------------------------------- */
+    const createOrgSchema = z.object({
+        ...baseOrgSchema,
+        ...orgPlanSchema,
     }).strict();
 
-    //
-    // 🟢 Create Organization
-    //
     openapi(
         {
             method: 'post',
@@ -58,15 +60,13 @@ export default function registerOrganizationRoutes({ openapi }) {
             request: {
                 body: {
                     content: {
-                        'application/json': {
-                            schema: createOrgSchema,
-                        },
+                        'application/json': { schema: createOrgSchema },
                     },
                 },
             },
             responses: {
                 201: {
-                    description: 'Organization created',
+                    description: 'Organization created successfully',
                     content: {
                         'application/json': {
                             schema: z.object({
@@ -84,12 +84,7 @@ export default function registerOrganizationRoutes({ openapi }) {
                         'application/json': {
                             schema: z.object({
                                 error: z.string(),
-                                details: z.array(
-                                    z.object({
-                                        field: z.string(),
-                                        message: z.string(),
-                                    })
-                                ),
+                                details: z.array(z.object({ field: z.string(), message: z.string() })),
                             }),
                         },
                     },
@@ -132,9 +127,9 @@ export default function registerOrganizationRoutes({ openapi }) {
         }
     );
 
-    //
-    // 🟣 Get organization by ID
-    //
+    /* ----------------------------------------------------
+     🟣 Get Organization by ID
+    ---------------------------------------------------- */
     openapi(
         {
             method: 'get',
@@ -143,12 +138,12 @@ export default function registerOrganizationRoutes({ openapi }) {
             summary: 'Fetch organization by ID',
             request: {
                 params: z.object({
-                    id: z.string({ required_error: 'ID is required' }),
+                    id: z.string({ required_error: 'Organization ID is required' }),
                 }),
             },
             responses: {
                 200: {
-                    description: 'Organization details',
+                    description: 'Organization details retrieved',
                     content: {
                         'application/json': {
                             schema: z.object({
@@ -156,12 +151,7 @@ export default function registerOrganizationRoutes({ openapi }) {
                                 name: z.string(),
                                 domain: z.string(),
                                 email: z.string().optional(),
-                                max_employees: z.number().optional(),
-                                max_storage_in_gb: z.number().optional(),
-                                max_api_rate_per_minute: z.number().optional(),
-                                max_payroll_runs_per_month: z.number().optional(),
-                                max_leave_policies: z.number().optional(),
-                                max_admin_accounts: z.number().optional(),
+                                ...orgPlanSchema,
                             }),
                         },
                     },
@@ -186,9 +176,9 @@ export default function registerOrganizationRoutes({ openapi }) {
         }
     );
 
-    //
-    // 🟡 List Organizations (pagination)
-    //
+    /* ----------------------------------------------------
+     🟡 List Organizations (Pagination + Search)
+    ---------------------------------------------------- */
     openapi(
         {
             method: 'get',
@@ -197,14 +187,13 @@ export default function registerOrganizationRoutes({ openapi }) {
             summary: 'List organizations with pagination, search, and sorting',
             request: {
                 query: z.object({
-                    page: z.string().optional().default('1'),
-                    limit: z.string().optional().default('10'),
+                    page: z.coerce.number().default(1),
+                    limit: z.coerce.number().default(10),
                     search: z.string().optional().default(''),
                     sort_by: z
                         .enum(['name', 'domain', 'industry', 'size', 'created_at', 'updated_at'])
-                        .optional()
                         .default('created_at'),
-                    sort_order: z.enum(['asc', 'desc']).optional().default('desc'),
+                    sort_order: z.enum(['asc', 'desc']).default('desc'),
                 }),
             },
             responses: {
@@ -241,8 +230,8 @@ export default function registerOrganizationRoutes({ openapi }) {
                 const response = await new Promise((resolve, reject) => {
                     orgClient.ListOrganizations(
                         {
-                            page: Number(query.page),
-                            limit: Number(query.limit),
+                            page: query.page,
+                            limit: query.limit,
                             search: query.search,
                             sort_by: query.sort_by,
                             sort_order: query.sort_order,
@@ -260,32 +249,16 @@ export default function registerOrganizationRoutes({ openapi }) {
         }
     );
 
-    //
-    // 🟠 Update Organization
-    //
-    const updateOrgSchema = z.object({
-        name: z.string().optional(),
-        domain: z.string().url('Domain must be a valid URL').optional(),
-        gst_number: z
-            .string()
-            .regex(/^$|^[0-9A-Z]{15}$/, 'GST number must be 15 alphanumeric characters')
-            .optional(),
-        email: z.string().email('Invalid email format').optional(),
-        contact_person_name: z.string().optional(),
-        contact_person_number: z.string().optional(),
-        note: z.string().optional(),
-        industry: z.string().optional(),
-        size: z.number().optional(),
-        address: z.union([z.string(), z.record(z.any())]).optional(),
-
-        // ✅ plan fields
-        max_employees: z.number().optional(),
-        max_storage_in_gb: z.number().optional(),
-        max_api_rate_per_minute: z.number().optional(),
-        max_payroll_runs_per_month: z.number().optional(),
-        max_leave_policies: z.number().optional(),
-        max_admin_accounts: z.number().optional(),
-    });
+    /* ----------------------------------------------------
+     🟠 Update Organization
+    ---------------------------------------------------- */
+    const updateOrgSchema = z
+        .object({
+            ...baseOrgSchema,
+            ...orgPlanSchema,
+            address: z.union([z.string(), z.object({}).passthrough()]).optional(),
+        })
+        .partial();
 
     openapi(
         {
@@ -363,9 +336,9 @@ export default function registerOrganizationRoutes({ openapi }) {
         }
     );
 
-    //
-    // 🔴 Delete Organization
-    //
+    /* ----------------------------------------------------
+     🔴 Delete Organization
+    ---------------------------------------------------- */
     openapi(
         {
             method: 'delete',
@@ -382,7 +355,10 @@ export default function registerOrganizationRoutes({ openapi }) {
                     description: 'Organization deleted successfully',
                     content: {
                         'application/json': {
-                            schema: z.object({ message: z.string(), success: z.boolean().optional() }),
+                            schema: z.object({
+                                message: z.string(),
+                                success: z.boolean().optional(),
+                            }),
                         },
                     },
                 },

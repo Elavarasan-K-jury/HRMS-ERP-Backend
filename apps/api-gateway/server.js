@@ -20,7 +20,7 @@ import registerEmployeeCategoryRoutes from './routes/employee_category.routes.js
 import registerEmployeeRoutes from './routes/employee.routes.js';
 import registerAdminRoutes from './routes/admin.routes.js';
 import registerOrgDepartmentRoutes from './routes/org_department.routes.js';
-import registerorgDesignationRoutes from './routes/org_designation.routes.js';
+import registerOrgDesignationRoutes from './routes/org_designation.routes.js';
 import registerEmployeeDepartmentRoutes from './routes/emp_department.routes.js';
 import registerEmployeeOnboardingFlowRoutes from './routes/emp_onboard_flow.routes.js';
 import registerEmployeeOnboardingStepRoutes from './routes/emp_onboard_step.routes.js';
@@ -34,24 +34,10 @@ const app = new OpenAPIHono({
     }
 });
 
-// ---- OpenAPI Info ---- //
-app.doc('/doc', {
-    openapi: '3.1.0',
-    info: {
-        title: 'Jury HRMS API Gateway',
-        version: '1.0.0',
-        description: 'REST gateway for Jury HRMS microservices (Organization, etc.)',
-    },
-});
-
-
 app.use('*', cors({
     origin: ['http://localhost:3001', 'http://127.0.0.1:3001'],
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 }));
-
-// ---- Swagger UI ---- //
-app.get('/swagger', swaggerUI({ url: '/doc' }));
 
 // 🧩 Apply middlewares
 app.use('*', ipWhitelist);   // 🛡️ Add this before others
@@ -91,7 +77,7 @@ registerOrgDepartmentRoutes({
         app.openapi(def, withQueue(handler));
     },
 });
-registerorgDesignationRoutes({
+registerOrgDesignationRoutes({
     openapi: (def, handler) => {
         // wrap each route handler in queue
         app.openapi(def, withQueue(handler));
@@ -127,6 +113,20 @@ registerEmployeeOnboardingProgressRoutes({
         app.openapi(def, withQueue(handler));
     },
 });
+
+// ---- OpenAPI Info ---- //
+app.doc('/doc', {
+    openapi: '3.1.0',
+    info: {
+        title: 'Jury HRMS API Gateway',
+        version: '1.0.0',
+        description: 'REST gateway for Jury HRMS microservices (Organization, etc.)',
+    },
+});
+
+// ---- Swagger UI ---- //
+app.get('/swagger', swaggerUI({ url: '/doc' }));
+
 
 // ---- Start Server (HMR-safe) ---- //
 if (import.meta.main) {
