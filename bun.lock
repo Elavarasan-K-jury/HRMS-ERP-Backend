@@ -79,8 +79,26 @@
         "@jury-hrms/db": "workspace:*",
         "@jury-hrms/mailer": "workspace:*",
         "@jury-hrms/proto": "workspace:*",
-        "@prisma/client": "latest"
-      }
+        "@prisma/client": "latest",
+      },
+    },
+    "services/attendance-log-service": {
+      "name": "@jury-hrms/attendance-log-service",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "@prisma/client": "latest",
+      },
+    },
+    "services/attendance-service": {
+      "name": "@jury-hrms/attendance-service",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "@prisma/client": "latest",
+      },
     },
     "services/emp-department-service": {
       "name": "@jury-hrms/emp-department-service",
@@ -88,8 +106,8 @@
       "dependencies": {
         "@jury-hrms/db": "workspace:*",
         "@jury-hrms/proto": "workspace:*",
-        "@prisma/client": "latest"
-      }
+        "@prisma/client": "latest",
+      },
     },
     "services/emp-onboarding-feature-service": {
       "name": "@jury-hrms/emp-onboarding-feature-service",
@@ -220,6 +238,10 @@
 
     "@jury-hrms/api-gateway": ["@jury-hrms/api-gateway@workspace:apps/api-gateway"],
 
+    "@jury-hrms/attendance-log-service": ["@jury-hrms/attendance-log-service@workspace:services/attendance-log-service"],
+
+    "@jury-hrms/attendance-service": ["@jury-hrms/attendance-service@workspace:services/attendance-service"],
+
     "@jury-hrms/auth": ["@jury-hrms/auth@workspace:packages/auth"],
 
     "@jury-hrms/db": ["@jury-hrms/db@workspace:packages/db"],
@@ -239,7 +261,7 @@
     "@jury-hrms/employee-service": ["@jury-hrms/employee-service@workspace:services/employee-service"],
 
     "@jury-hrms/mailer": ["@jury-hrms/mailer@workspace:packages/mailer"],
-    
+
     "@jury-hrms/org_department-service": ["@jury-hrms/org_department-service@workspace:services/org_department-service"],
 
     "@jury-hrms/org_designation-service": ["@jury-hrms/org_designation-service@workspace:services/org_designation-service"],
@@ -593,5 +615,7 @@
     "@jury-hrms/org_designation-service/@prisma/client": ["@prisma/client@6.18.0", "", { "peerDependencies": { "prisma": "*", "typescript": ">=5.1.0" }, "optionalPeers": ["prisma", "typescript"] }, "sha512-jnL2I9gDnPnw4A+4h5SuNn8Gc+1mL1Z79U/3I9eE2gbxJG1oSA+62ByPW4xkeDgwE0fqMzzpAZ7IHxYnLZ4iQA=="],
 
     "@jury-hrms/organization-service/@prisma/client": ["@prisma/client@6.18.0", "", { "peerDependencies": { "prisma": "*", "typescript": ">=5.1.0" }, "optionalPeers": ["prisma", "typescript"] }, "sha512-jnL2I9gDnPnw4A+4h5SuNn8Gc+1mL1Z79U/3I9eE2gbxJG1oSA+62ByPW4xkeDgwE0fqMzzpAZ7IHxYnLZ4iQA=="],
+
+    "@jury-hrms/proto/@grpc/grpc-js": ["@grpc/grpc-js@1.14.1", "", { "dependencies": { "@grpc/proto-loader": "^0.8.0", "@js-sdsl/ordered-map": "^4.4.2" } }, "sha512-sPxgEWtPUR3EnRJCEtbGZG2iX8LQDUls2wUS3o27jg07KqJFMq6YDeWvMo1wfpmy3rqRdS0rivpLwhqQtEyCuQ=="],
   }
 }

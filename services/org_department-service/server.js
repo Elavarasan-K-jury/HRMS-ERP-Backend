@@ -39,18 +39,12 @@ const impl = {
                 const employeeExists = await prisma.organizationEmployees.findFirst({
                     where: {
                         id: data.department_head_id,
-                        organizationId: data.organization_id,
-                        deletedAt: null,
+                        organizationId: data.organization_id
                     },
+                    include: {
+                        organization: true
+                    }
                 });
-                console.log('====================================');
-                console.log({
-                    id: data.department_head_id,
-                    organizationId: data.organization_id,
-                    deletedAt: null,
-                });
-                console.log('====================================');
-
                 if (!employeeExists) {
                     return callback({
                         code: grpc.status.NOT_FOUND,
@@ -58,7 +52,6 @@ const impl = {
                     });
                 }
             }
-
             const mappedData = {
                 organizationId: data.organization_id,
                 name: data.name,

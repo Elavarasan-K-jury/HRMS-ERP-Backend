@@ -123,9 +123,6 @@ export default function registerOrgDepartmentRoutes({ openapi }) {
                         400
                     );
                 }
-                if (error.code === grpc.status.ALREADY_EXISTS) {
-                    return c.json({ error: error.message }, 409);
-                }
                 return c.json({ error: error.message }, 500);
             }
         }
@@ -161,6 +158,7 @@ export default function registerOrgDepartmentRoutes({ openapi }) {
                                 note: z.string().optional(),
                                 created_at: z.string().optional(),
                                 updated_at: z.string().optional(),
+                                deleted_at: z.string().optional(),
                             }),
                         },
                     },
@@ -354,9 +352,6 @@ export default function registerOrgDepartmentRoutes({ openapi }) {
                         },
                         400
                     );
-                }
-                if (error.code === grpc.status.ALREADY_EXISTS) {
-                    return c.json({ error: error.message }, 409);
                 }
                 return c.json({ error: error.message }, 500);
             }
