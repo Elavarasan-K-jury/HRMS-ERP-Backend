@@ -73,14 +73,24 @@ message Employee {
 
 message EmployeeResponse {
   Employee employee = 1;
+  bool success = 2;
+  string message = 3;
 }
 
 message ListEmployeesRequest {
   string organization_id = 1;
   string category_id     = 2;
   string department_id   = 3;
+  bool success = 4;
+  string message = 5;
 }
 
 message ListEmployeesResponse {
   repeated Employee employees = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  bool success = 6;
+  string message = 7;
 }
