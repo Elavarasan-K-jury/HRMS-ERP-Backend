@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package asset_models;
+
+// -----------------------------
+// Service
+// -----------------------------
+service AssetModelService {
+  rpc CreateAssetModel (CreateAssetModelRequest) returns (AssetModelResponse);
+  rpc GetAssetModel    (GetAssetModelRequest)    returns (AssetModelResponse);
+  rpc ListAssetModels  (ListAssetModelsRequest)  returns (ListAssetModelsResponse);
+  rpc UpdateAssetModel (UpdateAssetModelRequest) returns (AssetModelResponse);
+  rpc DeleteAssetModel (DeleteAssetModelRequest) returns (DeleteAssetModelResponse);
+}
+
+// -----------------------------
+// Requests
+// -----------------------------
+message CreateAssetModelRequest {
+  string organization_id = 1;
+  string category_id     = 2;
+  string brand           = 3;
+  string model_name      = 4;
+  string code            = 5;
+  string description     = 6;
+  string specs           = 7; // JSON string representation
+  bool   is_active       = 8;
+}
+
+message GetAssetModelRequest {
+  string id = 1;
+}
+
+message UpdateAssetModelRequest {
+  string id              = 1;
+  string organization_id = 2;
+  string category_id     = 3;
+  string brand           = 4;
+  string model_name      = 5;
+  string code            = 6;
+  string description     = 7;
+  string specs           = 8; // JSON string representation
+  bool   is_active       = 9;
+}
+
+message DeleteAssetModelRequest {
+  string id = 1;
+}
+
+message ListAssetModelsRequest {
+  string organization_id = 1;
+  string category_id     = 2;
+}
+
+// -----------------------------
+// Responses
+// -----------------------------
+message AssetModel {
+  string id              = 1;
+  string organization_id = 2;
+  string category_id     = 3;
+  string brand           = 4;
+  string model_name      = 5;
+  string code            = 6;
+  string description     = 7;
+  string specs           = 8; // JSON string representation
+  bool   is_active       = 9;
+  string created_at      = 10;
+  string updated_at      = 11;
+  string deleted_at      = 12;
+}
+
+message AssetModelResponse {
+  AssetModel model = 1;
+}
+
+message ListAssetModelsResponse {
+  repeated AssetModel models = 1;
+}
+
+message DeleteAssetModelResponse {
+  bool success = 1;
+  string message = 2;
+}

@@ -301,6 +301,8 @@ model Assets {
   modelId         String    @map("model_id") @db.ObjectId
   serialNumber    String
   assetTag        String
+  userName        String?
+  password        String?
   purchaseDate    DateTime
   warrantyExpire  DateTime
   status          String    @default("Available")

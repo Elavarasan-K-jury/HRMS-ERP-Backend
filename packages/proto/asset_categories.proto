@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package asset_categories;
+
+// -----------------------------
+// Service
+// -----------------------------
+service AssetCategoryService {
+  rpc CreateAssetCategory (CreateAssetCategoryRequest) returns (AssetCategoryResponse);
+  rpc GetAssetCategory    (GetAssetCategoryRequest)    returns (AssetCategoryResponse);
+  rpc ListAssetCategories (ListAssetCategoriesRequest) returns (ListAssetCategoriesResponse);
+  rpc UpdateAssetCategory (UpdateAssetCategoryRequest) returns (AssetCategoryResponse);
+  rpc DeleteAssetCategory (DeleteAssetCategoryRequest) returns (DeleteAssetCategoryResponse);
+}
+
+// -----------------------------
+// Requests
+// -----------------------------
+message CreateAssetCategoryRequest {
+  string organization_id = 1;
+  string name            = 2;
+  string code            = 3;
+  string description     = 4;
+  bool   is_active       = 5;
+}
+
+message GetAssetCategoryRequest {
+  string id = 1;
+}
+
+message UpdateAssetCategoryRequest {
+  string id              = 1;
+  string organization_id = 2;
+  string name            = 3;
+  string code            = 4;
+  string description     = 5;
+  bool   is_active       = 6;
+}
+
+message DeleteAssetCategoryRequest {
+  string id = 1;
+}
+
+message ListAssetCategoriesRequest {
+  string organization_id = 1;
+}
+
+// -----------------------------
+// Responses
+// -----------------------------
+message AssetCategory {
+  string id              = 1;
+  string organization_id = 2;
+  string name            = 3;
+  string code            = 4;
+  string description     = 5;
+  bool   is_active       = 6;
+  string created_at      = 7;
+  string updated_at      = 8;
+  string deleted_at      = 9;
+}
+
+message AssetCategoryResponse {
+  AssetCategory category = 1;
+}
+
+message ListAssetCategoriesResponse {
+  repeated AssetCategory categories = 1;
+}
+
+message DeleteAssetCategoryResponse {
+  bool success = 1;
+  string message = 2;
+}
