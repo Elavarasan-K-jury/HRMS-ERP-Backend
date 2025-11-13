@@ -100,6 +100,24 @@
         "@prisma/client": "latest",
       },
     },
+    "services/asset-request-service": {
+      "name": "@jury-hrms/asset-request-service",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "@prisma/client": "latest",
+      },
+    },
+    "services/assets-service": {
+      "name": "@jury-hrms/assets-service",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "@prisma/client": "latest",
+      },
+    },
     "services/attendance-log-service": {
       "name": "@jury-hrms/attendance-log-service",
       "version": "0.1.0",
@@ -259,6 +277,10 @@
     "@jury-hrms/asset-category-service": ["@jury-hrms/asset-category-service@workspace:services/asset-category-service"],
 
     "@jury-hrms/asset-models-service": ["@jury-hrms/asset-models-service@workspace:services/asset-models-service"],
+
+    "@jury-hrms/asset-request-service": ["@jury-hrms/asset-request-service@workspace:services/asset-request-service"],
+
+    "@jury-hrms/assets-service": ["@jury-hrms/assets-service@workspace:services/assets-service"],
 
     "@jury-hrms/attendance-log-service": ["@jury-hrms/attendance-log-service@workspace:services/attendance-log-service"],
 

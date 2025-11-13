@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package assets;
+
+// -----------------------------
+// Service
+// -----------------------------
+service AssetService {
+  rpc CreateAsset (CreateAssetRequest) returns (AssetResponse);
+  rpc GetAsset    (GetAssetRequest)    returns (AssetResponse);
+  rpc ListAssets  (ListAssetsRequest)  returns (ListAssetsResponse);
+  rpc UpdateAsset (UpdateAssetRequest) returns (AssetResponse);
+  rpc DeleteAsset (DeleteAssetRequest) returns (DeleteAssetResponse);
+}
+
+// -----------------------------
+// Requests
+// -----------------------------
+message CreateAssetRequest {
+  string organization_id = 1;
+  string category_id     = 2;
+  string model_id        = 3;
+  string serial_number   = 4;
+  string asset_tag       = 5;
+  string user_name       = 6;
+  string password        = 7;
+  string purchase_date   = 8;
+  string warranty_expire = 9;
+  string status          = 10;
+  string location        = 11; // JSON string representation
+}
+
+message GetAssetRequest {
+  string id = 1;
+}
+
+message UpdateAssetRequest {
+  string id              = 1;
+  string organization_id = 2;
+  string category_id     = 3;
+  string model_id        = 4;
+  string serial_number   = 5;
+  string asset_tag       = 6;
+  string user_name       = 7;
+  string password        = 8;
+  string purchase_date   = 9;
+  string warranty_expire = 10;
+  string status          = 11;
+  string location        = 12; // JSON string representation
+}
+
+message DeleteAssetRequest {
+  string id = 1;
+}
+
+message ListAssetsRequest {
+  string organization_id = 1;
+  string category_id     = 2;
+  string model_id        = 3;
+  string status          = 4;
+}
+
+// -----------------------------
+// Responses
+// -----------------------------
+message Asset {
+  string id              = 1;
+  string organization_id = 2;
+  string category_id     = 3;
+  string model_id        = 4;
+  string serial_number   = 5;
+  string asset_tag       = 6;
+  string user_name       = 7;
+  string password        = 8;
+  string purchase_date   = 9;
+  string warranty_expire = 10;
+  string status          = 11;
+  string location        = 12; // JSON string representation
+  string created_at      = 13;
+  string updated_at      = 14;
+  string deleted_at      = 15;
+}
+
+message AssetResponse {
+  Asset asset = 1;
+}
+
+message ListAssetsResponse {
+  repeated Asset assets = 1;
+}
+
+message DeleteAssetResponse {
+  bool success = 1;
+  string message = 2;
+}

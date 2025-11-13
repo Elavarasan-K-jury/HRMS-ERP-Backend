@@ -32,25 +32,22 @@ export default function registerAssetModelRoutes(app) {
                     description: 'Asset Model created successfully',
                     content: {
                         'application/json': {
-                            schema: {
-                                type: 'object',
-                                properties: {
-                                    id: { type: 'string' },
-                                    organization_id: { type: 'string' },
-                                    category_id: { type: 'string' },
-                                    brand: { type: 'string' },
-                                    model_name: { type: 'string' },
-                                    code: { type: 'string' },
-                                    description: { type: 'string' },
-                                    specs: { type: 'string' },
-                                    is_active: { type: 'boolean' },
-                                    created_at: { type: 'string' },
-                                    updated_at: { type: 'string' },
-                                    deleted_at: { type: 'string' },
-                                },
-                            },
+                            schema: z.object({
+                                id: z.string(),
+                                organization_id: z.string(),
+                                category_id: z.string(),
+                                brand: z.string(),
+                                model_name: z.string(),
+                                code: z.string(),
+                                description: z.string(),
+                                specs: z.string(),
+                                is_active: z.boolean(),
+                                created_at: z.string(),
+                                updated_at: z.string(),
+                                deleted_at: z.string(),
+                            }),
                         },
-                    },
+                    }
                 },
                 400: {
                     description: 'Bad Request',
@@ -220,7 +217,7 @@ export default function registerAssetModelRoutes(app) {
     );
 
     // 🟣 Update Asset Model
-    const UpdateAssetModelSchema = CreateAssetModelSchema.partial(); // 👈 no 'id' in body
+    const UpdateAssetModelSchema = CreateAssetModelSchema.partial(); 
 
     app.openapi(
         {

@@ -126,17 +126,54 @@ const impl = {
 
     ListAssetModels: async (call, callback) => {
         try {
-            const { organization_id } = call.request;
+            const { organization_id,
+                page = 1,
+                limit = 10,
+                search = '',
+                sort_by = 'created_at',
+                sort_order = 'desc',
+             } = call.request;
+
+            const skip = (page - 1) * limit;    
+
+            let where = {
+                deletedAt: null,
+            };
+            if (organization_id) {
+                where = {
+                    organizationId: organization_id,
+                };
+            }
+            if (search) {
+                where = {
+                    OR: [
+                        { brand: { contains: search, mode: 'insensitive' } },
+                        { modelName: { contains: search, mode: 'insensitive' } },
+                    ],
+                };
+            }
 
             const models = await prisma.assetModels.findMany({
-                where: {
-                    organizationId: organization_id,
-                    deletedAt: null,
+                where,
+                skip,
+                take: limit,
+                orderBy: {
+                    [sort_by]: sort_order,
                 },
-                orderBy: { createdAt: 'desc' },
+                include: {
+                    assetCategories: true, 
+                    organization: true, 
+                },
             });
 
-            callback(null, { models: models.map(mapModel) });
+            const total = await prisma.assetModels.count({
+                where,
+            });
+
+            callback(null, {
+                models: models.map(mapModel),
+                total,
+            })
         } catch (e) {
             console.error('❌ ListAssetModel Error:', e);
             callback({

@@ -28,6 +28,8 @@ import registerEmployeeOnboardingFeatureRoutes from './routes/emp_onboard_featur
 import registerEmployeeOnboardingProgressRoutes from './routes/emp_onboard_progress.routes.js';
 import registerAssetCategoryRoutes from './routes/asset_category.routes.js';
 import registerAssetModelRoutes from './routes/asset_model.routes.js';
+import registerAssetRoutes from './routes/assets.routes.js';
+import registerAssetRequestRoutes from './routes/asset_request.routes.js';
 
 // ---- Initialize Hono App ---- //
 const app = new OpenAPIHono({
@@ -120,13 +122,25 @@ registerAssetCategoryRoutes({
         // wrap each route handler in queue
         app.openapi(def, withQueue(handler));
     },
-})
+});
 registerAssetModelRoutes({
     openapi: (def, handler) => {
         // wrap each route handler in queue
         app.openapi(def, withQueue(handler));
     },
-})
+});
+registerAssetRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerAssetRequestRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
 
 // ---- OpenAPI Info ---- //
 app.doc('/doc', {

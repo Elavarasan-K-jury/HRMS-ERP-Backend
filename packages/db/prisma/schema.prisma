@@ -326,7 +326,7 @@ model AssetRequest {
   quantity        Int      @default(1)
   priority        String    @default("Medium")
   status          String    @default("Pending")
-  approvedAt      DateTime  @map("approved_at")
+  approvedAt      DateTime? @map("approved_at")
   rejectionReason String
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @default(now()) @map("updated_at")

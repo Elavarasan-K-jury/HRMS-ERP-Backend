@@ -100,19 +100,45 @@ const impl = {
 
     ListAssetCategories: async (call, callback) => {
         try {
-            const { organization_id } = call.request;
+            const { organization_id,
+                page = 1,
+                limit = 10,
+                search = '',
+                sort_by = 'created_at',
+                sort_order = 'desc',
+             } = call.request;
+
+            const skip = (page - 1) * limit;
+
+            let where = {
+                deletedAt: null,
+            };
+            if (organization_id) {
+                where = {
+                    organizationId: organization_id,
+                };
+            }
+            if (search) {
+                where = {
+                    OR: [
+                        { name: { contains: search, mode: 'insensitive' } },
+                        { code: { contains: search, mode: 'insensitive' } },
+                        { description: { contains: search, mode: 'insensitive' } },
+                    ],
+                };
+            }
 
             const categories = await prisma.assetCategories.findMany({
-                where: {
-                    organizationId: organization_id,
-                    deletedAt: null,
-                },
-                orderBy: { createdAt: 'desc' },
+                where,
+                orderBy: { [sort_by]: sort_order },
+                skip,
+                take: limit,
             });
 
             callback(null, {
                 categories: categories.map(mapCategory),
-            });
+                total: await prisma.assetCategories.count({ where }),
+            })
         } catch (e) {
             console.error('❌ ListAssetCategories Error:', e);
             callback({
