@@ -82,6 +82,15 @@
         "@prisma/client": "latest",
       },
     },
+    "services/asset-assignment-service": {
+      "name": "@jury-hrms/asset-assignment-service",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "@prisma/client": "latest",
+      },
+    },
     "services/asset-category-service": {
       "name": "@jury-hrms/asset-category-service",
       "version": "0.1.0",
@@ -273,6 +282,8 @@
     "@jury-hrms/admin-service": ["@jury-hrms/admin-service@workspace:services/admin-service"],
 
     "@jury-hrms/api-gateway": ["@jury-hrms/api-gateway@workspace:apps/api-gateway"],
+
+    "@jury-hrms/asset-assignment-service": ["@jury-hrms/asset-assignment-service@workspace:services/asset-assignment-service"],
 
     "@jury-hrms/asset-category-service": ["@jury-hrms/asset-category-service@workspace:services/asset-category-service"],
 

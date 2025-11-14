@@ -1,6 +1,7 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma } from '@jury-hrms/db/client.js';
 
+
 const PORT = Number(process.env.ASSET_CAT_SERVICE_PORT || 50063);
 const assetCategoryProto = loadProto('asset_categories');
 
@@ -57,6 +58,8 @@ const impl = {
 
             callback(null, {
                 category: mapCategory(category),
+                message: 'Asset category created successfully',
+                success: true,
             });
         } catch (e) {
             console.error('❌ CreateAssetCategory Error:', e);
@@ -88,7 +91,11 @@ const impl = {
                 });
             }
 
-            callback(null, { category: mapCategory(category) });
+            callback(null, {
+                category: mapCategory(category),
+                success: true,
+                message : "Asset category fetched successfully"
+             });
         } catch (e) {
             console.error('❌ GetAssetCategory Error:', e);
             callback({
@@ -100,53 +107,69 @@ const impl = {
 
     ListAssetCategories: async (call, callback) => {
         try {
-            const { organization_id,
+            const {
+                organization_id,
                 page = 1,
                 limit = 10,
-                search = '',
-                sort_by = 'created_at',
-                sort_order = 'desc',
-             } = call.request;
+                search = "",
+                sort_by = "created_at",
+                sort_order = "desc"
+            } = call.request;
 
             const skip = (page - 1) * limit;
 
-            let where = {
-                deletedAt: null,
+            // Mapping API -> Prisma fields
+            const sortMap = {
+                created_at: "createdAt",
+                updated_at: "updatedAt",
+                name: "name",
+                code: "code",
             };
+
+            const prismaSortField = sortMap[sort_by] || "createdAt";
+
+            let where = { deletedAt: null };
+
             if (organization_id) {
-                where = {
-                    organizationId: organization_id,
-                };
+                where.organizationId = organization_id;
             }
+
             if (search) {
-                where = {
-                    OR: [
-                        { name: { contains: search, mode: 'insensitive' } },
-                        { code: { contains: search, mode: 'insensitive' } },
-                        { description: { contains: search, mode: 'insensitive' } },
-                    ],
-                };
+                where.OR = [
+                    { name: { contains: search, mode: "insensitive" } },
+                    { code: { contains: search, mode: "insensitive" } },
+                    { description: { contains: search, mode: "insensitive" } },
+                ];
             }
+
+            const total = await prisma.assetCategories.count({ where });
 
             const categories = await prisma.assetCategories.findMany({
                 where,
-                orderBy: { [sort_by]: sort_order },
+                orderBy: { [prismaSortField]: sort_order },
                 skip,
                 take: limit,
             });
 
             callback(null, {
                 categories: categories.map(mapCategory),
-                total: await prisma.assetCategories.count({ where }),
-            })
+                total,
+                page,
+                limit,
+                total_pages: Math.ceil(total / limit),
+                success: true,
+                message: "Asset categories fetched successfully",
+            });
+
         } catch (e) {
-            console.error('❌ ListAssetCategories Error:', e);
+            console.error("❌ ListAssetCategories Error:", e);
             callback({
                 code: grpc.status.INTERNAL,
                 message: e.message,
             });
         }
     },
+
 
     UpdateAssetCategory: async (call, callback) => {
         try {
@@ -181,7 +204,11 @@ const impl = {
                 },
             });
 
-            callback(null, { category: mapCategory(updated) });
+            callback(null, {
+                category: mapCategory(updated),
+                success: true,
+                message: "Asset category updated successfully"
+             });
         } catch (e) {
             console.error('❌ UpdateAssetCategory Error:', e);
             callback({

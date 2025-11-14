@@ -36,23 +36,27 @@ export default function registerAssetRequestRoutes(app) {
                     content: {
                         'application/json': {
                             schema: z.object({
-                                id: z.string(),
-                                organization_id: z.string(),
-                                category_id: z.string(),
-                                model_id: z.string(),
-                                employee_id: z.string(),
-                                reason: z.string(),
-                                quantity: z.number().optional(),
-                                priority: z.string().optional(),
-                                status: z.string().optional(),
-                                approved_by: z.string().optional(),
-                                approved_at: z.string().optional(),
-                                rejection_reason: z.string().optional(),
-                                createdAt: z.string(),
-                                updatedAt: z.string(),
-                                deletedAt: z.string().nullable(),
-                            }),
-                        },
+                                request: z.object({
+                                    id: z.string(),
+                                    organization_id: z.string(),
+                                    category_id: z.string(),
+                                    model_id: z.string(),
+                                    employee_id: z.string(),
+                                    approved_by: z.string().optional(),
+                                    reason: z.string(),
+                                    quantity: z.number().optional(),
+                                    priority: z.string().optional(),
+                                    status: z.string().optional(),
+                                    approved_at: z.string().optional(),
+                                    rejection_reason: z.string().optional(),
+                                    created_at: z.string(),
+                                    updated_at: z.string(),
+                                    deleted_at: z.string().nullable(),
+                                }),
+                                success: z.boolean(),
+                                message: z.string(),
+                            })
+                        }
                     }
                 },
                 400: {
@@ -109,22 +113,27 @@ export default function registerAssetRequestRoutes(app) {
                     content: {
                         'application/json': {
                             schema: z.object({
-                                id: z.string(),
-                                organization_id: z.string(),
-                                category_id: z.string(),
-                                model_id: z.string(),
-                                employee_id: z.string(),
-                                reason: z.string(),
-                                quantity: z.number().optional(),
-                                priority: z.string().optional(),
-                                status: z.string().optional(),
-                                approved_by: z.string().optional(),
-                                approved_at: z.string().optional(),
-                                rejection_reason: z.string().optional(),
-                                createdAt: z.string(),
-                                updatedAt: z.string(),
-                                deletedAt: z.string().nullable(),
-                            }),
+                                request: z.object({
+                                    id: z.string(),
+                                    organization_id: z.string(),
+                                    category_id: z.string(),
+                                    model_id: z.string(),
+                                    employee_id: z.string(),
+                                    approved_by: z.string().optional(),
+                                    reason: z.string(),
+                                    quantity: z.number(),
+                                    priority: z.string(),
+                                    status: z.string(),
+                                    approved_at: z.string().optional(),
+                                    rejection_reason: z.string().optional(),
+                                    created_at: z.string(),
+                                    updated_at: z.string(),
+                                    deleted_at: z.string().nullable()
+                                }),
+                                success: z.boolean(),
+                                message: z.string()
+                            })
+
                         },
                     },
                 },
@@ -187,31 +196,33 @@ export default function registerAssetRequestRoutes(app) {
                     content: {
                         'application/json': {
                             schema: z.object({
-                                assetRequest: z.array(
+                                requests: z.array(
                                     z.object({
                                         id: z.string(),
                                         organization_id: z.string(),
                                         category_id: z.string(),
                                         model_id: z.string(),
                                         employee_id: z.string(),
-                                        reason: z.string(),
-                                        quantity: z.number().optional(),
-                                        priority: z.string().optional(),
-                                        status: z.string().optional(),
                                         approved_by: z.string().optional(),
+                                        reason: z.string(),
+                                        quantity: z.number(),
+                                        priority: z.string(),
+                                        status: z.string(),
                                         approved_at: z.string().optional(),
                                         rejection_reason: z.string().optional(),
-                                        createdAt: z.string(),
-                                        updatedAt: z.string(),
-                                        deletedAt: z.string().nullable(),
+                                        created_at: z.string(),
+                                        updated_at: z.string(),
+                                        deleted_at: z.string().nullable(),
                                     })
                                 ),
                                 total: z.number(),
                                 page: z.number(),
                                 limit: z.number(),
-                                sort_by: z.string(),
-                                sort_order: z.string(),
-                            }),
+                                total_pages: z.number(),
+                                success: z.boolean(),
+                                message: z.string(),
+                            })
+
                         },
                     },
                 },
@@ -291,22 +302,27 @@ export default function registerAssetRequestRoutes(app) {
                     content: {
                         'application/json': {
                             schema: z.object({
-                                id: z.string(),
-                                organization_id: z.string(),
-                                category_id: z.string(),
-                                model_id: z.string(),
-                                employee_id: z.string(),
-                                reason: z.string(),
-                                quantity: z.number().optional(),
-                                priority: z.string().optional(),
-                                status: z.string().optional(),
-                                approved_by: z.string().optional(),
-                                approved_at: z.string().optional(),
-                                rejection_reason: z.string().optional(),
-                                createdAt: z.string(),
-                                updatedAt: z.string(),
-                                deletedAt: z.string().nullable(),
-                            }),
+                                request: z.object({
+                                    id: z.string(),
+                                    organization_id: z.string(),
+                                    category_id: z.string(),
+                                    model_id: z.string(),
+                                    employee_id: z.string(),
+                                    approved_by: z.string().optional(),
+                                    reason: z.string(),
+                                    quantity: z.number(),
+                                    priority: z.string(),
+                                    status: z.string(),
+                                    approved_at: z.string().optional(),
+                                    rejection_reason: z.string().optional(),
+                                    created_at: z.string(),
+                                    updated_at: z.string(),
+                                    deleted_at: z.string().nullable(),
+                                }),
+                                success: z.boolean(),
+                                message: z.string()
+                            })
+
                         },
                     },
                 },

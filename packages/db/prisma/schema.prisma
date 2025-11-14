@@ -203,6 +203,7 @@ model OrganizationEmployees {
   organization          Organizations             @relation(fields: [organizationId], references: [id])
   category              EmployeeCategories        @relation(fields: [categoryId], references: [id])
   designation           OrganizationDesignations? @relation("DesignationEmployees", fields: [designationId], references: [id])
+  assetAssignment       AssetAssignments[]
   attendance            Attendance[]
   departmentAssignments EmployeeDepartments[]
   onboardingProgress    OnboardingProgress[]      @relation("EmployeeOnboardingProgress")
@@ -327,7 +328,7 @@ model AssetRequest {
   priority        String    @default("Medium")
   status          String    @default("Pending")
   approvedAt      DateTime? @map("approved_at")
-  rejectionReason String
+  rejectionReason String?
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @default(now()) @map("updated_at")
   deletedAt       DateTime? @map("deleted_at")
@@ -341,7 +342,7 @@ model AssetAssignments {
   assetId         String    @map("asset_id ") @db.ObjectId
   employeeId         String    @map("employee_id") @db.ObjectId
   assignedDate    DateTime  @map("assigned_date")
-  returnDate      DateTime  @map("return_date")
+  returnDate      DateTime?  @map("return_date")
   conditionAssign Json?
   status String @default("Active")
   notes String
@@ -350,7 +351,7 @@ model AssetAssignments {
   deletedAt   DateTime? @map("deleted_at")
   asset     Assets  @relation(fields: [assetId], references: [id])
   organization  Organizations  @relation(fields: [organizationId], references: [id])
-
+  employee     OrganizationEmployees @relation(fields: [employeeId], references: [id])
 }
 
 model AssetCondition {

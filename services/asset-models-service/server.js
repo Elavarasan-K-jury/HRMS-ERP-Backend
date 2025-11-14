@@ -76,6 +76,8 @@ const impl = {
 
             callback(null, {
                 model: mapModel(created),
+                success: true,
+                message: 'Asset model created successfully',
             });
         } catch (e) {
             console.error('❌ CreateAssetModel Error:', e);
@@ -112,7 +114,11 @@ const impl = {
             }
 
 
-            return callback(null, { model: mapModel(model) });
+            return callback(null, {
+                model: mapModel(model),
+                success: true,
+                message: "Asset model fetched successfully"
+             });
 
         } catch (e) {
             console.error('❌ GetAssetModel Error:', e);
@@ -134,7 +140,17 @@ const impl = {
                 sort_order = 'desc',
              } = call.request;
 
-            const skip = (page - 1) * limit;    
+            const skip = (page - 1) * limit;   
+
+            // Mapping API -> Prisma fields
+            const sortMap = {
+                created_at: "createdAt",
+                updated_at: "updatedAt",
+                name: "name",
+                code: "code",
+            };
+
+            const prismaSortField = sortMap[sort_by] || "createdAt";
 
             let where = {
                 deletedAt: null,
@@ -152,27 +168,26 @@ const impl = {
                     ],
                 };
             }
-
+            const total = await prisma.assetModels.count({ where });
             const models = await prisma.assetModels.findMany({
                 where,
                 skip,
                 take: limit,
-                orderBy: {
-                    [sort_by]: sort_order,
-                },
+                orderBy: { [prismaSortField]: sort_order },
                 include: {
                     assetCategories: true, 
                     organization: true, 
                 },
             });
 
-            const total = await prisma.assetModels.count({
-                where,
-            });
-
             callback(null, {
                 models: models.map(mapModel),
                 total,
+                page,
+                limit,
+                total_pages: Math.ceil(total / limit),
+                success: true,
+                message: "Asset models fetched successfully"
             })
         } catch (e) {
             console.error('❌ ListAssetModel Error:', e);
@@ -218,7 +233,11 @@ const impl = {
                 },
             });
 
-            callback(null, { model: mapModel(updated) });
+            callback(null, {
+                model: mapModel(updated),
+                success: true,  
+                message: 'Asset model updated successfully',
+             });
         } catch (e) {
             console.error('❌ UpdateAssetModel Error:', e);
             callback({

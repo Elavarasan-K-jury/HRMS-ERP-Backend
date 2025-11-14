@@ -33,6 +33,7 @@ export default function registerAssetModelRoutes(app) {
                     content: {
                         'application/json': {
                             schema: z.object({
+                                model: z.object({
                                 id: z.string(),
                                 organization_id: z.string(),
                                 category_id: z.string(),
@@ -44,7 +45,10 @@ export default function registerAssetModelRoutes(app) {
                                 is_active: z.boolean(),
                                 created_at: z.string(),
                                 updated_at: z.string(),
-                                deleted_at: z.string(),
+                                    deleted_at: z.string(),
+                                }),
+                                message: z.string(),
+                                success: z.boolean(),
                             }),
                         },
                     }
@@ -120,6 +124,8 @@ export default function registerAssetModelRoutes(app) {
                                     updated_at: z.string(),
                                     deleted_at: z.string().nullable(),
                                 }),
+                                message: z.string(),
+                                success: z.boolean(),
                             }),
                         },
                     },
@@ -192,6 +198,9 @@ export default function registerAssetModelRoutes(app) {
                                 total: z.number(),
                                 page: z.number(),
                                 limit: z.number(),
+                                total_pages: z.number(),
+                                message: z.string(),
+                                success: z.boolean(),
                             }),
                         },
                     },
@@ -255,6 +264,8 @@ export default function registerAssetModelRoutes(app) {
                                     updated_at: z.string(),
                                     deleted_at: z.string().nullable(),
                                 }),
+                                message: z.string(),
+                                success: z.boolean(),
                             }),
                         },
                     },

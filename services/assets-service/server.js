@@ -95,7 +95,11 @@ const impl = {
                     organization: true,
                 },
             });
-            callback(null, { asset: mapAsset(created) });
+            callback(null, {
+                asset: mapAsset(created),
+                success: true,
+                message: "Asset created successfully"
+             });
         } catch (e) {
             console.error('❌ CreateAsset Error:', e);
             callback({
@@ -130,7 +134,11 @@ const impl = {
                 });
             }
 
-            callback(null, { asset: mapAsset(asset) });
+            callback(null, {
+                asset: mapAsset(asset),
+                success: true,
+                message: "Asset fetched successfully"
+             });
         } catch (e) {
             console.error('❌ GetAsset Error:', e);
             callback({
@@ -193,10 +201,15 @@ const impl = {
             const total = await prisma.assets.count({
                 where,
             });
-
+            
             callback(null, {
                 assets: assets.map(mapAsset),
                 total,
+                page,
+                limit,
+                total_pages: Math.ceil(total / limit),
+                success: true,
+                message: "Asset list fetched successfully"
             });
         } catch (e) {
             console.error('❌ ListAssets Error:', e);
@@ -244,7 +257,11 @@ const impl = {
                     organization: true,
                 },
             });
-            callback(null, { asset: mapAsset(updated) });
+            callback(null, {
+                asset: mapAsset(updated),
+                success: true,
+                message: "Asset updated successfully"
+             });
         } catch (e) {
             console.error('❌ UpdateAsset Error:', e);
             callback({

@@ -63,6 +63,9 @@ const impl = {
                 });
             }
 
+            const cleanId = (val) =>
+                !val || val === "" || val === "null" ? undefined : val;
+
             const mappedData = {
                 organizationId: data.organization_id,
                 categoriesId: data.category_id,
@@ -72,8 +75,8 @@ const impl = {
                     connect: { id: data.employee_id }
                 },
 
-                approvedBy: data.approved_by
-                    ? { connect: { id: data.approved_by } }
+                approvedBy: cleanId(data.approved_by)
+                    ? { connect: { id: cleanId(data.approved_by) } }
                     : undefined,
 
                 reason: data.reason,
@@ -81,11 +84,13 @@ const impl = {
                 priority: data.priority ?? "Medium",
                 status: data.status ?? "Pending",
 
-                approvedAt: data.approved_at
+                approvedAt: data.approved_at && data.approved_at !== ""
                     ? new Date(data.approved_at).toISOString()
                     : null,
 
-                rejectionReason: data.rejection_reason || null,
+                rejectionReason: data.rejection_reason === "null"
+                    ? null
+                    : data.rejection_reason || null,
 
                 createdAt: new Date(),
                 updatedAt: new Date(),
@@ -100,7 +105,12 @@ const impl = {
                 },
             });
 
-            callback(null, { request: mapAssetRequest(created) });
+            callback(null, {
+                request: mapAssetRequest(created),
+                success: true,
+                message: "Asset request created successfully"
+            });
+
 
         } catch (e) {
             console.error('❌ CreateAssetRequest Error:', e);
@@ -136,8 +146,12 @@ const impl = {
                     message: 'Asset request not found',
                 });
             }
+            callback(null, {
+                request: mapAssetRequest(model),
+                success: true,
+                message: "Asset request fetched successfully"
+            });
 
-            callback(null, { request: mapAssetRequest(model) });
         } catch (e) {
             console.error('❌ GetAssetRequest Error:', e);
             callback({
@@ -210,7 +224,11 @@ const impl = {
                 total: count,
                 page,
                 limit,
+                total_pages: Math.ceil(count / limit),
+                success: true,
+                message: "Asset requests fetched successfully"
             });
+
 
         } catch (e) {
             console.error("❌ ListAssetRequests Error:", e);
@@ -279,7 +297,12 @@ const impl = {
                 },
             });
 
-            callback(null, { request: mapAssetRequest(updated) });
+            callback(null, {
+                request: mapAssetRequest(updated),
+                success: true,
+                message: "Asset request updated successfully"
+            });
+
 
         } catch (e) {
             callback({

@@ -32,6 +32,7 @@ export default function registerAssetCategoryRoutes(app) {
                     content: {
                         'application/json': {
                             schema: z.object({
+                                categories: z.object({
                                 id: z.string(),
                                 name: z.string(),
                                 code: z.string().nullable(),
@@ -39,6 +40,9 @@ export default function registerAssetCategoryRoutes(app) {
                                 is_active: z.boolean(),
                                 created_at: z.string(),
                                 updated_at: z.string(),
+                                }),
+                                message: z.string(),
+                                success: z.boolean(),
                             }),
                         },
                     },
@@ -96,6 +100,7 @@ export default function registerAssetCategoryRoutes(app) {
                     content: {
                         'application/json': {
                             schema: z.object({
+                                categories: z.object({
                                 id: z.string(),
                                 organization_id: z.string(),
                                 name: z.string(),
@@ -105,6 +110,9 @@ export default function registerAssetCategoryRoutes(app) {
                                 created_at: z.string(),
                                 updated_at: z.string(),
                                 deleted_at: z.string().nullable(),
+                                }),
+                                message: z.string(),
+                                success: z.boolean(),   
                             }),
                         },
                     },
@@ -169,6 +177,9 @@ export default function registerAssetCategoryRoutes(app) {
                                 total: z.number(),
                                 page: z.number(),
                                 limit: z.number(),
+                                total_pages: z.number(),
+                                message: z.string(),
+                                success: z.boolean(),
                             }),
                         },
                     },
@@ -222,6 +233,25 @@ export default function registerAssetCategoryRoutes(app) {
             responses: {
                 200: {
                     descriptiom: 'Asset Category updated successfully',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                categories: z.object({
+                                    id: z.string(),
+                                    organization_id: z.string(),
+                                    name: z.string(),
+                                    code: z.string().nullable(),
+                                    description: z.string().nullable(),
+                                    is_active: z.boolean(),
+                                    created_at: z.string(),
+                                    updated_at: z.string(),
+                                    deleted_at: z.string().nullable(),
+                                }),
+                                message: z.string(),
+                                success: z.boolean(),
+                            }),
+                        },
+                    }
                 }
             }
         },

@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package asset_models;
 
-// -----------------------------
-// Service
-// -----------------------------
+// =============================
+// 🔹 Service
+// =============================
 service AssetModelService {
   rpc CreateAssetModel (CreateAssetModelRequest) returns (AssetModelResponse);
   rpc GetAssetModel    (GetAssetModelRequest)    returns (AssetModelResponse);
@@ -13,9 +13,9 @@ service AssetModelService {
   rpc DeleteAssetModel (DeleteAssetModelRequest) returns (DeleteAssetModelResponse);
 }
 
-// -----------------------------
-// Requests
-// -----------------------------
+// =============================
+// 🔹 Requests
+// =============================
 message CreateAssetModelRequest {
   string organization_id = 1;
   string category_id     = 2;
@@ -23,7 +23,7 @@ message CreateAssetModelRequest {
   string model_name      = 4;
   string code            = 5;
   string description     = 6;
-  string specs           = 7; // JSON string representation
+  string specs           = 7;
   bool   is_active       = 8;
 }
 
@@ -39,7 +39,7 @@ message UpdateAssetModelRequest {
   string model_name      = 5;
   string code            = 6;
   string description     = 7;
-  string specs           = 8; // JSON string representation
+  string specs           = 8;
   bool   is_active       = 9;
 }
 
@@ -47,14 +47,23 @@ message DeleteAssetModelRequest {
   string id = 1;
 }
 
+// =============================
+// 🔹 List Request (Pagination + Filters)
+// =============================
 message ListAssetModelsRequest {
   string organization_id = 1;
   string category_id     = 2;
+
+  int32 page             = 3;
+  int32 limit            = 4;
+  string search          = 5;
+  string sort_by         = 6;
+  string sort_order      = 7;
 }
 
-// -----------------------------
-// Responses
-// -----------------------------
+// =============================
+// 🔹 Asset Model Object
+// =============================
 message AssetModel {
   string id              = 1;
   string organization_id = 2;
@@ -63,21 +72,38 @@ message AssetModel {
   string model_name      = 5;
   string code            = 6;
   string description     = 7;
-  string specs           = 8; // JSON string representation
+  string specs           = 8;
   bool   is_active       = 9;
   string created_at      = 10;
   string updated_at      = 11;
   string deleted_at      = 12;
 }
 
+// =============================
+// 🔹 Single Response Wrapper
+// =============================
 message AssetModelResponse {
   AssetModel model = 1;
+  bool success     = 2;
+  string message   = 3;
 }
 
+// =============================
+// 🔹 List Response (Pagination)
+// =============================
 message ListAssetModelsResponse {
   repeated AssetModel models = 1;
+  int32 total               = 2;
+  int32 page                = 3;
+  int32 limit               = 4;
+  int32 total_pages         = 5;
+  bool success              = 6;
+  string message            = 7;
 }
 
+// =============================
+// 🔹 Delete Response
+// =============================
 message DeleteAssetModelResponse {
   bool success = 1;
   string message = 2;

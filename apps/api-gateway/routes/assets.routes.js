@@ -1,4 +1,4 @@
-import { z, ZodError } from 'zod';
+import { success, z, ZodError } from 'zod';
 import { assetClient } from '../grpc/assets.client.js';
 
 export default function registerAssetRoutes(app) {
@@ -37,6 +37,7 @@ export default function registerAssetRoutes(app) {
                     content: {
                         'application/json': {
                             schema: z.object({
+                                assets: z.object({
                                 id: z.string(),
                                 organization_id: z.string(),
                                 category_id: z.string(),
@@ -51,7 +52,10 @@ export default function registerAssetRoutes(app) {
                                 location: z.string(),
                                 created_at: z.string(),
                                 updated_at: z.string(),
-                                deleted_at: z.string(),
+                                    deleted_at: z.string(),
+                                }),
+                                message: z.string(),
+                                success: z.boolean(),
                             }),
                         },
                     },
@@ -107,6 +111,7 @@ export default function registerAssetRoutes(app) {
                     content: {
                         'application/json': {
                             schema: z.object({
+                                assets: z.object({
                                 id: z.string(),
                                 organization_id: z.string(),
                                 category_id: z.string(),
@@ -122,6 +127,9 @@ export default function registerAssetRoutes(app) {
                                 created_at: z.string(),
                                 updated_at: z.string(),
                                 deleted_at: z.string(),
+                                }),
+                                message: z.string(),
+                                success: z.boolean(),
                             }),
                         },
                     },
@@ -171,10 +179,11 @@ export default function registerAssetRoutes(app) {
                 query: z.object({
                     organization_id: z.string({ required_error: 'Organization ID is required' }),
                     search: z.string().optional(),
+                    total: z.coerce.number().optional().default(0),
                     page: z.coerce.number().optional().default(1),
                     limit: z.coerce.number().optional().default(10),
-                    sort_by: z.string().optional().default('created_at'),
-                    sort_order: z.enum(['asc', 'desc']).optional().default('desc'),
+                    sort_by: z.string().optional(),
+                    sort_order: z.string().optional(),
                 }),
             },
             responses: {
@@ -205,6 +214,9 @@ export default function registerAssetRoutes(app) {
                                 total: z.number(),
                                 page: z.number(),
                                 limit: z.number(),
+                                total_pages: z.number(),
+                                message: z.string(),
+                                success: z.boolean(),
                             }),
                         },
                     },
@@ -279,6 +291,7 @@ export default function registerAssetRoutes(app) {
                     content: {
                         'application/json': {
                             schema: z.object({
+                                assets: z.object({
                                 id: z.string(),
                                 organization_id: z.string(),
                                 category_id: z.string(),
@@ -293,7 +306,10 @@ export default function registerAssetRoutes(app) {
                                 location: z.string(),
                                 created_at: z.string(),
                                 updated_at: z.string(),
-                                deleted_at: z.string(),
+                                    deleted_at: z.string(),
+                                }),
+                                message: z.string(),
+                                success: z.boolean(),
                             }),
                         },
                     },
