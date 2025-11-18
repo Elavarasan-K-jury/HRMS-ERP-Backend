@@ -31,6 +31,7 @@ import registerAssetModelRoutes from './routes/asset_model.routes.js';
 import registerAssetRoutes from './routes/assets.routes.js';
 import registerAssetRequestRoutes from './routes/asset_request.routes.js';
 import registerAssetAssignmentRoutes from './routes/asset_assignment.routes.js';
+import registerAssetConditionRoutes from './routes/asset_condition.routes.js';
 
 // ---- Initialize Hono App ---- //
 const app = new OpenAPIHono({
@@ -143,6 +144,12 @@ registerAssetRequestRoutes({
     },
 });
 registerAssetAssignmentRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerAssetConditionRoutes({
     openapi: (def, handler) => {
         // wrap each route handler in queue
         app.openapi(def, withQueue(handler));

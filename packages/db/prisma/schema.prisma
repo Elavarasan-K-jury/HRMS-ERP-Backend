@@ -366,7 +366,7 @@ model AssetCondition {
   images    Json?
   actionTaken   String
   acknowledgedBy OrganizationEmployees? @relation("AcknowledgedBy", fields: [acknowledgedById], references: [id])
-  acknowledgedDate   DateTime 
+  acknowledgedDate   DateTime? 
   status    String  @default("Reported")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @default(now()) @map("updated_at")
