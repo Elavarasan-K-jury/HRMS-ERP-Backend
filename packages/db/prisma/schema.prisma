@@ -63,6 +63,10 @@ model Organizations {
   employees       OrganizationEmployees[]
   categories      EmployeeCategories[]
   onboardingFlows EmployeeOnboardingFlows[]  @relation("OrganizationOnboardings")
+  assetCategories AssetCategories[]
+  assetModel      AssetModels[]
+  assets          Assets[]
+  assetAssignment AssetAssignments[]
 }
 
 model OrganizationDepartments {
@@ -72,7 +76,7 @@ model OrganizationDepartments {
   code                    String?
   departmentHeadId        String?                    @map("department_head_id") @db.ObjectId
   departmentHeadStartDate DateTime?                  @map("department_head_start_date")
-  departmentHead          OrganizationEmployees?     @relation("DepartmentHead", fields: [departmentHeadId], references: [id], onDelete: NoAction, onUpdate: NoAction) // ✅ fixed
+  departmentHead          OrganizationEmployees?     @relation("DepartmentHead", fields: [departmentHeadId], references: [id], onDelete: NoAction, onUpdate: NoAction) 
   description             String?
   note                    String?
   organization            Organizations              @relation(fields: [organizationId], references: [id])
@@ -92,7 +96,7 @@ model OrganizationDesignations {
   description    String?
   organization   Organizations            @relation(fields: [organizationId], references: [id])
   department     OrganizationDepartments? @relation(fields: [departmentId], references: [id])
-  employees      OrganizationEmployees[]  @relation("DesignationEmployees") // ✅ added relation name
+  employees      OrganizationEmployees[]  @relation("DesignationEmployees")
   createdAt      DateTime                 @map("created_at")
   updatedAt      DateTime                 @map("updated_at")
   deletedAt      DateTime?                @map("deleted_at")
@@ -195,14 +199,17 @@ model OrganizationEmployees {
   gender         Gender
   dateOfBirth    DateTime @db.Date
 
-  headingDepartments OrganizationDepartments[] @relation("DepartmentHead") // ✅ matches new relation
-
+  headingDepartments OrganizationDepartments[] @relation("DepartmentHead")
   organization          Organizations             @relation(fields: [organizationId], references: [id])
   category              EmployeeCategories        @relation(fields: [categoryId], references: [id])
-  designation           OrganizationDesignations? @relation("DesignationEmployees", fields: [designationId], references: [id]) // ✅ matches new relation name
+  designation           OrganizationDesignations? @relation("DesignationEmployees", fields: [designationId], references: [id])
+  assetAssignment       AssetAssignments[]
   attendance            Attendance[]
   departmentAssignments EmployeeDepartments[]
   onboardingProgress    OnboardingProgress[]      @relation("EmployeeOnboardingProgress")
+  assetRequests   AssetRequest[] @relation("RequestedBy")
+  approvedRequests  AssetRequest[] @relation("ApprovedBy")
+  acknowledgedConditions  AssetCondition[] @relation("AcknowledgedBy")
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -253,4 +260,115 @@ model AttendanceLogs {
   deletedAt    DateTime? @map("deleted_at")
 
   attendance Attendance @relation(fields: [attendanceId], references: [id])
+}
+
+model AssetCategories {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String    @map("organization_id") @db.ObjectId
+  name         String
+  code         String
+  description   String
+  isActive      Boolean @default(true)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at") 
+  organization  Organizations  @relation(fields: [organizationId], references: [id])
+  assetModels AssetModels[]
+}
+
+model AssetModels {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String    @map("organization_id") @db.ObjectId
+  categoriesId    String   @map("category_id") @db.ObjectId
+  brand           String
+  modelName       String
+  code            String
+  description String
+  specs        Json?
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  assets      Assets[]
+  assetCategories AssetCategories @relation(fields: [categoriesId], references: [id])
+  organization  Organizations  @relation(fields: [organizationId], references: [id])
+
+}
+
+model Assets {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String    @map("organization_id") @db.ObjectId
+  categoriesId    String   @map("category_id") @db.ObjectId
+  modelId         String    @map("model_id") @db.ObjectId
+  serialNumber    String
+  assetTag        String
+  userName        String?
+  password        String?
+  purchaseDate    DateTime
+  warrantyExpire  DateTime
+  status          String    @default("Available")
+  location        Json?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+  assetAssignment AssetAssignments[]
+  assetModel      AssetModels @relation(fields: [modelId], references: [id])
+  organization  Organizations  @relation(fields: [organizationId], references: [id])
+}
+
+model AssetRequest {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String    @map("organization_id") @db.ObjectId
+  categoriesId    String   @map("category_id") @db.ObjectId
+  modelId         String    @map("model_id") @db.ObjectId
+  employeeId         String    @map("employee_id") @db.ObjectId
+  approvedById      String?   @map("approved_by") @db.ObjectId
+  reason          String
+  quantity        Int      @default(1)
+  priority        String    @default("Medium")
+  status          String    @default("Pending")
+  approvedAt      DateTime? @map("approved_at")
+  rejectionReason String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+  employee        OrganizationEmployees  @relation("RequestedBy", fields: [employeeId], references: [id])
+  approvedBy      OrganizationEmployees?  @relation("ApprovedBy", fields: [approvedById], references: [id])
+}
+
+model AssetAssignments {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String    @map("organization_id") @db.ObjectId
+  assetId         String    @map("asset_id ") @db.ObjectId
+  employeeId         String    @map("employee_id") @db.ObjectId
+  assignedDate    DateTime  @map("assigned_date")
+  returnDate      DateTime?  @map("return_date")
+  conditionAssign Json?
+  status String @default("Active")
+  notes String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  asset     Assets  @relation(fields: [assetId], references: [id])
+  organization  Organizations  @relation(fields: [organizationId], references: [id])
+  employee     OrganizationEmployees @relation(fields: [employeeId], references: [id])
+}
+
+model AssetCondition {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String    @map("organization_id") @db.ObjectId
+  assignmentId  String    @map("assignment_id") @db.ObjectId
+  employeeId         String    @map("employee_id") @db.ObjectId
+  acknowledgedById String?  @map("acknowledged_by") @db.ObjectId
+  reportDate  DateTime  @map("report_date")
+  description   String  
+  ratings   String? @default("Good")
+  images    Json?
+  actionTaken   String
+  acknowledgedBy OrganizationEmployees? @relation("AcknowledgedBy", fields: [acknowledgedById], references: [id])
+  acknowledgedDate   DateTime? 
+  status    String  @default("Reported")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
 }

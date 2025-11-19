@@ -82,6 +82,60 @@
         "@prisma/client": "latest",
       },
     },
+    "services/asset-assignment-service": {
+      "name": "@jury-hrms/asset-assignment-service",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "@prisma/client": "latest",
+      },
+    },
+    "services/asset-category-service": {
+      "name": "@jury-hrms/asset-category-service",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "@prisma/client": "latest",
+      },
+    },
+    "services/asset-condition-service": {
+      "name": "@jury-hrms/asset-condition-service",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "@prisma/client": "latest",
+      },
+    },
+    "services/asset-models-service": {
+      "name": "@jury-hrms/asset-models-service",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "@prisma/client": "latest",
+      },
+    },
+    "services/asset-request-service": {
+      "name": "@jury-hrms/asset-request-service",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "@prisma/client": "latest",
+      },
+    },
+    "services/assets-service": {
+      "name": "@jury-hrms/assets-service",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "@prisma/client": "latest",
+      },
+    },
     "services/attendance-log-service": {
       "name": "@jury-hrms/attendance-log-service",
       "version": "0.1.0",
@@ -237,6 +291,18 @@
     "@jury-hrms/admin-service": ["@jury-hrms/admin-service@workspace:services/admin-service"],
 
     "@jury-hrms/api-gateway": ["@jury-hrms/api-gateway@workspace:apps/api-gateway"],
+
+    "@jury-hrms/asset-assignment-service": ["@jury-hrms/asset-assignment-service@workspace:services/asset-assignment-service"],
+
+    "@jury-hrms/asset-category-service": ["@jury-hrms/asset-category-service@workspace:services/asset-category-service"],
+
+    "@jury-hrms/asset-condition-service": ["@jury-hrms/asset-condition-service@workspace:services/asset-condition-service"],
+
+    "@jury-hrms/asset-models-service": ["@jury-hrms/asset-models-service@workspace:services/asset-models-service"],
+
+    "@jury-hrms/asset-request-service": ["@jury-hrms/asset-request-service@workspace:services/asset-request-service"],
+
+    "@jury-hrms/assets-service": ["@jury-hrms/assets-service@workspace:services/assets-service"],
 
     "@jury-hrms/attendance-log-service": ["@jury-hrms/attendance-log-service@workspace:services/attendance-log-service"],
 

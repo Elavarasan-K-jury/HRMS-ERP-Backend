@@ -26,6 +26,12 @@ import registerEmployeeOnboardingFlowRoutes from './routes/emp_onboard_flow.rout
 import registerEmployeeOnboardingStepRoutes from './routes/emp_onboard_step.routes.js';
 import registerEmployeeOnboardingFeatureRoutes from './routes/emp_onboard_feature.routes.js';
 import registerEmployeeOnboardingProgressRoutes from './routes/emp_onboard_progress.routes.js';
+import registerAssetCategoryRoutes from './routes/asset_category.routes.js';
+import registerAssetModelRoutes from './routes/asset_model.routes.js';
+import registerAssetRoutes from './routes/assets.routes.js';
+import registerAssetRequestRoutes from './routes/asset_request.routes.js';
+import registerAssetAssignmentRoutes from './routes/asset_assignment.routes.js';
+import registerAssetConditionRoutes from './routes/asset_condition.routes.js';
 
 // ---- Initialize Hono App ---- //
 const app = new OpenAPIHono({
@@ -108,6 +114,42 @@ registerEmployeeOnboardingFeatureRoutes({
     },
 });
 registerEmployeeOnboardingProgressRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerAssetCategoryRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerAssetModelRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerAssetRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerAssetRequestRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerAssetAssignmentRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerAssetConditionRoutes({
     openapi: (def, handler) => {
         // wrap each route handler in queue
         app.openapi(def, withQueue(handler));
