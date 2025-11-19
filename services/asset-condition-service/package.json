@@ -1,0 +1,11 @@
+{
+    "name": "@jury-hrms/asset-condition-service",
+    "version": "0.1.0",
+    "type": "module",
+    "main": "server.js",
+    "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "@prisma/client": "latest"
+    }
+}
