@@ -49,7 +49,7 @@ export default function registerEmployeeOnboardingFlowRoutes(app) {
                 const response = await new Promise((resolve, reject) => {
                     onboardingFlowClient.CreateEmployeeOnboardingFlow(parsed, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.flow);
+                        resolve(resp);
                     });
                 });
 
@@ -105,7 +105,7 @@ export default function registerEmployeeOnboardingFlowRoutes(app) {
                 const response = await new Promise((resolve, reject) => {
                     onboardingFlowClient.GetEmployeeOnboardingFlow({ id }, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.flow);
+                        resolve(resp);
                     });
                 });
 
@@ -127,6 +127,11 @@ export default function registerEmployeeOnboardingFlowRoutes(app) {
             request: {
                 query: z.object({
                     organization_id: z.string({ required_error: 'Organization ID is required' }),
+                    page: z.string().transform(Number).default('1'),
+                    limit: z.string().transform(Number).default('10'),
+                    search: z.string().optional(),
+                    sort_by: z.string().optional(),
+                    sort_order: z.string().optional(),
                 }),
             },
             responses: {
@@ -148,13 +153,26 @@ export default function registerEmployeeOnboardingFlowRoutes(app) {
         },
         async (c) => {
             try {
-                const query = c.req.query();
-                const parsed = z.object({ organization_id: z.string() }).parse(query);
+                const {
+                    organization_id,
+                    page,
+                    limit,
+                    search,
+                    sort_by,
+                    sort_order,
+                } = c.req.query();
 
                 const response = await new Promise((resolve, reject) => {
-                    onboardingFlowClient.ListEmployeeOnboardingFlows(parsed, (err, resp) => {
+                    onboardingFlowClient.ListEmployeeOnboardingFlows({
+                        organization_id,
+                        page,
+                        limit,
+                        search,
+                        sort_by,
+                        sort_order,
+                    }, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.flows);
+                        resolve(resp);
                     });
                 });
 
@@ -240,7 +258,7 @@ export default function registerEmployeeOnboardingFlowRoutes(app) {
                 const response = await new Promise((resolve, reject) => {
                     onboardingFlowClient.UpdateEmployeeOnboardingFlow(payload, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.flow);
+                        resolve(resp);
                     });
                 });
 
@@ -299,7 +317,7 @@ export default function registerEmployeeOnboardingFlowRoutes(app) {
                 const existing = await new Promise((resolve, reject) => {
                     onboardingFlowClient.GetEmployeeOnboardingFlow({ id }, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.flow);
+                        resolve(resp);
                     });
                 });
 

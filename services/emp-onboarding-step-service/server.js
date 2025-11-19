@@ -50,7 +50,11 @@ const impl = {
                 },
             });
 
-            callback(null, { step: mapStep(created) });
+            callback(null, {
+                step: mapStep(created),
+                message: 'Step created successfully',
+                success: true,
+            });
         } catch (e) {
             console.error('CreateEmployeeOnboardingStep Error:', e);
             callback({
@@ -85,7 +89,11 @@ const impl = {
                 });
             }
 
-            callback(null, { step: mapStep(step) });
+            callback(null, {
+                step: mapStep(step),
+                message: 'Step found successfully',
+                success: true,
+            });
         } catch (e) {
             console.error('GetEmployeeOnboardingStep Error:', e);
             callback({
@@ -100,17 +108,64 @@ const impl = {
     // -----------------------------
     ListEmployeeOnboardingSteps: async (call, callback) => {
         try {
-            const { onboarding_id } = call.request;
+            const {
+                onboarding_id,
+                page,
+                limit,
+                search,
+                sort_by,
+                sort_order,
+            } = call.request;
+
+            let paginate = {}
+            if (page && limit) {
+                paginate = {
+                    skip: (page - 1) * limit,
+                    take: limit,
+                }
+            }
+
+            let where = {
+                deletedAt: null,
+            };
+
+            if (onboarding_id) {
+                where = {
+                    ...where,
+                    onboardingId: onboarding_id,
+                }
+            }
+
+            if (search != '' && search != null) {
+                where = {
+                    ...where,
+                    name: {
+                        contains: search,
+                        mode: 'insensitive',
+                    },
+                }
+            }
 
             const steps = await prisma.employeeOnboardingSteps.findMany({
-                where: {
-                    onboardingId: onboarding_id,
-                    deletedAt: null,
+                where,
+                orderBy: {
+                    [sort_by]: sort_order,
                 },
-                orderBy: { createdAt: 'asc' },
+                ...paginate,
+            });
+            const total = await prisma.employeeOnboardingSteps.count({
+                where,
             });
 
-            callback(null, { steps: steps.map(mapStep) });
+            callback(null, {
+                steps: steps.map(mapStep),
+                total,
+                page: Number(page),
+                limit: Number(limit),
+                total_pages: Math.ceil(total / limit),
+                message: 'Steps found successfully',
+                success: true,
+            });
         } catch (e) {
             console.error('ListEmployeeOnboardingSteps Error:', e);
             callback({
@@ -154,7 +209,11 @@ const impl = {
                 },
             });
 
-            callback(null, { step: mapStep(updated) });
+            callback(null, {
+                step: mapStep(updated),
+                message: 'Step updated successfully',
+                success: true,
+            });
         } catch (e) {
             console.error('UpdateEmployeeOnboardingStep Error:', e);
             callback({

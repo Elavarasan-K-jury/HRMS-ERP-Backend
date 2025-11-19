@@ -8,6 +8,7 @@ export default function registerEmployeeDepartmentRoutes(app) {
             .regex(/^[0-9a-fA-F]{24}$/, 'Invalid department ID format'),
         employee_id: z.string({ required_error: 'Employee ID is required' })
             .regex(/^[0-9a-fA-F]{24}$/, 'Invalid employee ID format'),
+        reporting_to: z.string({ required_error: 'Employee ID is required' }).optional().nullable(),
         start_date: z.string({ required_error: 'Start date is required' })
             .refine((d) => !isNaN(Date.parse(d)), { message: 'Start date must be a valid ISO date' }),
         end_date: z.string().optional().nullable()
@@ -188,6 +189,71 @@ export default function registerEmployeeDepartmentRoutes(app) {
                         resolve(resp.departments);
                     });
                 });
+
+                return c.json(response);
+            } catch (error) {
+                if (error instanceof ZodError)
+                    return c.json({
+                        error: 'Validation failed',
+                        details: error.errors.map(e => ({
+                            field: e.path.join('.'),
+                            message: e.message,
+                        })),
+                    }, 400);
+
+                return c.json({ error: error.message }, 500);
+            }
+        }
+    );
+
+    app.openapi(
+        {
+            method: 'get',
+            path: '/employees/{department_id}/employees',
+            tags: ['Employee Departments'],
+            summary: 'List employees assigned to a department',
+            request: {
+                params: z.object({
+                    department_id: z.string({ required_error: 'Department ID is required' })
+                }),
+            },
+            responses: {
+                200: {
+                    description: 'List of employee department assignments',
+                    content: {
+                        'application/json': {
+                            schema: z.array(
+                                z.object({
+                                    id: z.string(),
+                                    employee_id: z.string(),
+                                    department_id: z.string(),
+                                    start_date: z.string(),
+                                    end_date: z.string().optional(),
+                                    created_at: z.string(),
+                                    updated_at: z.string().optional(),
+                                })
+                            ),
+                        },
+                    },
+                },
+            },
+        },
+        async (c) => {
+            try {
+                const department_id = c.req.param('department_id');
+
+                const payload = { department_id };
+
+                console.log('emp_department.routes.js @ Line 247:', payload);
+
+                const response = await new Promise((resolve, reject) => {
+                    empDepartment.ListEmployeeInDepartments(payload, (err, resp) => {
+                        if (err) return reject(err);
+                        resolve(resp);
+                    });
+                });
+
+                console.log('emp_department.routes.js @ Line 256:', response);
 
                 return c.json(response);
             } catch (error) {

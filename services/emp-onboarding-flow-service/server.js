@@ -51,7 +51,11 @@ const impl = {
                 },
             });
 
-            callback(null, { flow: mapFlow(created) });
+            callback(null, {
+                flow: mapFlow(created),
+                success: true,
+                message: 'Onboarding flow created successfully',
+            });
         } catch (e) {
             console.error('CreateEmployeeOnboardingFlow Error:', e);
             callback({
@@ -86,7 +90,11 @@ const impl = {
                 });
             }
 
-            callback(null, { flow: mapFlow(flow) });
+            callback(null, {
+                flow: mapFlow(flow),
+                success: true,
+                message: 'Onboarding flow fetched successfully',
+            });
         } catch (e) {
             console.error('GetEmployeeOnboardingFlow Error:', e);
             callback({
@@ -101,17 +109,81 @@ const impl = {
     // -----------------------------
     ListEmployeeOnboardingFlows: async (call, callback) => {
         try {
-            const { organization_id } = call.request;
+            const {
+                organization_id,
+                page,
+                limit,
+                search,
+                sort_by,
+                sort_order,
+            } = call.request;
+
+            let paginate = {};
+            if (page && limit) {
+                paginate = {
+                    skip: (page - 1) * limit,
+                    take: limit,
+                }
+            }
+
+            let where = {
+                deletedAt: null,
+            };
+
+            if (organization_id) {
+                where = {
+                    ...where,
+                    organizationId: organization_id,
+                }
+            }
+
+            if (search && search !== '') {
+                where = {
+                    ...where,
+                    name: {
+                        contains: search,
+                        mode: 'insensitive',
+                    },
+                };
+            }
+
+            const validSortFields = {
+                name: 'name',
+                created_at: 'createdAt',
+                updated_at: 'updatedAt',
+            };
+
+            const sortField = validSortFields[sort_by] || 'createdAt';
+            const sortOrder = sort_order.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
             const flows = await prisma.employeeOnboardingFlows.findMany({
-                where: {
-                    organizationId: organization_id,
-                    deletedAt: null,
+                where,
+                include: {
+                    organization: true,
+                    stepsList: {
+                        include: {
+                            features: true
+                        }
+                    }
                 },
-                orderBy: { createdAt: 'desc' },
+                ...paginate,
+                orderBy: {
+                    [sortField]: sortOrder,
+                },
+            });
+            const total = await prisma.employeeOnboardingFlows.count({
+                where,
             });
 
-            callback(null, { flows: flows.map(mapFlow) });
+            callback(null, {
+                flows: flows.map(mapFlow),
+                total,
+                page,
+                limit,
+                total_pages: Math.ceil(total / limit),
+                success: true,
+                message: 'Onboarding flows fetched successfully',
+            });
         } catch (e) {
             console.error('ListEmployeeOnboardingFlows Error:', e);
             callback({
@@ -158,7 +230,11 @@ const impl = {
                 },
             });
 
-            callback(null, { flow: mapFlow(updated) });
+            callback(null, {
+                flow: mapFlow(updated),
+                success: true,
+                message: 'Onboarding flow updated successfully',
+            });
         } catch (e) {
             console.error('UpdateEmployeeOnboardingFlow Error:', e);
             callback({
@@ -201,6 +277,70 @@ const impl = {
 // ---------------------------------
 // Mapper Utility
 // ---------------------------------
+function formatDate(date) {
+    if (!date) return '';
+    return new Date(date).toLocaleString('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+    });
+}
+
+function mapOrg(org = {}) {
+    if (!org || !org.id) {
+        return {};
+    }
+    return {
+        id: org.id ?? '',
+        name: org.name ?? '',
+        domain: org.domain ?? '',
+        gst_number: org.GSTNumber ?? '',
+        email: org.email ?? '',
+        contact_person_name: org.contactPersonName ?? '',
+        contact_person_number: org.contactPersonNumber ?? '',
+        note: org.note ?? '',
+        industry: org.industry ?? '',
+        size: org.size ?? 0,
+        address: org.address ? JSON.stringify(org.address) : '',
+        created_at: formatDate(org.createdAt),
+        updated_at: formatDate(org.updatedAt),
+    };
+}
+
+function normalizeOptions(opts) {
+    // DB can have [], object, or already-stringified JSON
+    if (opts == null) return '[]';
+    if (typeof opts === 'string') return opts;
+    try { return JSON.stringify(opts); } catch { return '[]'; }
+}
+
+function mapFeature(f) {
+    return {
+        id: f.id,
+        step_id: f.stepId,
+        feature_name: f.featureName ?? '',
+        feature_type: f.featureType ?? '',
+        has_options: Boolean(f.hasOptions),
+        options: normalizeOptions(f.options),
+    };
+}
+
+function mapStep(s) {
+    return {
+        id: s.id,
+        onboarding_id: s.onboardingId,
+        name: s.name ?? '',
+        is_active: Boolean(s.isActive),
+        created_at: formatDate(s.createdAt),
+        updated_at: formatDate(s.updatedAt),
+        deleted_at: formatDate(s.deletedAt),
+        features: Array.isArray(s.features) ? s.features.map(mapFeature) : [],
+    };
+}
+
 function mapFlow(flow) {
     return {
         id: flow.id,
@@ -209,12 +349,15 @@ function mapFlow(flow) {
         description: flow.description ?? '',
         steps: flow.steps ?? 0,
         estimated_days: flow.estimatedDays ?? 0,
-        created_at: flow.createdAt ? flow.createdAt.toISOString() : '',
-        updated_at: flow.updatedAt ? flow.updatedAt.toISOString() : '',
-        deleted_at: flow.deletedAt ? flow.deletedAt.toISOString() : '',
+        created_at: formatDate(flow.createdAt),
+        updated_at: formatDate(flow.updatedAt),
+        deleted_at: formatDate(flow.deletedAt),
+        organization: mapOrg(flow.organization),
+
+        // ✅ include nested steps + features
+        steps_list: Array.isArray(flow.stepsList) ? flow.stepsList.map(mapStep) : [],
     };
 }
-
 // ---------------------------------
 // Bootstrap gRPC Server
 // ---------------------------------

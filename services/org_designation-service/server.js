@@ -8,6 +8,9 @@ const impl = {
     CreateDesignation: async (call, callback) => {
         try {
             const data = call.request;
+
+            console.log('server.js @ Line 30:', data);
+
             if (!data.organization_id || !data.name) {
                 return callback({
                     code: grpc.status.INVALID_ARGUMENT,
@@ -37,9 +40,11 @@ const impl = {
                 where: {
                     organizationId: data.organization_id,
                     name: data.name,
-                    deletedAt: null,
                 },
+                include: { organization: true, department: true, employees: true },
             });
+
+            console.log('server.js @ Line 43:', nameExists);
 
             if (nameExists) {
                 return callback({
@@ -139,9 +144,7 @@ const impl = {
 
             const skip = (page - 1) * limit;
 
-            let where = {
-                deletedAt: null,
-            };
+            let where = {};
             if (organization_id) {
                 where = {
                     organizationId: organization_id,
@@ -172,17 +175,16 @@ const impl = {
             const sortField = validSortFields[sort_by] || 'createdAt';
             const order = sort_order.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
-            const total = await prisma.organizationDesignations.count({ where });
+            const total = await prisma.organizationDesignations.count({
+                where: {
+                    ...where,
+                    deletedAt: null
+                }
+            });
             const designations = await prisma.organizationDesignations.findMany({
-                where,
-                include: {
-                    department: {
-                        select: { name: true }
-                    },
-                    employees: {
-                        where: { deletedAt: null },
-                        select: { id: true }
-                    }
+                where: {
+                    ...where,
+                    deletedAt: null,
                 },
                 orderBy: { [sortField]: order },
                 skip,
@@ -205,6 +207,45 @@ const impl = {
                 page,
                 limit,
                 total_pages: totalPages,
+                success: true,
+                message: 'Designations found successfully',
+            });
+        } catch (e) {
+            console.error('ListDesignations Error:', e);
+            callback({
+                code: grpc.status.INTERNAL,
+                message: e.message,
+            });
+        }
+    },
+
+    ListAllDesignations: async (call, callback) => {
+        try {
+            const {
+                organization_id,
+            } = call.request;
+
+            let where = {};
+            if (organization_id) {
+                where = {
+                    organizationId: organization_id,
+                };
+            }
+            const designations = await prisma.organizationDesignations.findMany({
+                where: {
+                    ...where,
+                    deletedAt: null,
+                },
+            });
+
+            const mappedDesignations = designations.map(desg => ({
+                ...mapDesignationOnly(desg),
+            }))
+
+            const designationList = await Promise.all(mappedDesignations)
+
+            callback(null, {
+                designations: designationList,
                 success: true,
                 message: 'Designations found successfully',
             });
@@ -346,6 +387,9 @@ const impl = {
 
 
 function mapOrg(org = {}) {
+    if (!org || !org.id) {
+        return {};
+    }
     return {
         id: org.id ?? '',
         name: org.name ?? '',
@@ -364,6 +408,9 @@ function mapOrg(org = {}) {
 }
 
 function mapDepartment(dept = {}) {
+    if (!dept || !dept.id) {
+        return {};
+    }
     return {
         id: dept.id ?? '',
         organization_id: dept.organizationId ?? '',
@@ -381,6 +428,9 @@ function mapDepartment(dept = {}) {
 }
 
 function mapEmployee(emp = {}) {
+    if (!emp || !emp.id) {
+        return {};
+    }
     return {
         id: emp.id ?? '',
         organization_id: emp.organizationId ?? '',
@@ -402,6 +452,13 @@ function mapEmployee(emp = {}) {
     };
 }
 
+function mapDesignationOnly(d = {}) {
+    return {
+        id: d.id ?? '',
+        name: d.name ?? '',
+        level: d.level ?? '',
+    };
+}
 function mapDesignation(d = {}) {
     return {
         id: d.id ?? '',

@@ -2,87 +2,169 @@ syntax = "proto3";
 
 package employee;
 
-
 service EmployeeService {
   rpc CreateEmployee (CreateEmployeeRequest) returns (EmployeeResponse);
   rpc GetEmployee    (GetEmployeeRequest)    returns (EmployeeResponse);
   rpc ListEmployees  (ListEmployeesRequest)  returns (ListEmployeesResponse);
   rpc UpdateEmployee (UpdateEmployeeRequest) returns (EmployeeResponse);
   rpc DeleteEmployee (DeleteEmployeeRequest) returns (DeleteEmployeeResponse);
+  rpc ListAllEmployees (ListAllEmployeesRequest) returns (ListAllEmployeesResponse);
 }
 
+/* ──────────────────────────────
+   🧩 Core Message Definitions
+──────────────────────────────── */
+
+message Employee {
+  string id                = 1;
+  string organization_id   = 2;
+  string category_id       = 3;
+  string designation_id    = 4;
+  string department_id     = 5;
+  string employee_code     = 6;
+
+  string first_name        = 7;
+  string last_name         = 8;
+  string full_name         = 9;
+  string email             = 10;
+  string phone             = 11;
+  string alt_phone         = 12;
+  string gender            = 13;
+  string date_of_birth     = 14;
+  string created_at        = 15;
+  string updated_at        = 16;
+  string deleted_at        = 17;
+
+  // ✅ Nested references (nullable)
+  Organization organization = 18;
+  Category category          = 19;
+  Designation designation    = 20;
+}
+
+/* ──────────────────────────────
+   🧩 Nested Relation Types
+──────────────────────────────── */
+
+message Organization {
+  string id                     = 1;
+  string name                   = 2;
+  string domain                 = 3;
+  string gst_number             = 4;
+  string email                  = 5;
+  string contact_person_name    = 6;
+  string contact_person_number  = 7;
+  string note                   = 8;
+  string industry               = 9;
+  int32  size                   = 10;
+  string address                = 11;
+  string created_at             = 12;
+  string updated_at             = 13;
+  string deleted_at             = 14;
+
+  // optional plan limits
+  int32 max_employees           = 15;
+  int32 max_storage_in_gb       = 16;
+  int32 max_api_rate_per_minute = 17;
+  int32 max_payroll_runs_per_month = 18;
+  int32 max_leave_policies      = 19;
+  int32 max_admin_accounts      = 20;
+}
+
+message Category {
+  string id                  = 1;
+  string organization_id     = 2;
+  string name                = 3;
+  string code                = 4;
+  string description         = 5;
+  string id_prefix           = 6;
+  bool   is_permanent        = 7;
+  bool   benefits_applicable = 8;
+  bool   is_active           = 9;
+  bool   training_required   = 10;
+  int32  training_months     = 11;
+  bool   probation_required  = 12;
+  int32  probation_months    = 13;
+  bool   notice_required     = 14;
+  int32  notice_months       = 15;
+  string created_at          = 16;
+  string updated_at          = 17;
+  string deleted_at          = 18;
+}
+
+message Designation {
+  string id              = 1;
+  string organization_id = 2;
+  string department_id   = 3;
+  string name            = 4;
+  string level           = 5;
+  string description     = 6;
+  string created_at      = 7;
+  string updated_at      = 8;
+  string deleted_at      = 9;
+}
+
+/* ──────────────────────────────
+   🧩 Request & Response Types
+──────────────────────────────── */
 
 message CreateEmployeeRequest {
-  string organization_id   = 1;
-  string category_id       = 2;
-  string designation_id     = 3;
-  string first_name        = 4;
-  string last_name         = 5;
-  string full_name         = 6;
-  string email             = 7;
-  string phone             = 8;
-  string alt_phone         = 9;
-  string gender            = 10;
-  string date_of_birth     = 11; // ISO date string: YYYY-MM-DD
+  string organization_id  = 1;
+  string category_id      = 2;
+  string designation_id   = 3;
+  string department_id    = 4;
+  string first_name       = 5;
+  string last_name        = 6;
+  string full_name        = 7;
+  string email            = 8;
+  string phone            = 9;
+  string alt_phone        = 10;
+  string gender           = 11;
+  string date_of_birth    = 12;
+}
+
+message UpdateEmployeeRequest {
+  string id               = 1;
+  string organization_id  = 2;
+  string category_id      = 3;
+  string designation_id   = 4;
+  string department_id    = 5;
+  string first_name       = 6;
+  string last_name        = 7;
+  string full_name        = 8;
+  string email            = 9;
+  string phone            = 10;
+  string alt_phone        = 11;
+  string gender           = 12;
+  string date_of_birth    = 13;
 }
 
 message GetEmployeeRequest {
   string id = 1;
 }
 
-message UpdateEmployeeRequest {
-  string id                = 1;
-  string organization_id   = 2;
-  string category_id       = 3;
-  string designation_id     = 4;
-  string first_name        = 5;
-  string last_name         = 6;
-  string full_name         = 7;
-  string email             = 8;
-  string phone             = 9;
-  string alt_phone         = 10;
-  string gender            = 11;
-  string date_of_birth     = 12;
+message ListEmployeesRequest {
+  optional string organization_id = 1;
+  string category_id     = 2;
+  string designation_id  = 3;
+  int32  page = 4;
+  int32  limit = 5;
+  string search = 6;
+  string sort_by = 7;
+  string sort_order = 8;
 }
 
 message DeleteEmployeeRequest {
   string id = 1;
 }
 
-message DeleteEmployeeResponse {
-  bool success = 1;
-  string message = 2;
-}
-
-
-message Employee {
-  string id                = 1;
-  string organization_id   = 2;
-  string category_id       = 3;
-  string department_id     = 4;
-  string first_name        = 5;
-  string last_name         = 6;
-  string full_name         = 7;
-  string email             = 8;
-  string phone             = 9;
-  string alt_phone         = 10;
-  string gender            = 11;
-  string date_of_birth     = 12;
-}
-
+/* ──────────────────────────────
+   🧩 Wrapper Responses
+──────────────────────────────── */
 
 message EmployeeResponse {
   Employee employee = 1;
   bool success = 2;
   string message = 3;
-}
-
-message ListEmployeesRequest {
-  string organization_id = 1;
-  string category_id     = 2;
-  string department_id   = 3;
-  bool success = 4;
-  string message = 5;
 }
 
 message ListEmployeesResponse {
@@ -93,4 +175,21 @@ message ListEmployeesResponse {
   int32 total_pages = 5;
   bool success = 6;
   string message = 7;
+}
+
+message DeleteEmployeeResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ListAllEmployeesRequest {
+  string organization_id = 1; // leave empty to fetch across all orgs
+  string department_id = 2;
+}
+
+// Response: list + status
+message ListAllEmployeesResponse {
+  repeated Employee employees = 1;
+  bool   success              = 2;
+  string message              = 3;
 }

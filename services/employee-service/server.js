@@ -4,15 +4,30 @@ import { prisma } from '@jury-hrms/db/client.js';
 const PORT = Number(process.env.EMP_SERVICE_PORT || 50053);
 const employeeProto = loadProto('employee');
 
+/* ------------------------------------------------------------------ */
+/* 🧩 Implementation                                                  */
+/* ------------------------------------------------------------------ */
+
 const impl = {
     CreateEmployee: async (call, callback) => {
         try {
             const data = call.request;
 
-            if (!data.organization_id || !data.category_id || !data.phone) {
+            if (!data.organization_id || !data.designation_id || !data.category_id || !data.phone) {
                 return callback({
                     code: grpc.status.INVALID_ARGUMENT,
-                    message: 'organization_id, category_id, and phone are required.',
+                    message: 'organization_id, designation_id, category_id, and phone are required.',
+                });
+            }
+
+            const organizationExists = await prisma.organizations.findFirst({
+                where: { id: data.organization_id, deletedAt: null },
+            });
+
+            if (!organizationExists) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Organization not found',
                 });
             }
 
@@ -34,10 +49,49 @@ const impl = {
                 }
             }
 
+            const categoryExists = await prisma.employeeCategories.findFirst({
+                where: {
+                    id: data.category_id,
+                    organizationId: data.organization_id,
+                    deletedAt: null,
+                },
+            });
+
+            if (!categoryExists) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Category not found in organization.',
+                });
+            }
+
+            const phoneExists = await prisma.organizationEmployees.findFirst({
+                where: {
+                    organizationId: data.organization_id,
+                    phone: data.phone,
+                    deletedAt: null,
+                },
+            });
+
+            if (phoneExists) {
+                return callback({
+                    code: grpc.status.ALREADY_EXISTS,
+                    message: 'Employee with phone already exists in organization.',
+                });
+            }
+
+
+            const getEmployeeCode = () => {
+                const totalEmployee = organizationExists.totalEmployee
+                const employeeCode = `${categoryExists.idPrefix}-${totalEmployee + 1}`
+                return employeeCode
+            }
+
+
             const mappedData = {
                 organizationId: data.organization_id,
                 categoryId: data.category_id,
                 designationId: data.designation_id || null,
+                employeeCode: getEmployeeCode(),
                 firstName: data.first_name || null,
                 lastName: data.last_name || null,
                 fullName: data.full_name || `${data.first_name || ''} ${data.last_name || ''}`.trim(),
@@ -48,7 +102,9 @@ const impl = {
                 dateOfBirth: new Date(data.date_of_birth),
                 createdAt: new Date(),
                 updatedAt: new Date(),
+                deletedAt: null
             };
+
 
             const employee = await prisma.organizationEmployees.create({
                 data: mappedData,
@@ -57,6 +113,10 @@ const impl = {
                     category: true,
                     designation: true,
                 },
+            });
+            await prisma.organizations.update({
+                where: { id: data.organization_id },
+                data: { totalEmployee: { increment: 1 }, activeEmployee: { increment: 1 } },
             });
 
             callback(null, {
@@ -117,6 +177,53 @@ const impl = {
         }
     },
 
+    ListAllEmployees: async (call, callback) => {
+        try {
+            const {
+                organization_id,
+                department_id
+            } = call.request;
+
+
+            let where = {
+                deletedAt: null
+            };
+
+            // Handle organization filter
+            if (organization_id && organization_id !== '') {
+                where = {
+                    ...where,
+                    organizationId: organization_id,
+                };
+            }
+
+            // Handle department filter
+            if (department_id && department_id !== '') {
+                where = {
+                    ...where,
+                    departmentAssignments: {
+                        some: {
+                            departmentId: department_id,
+                        },
+                    },
+                };
+            }
+
+            const employees = await prisma.organizationEmployees.findMany({
+                where,
+            });
+
+            callback(null, {
+                employees: employees.map(mapEmployee),
+                message: 'All employees found successfully',
+                success: true
+            });
+        } catch (e) {
+            console.error('List All Employees Error:', e);
+            callback({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
+
     ListEmployees: async (call, callback) => {
         try {
             const {
@@ -131,29 +238,47 @@ const impl = {
                 sort_order = 'desc',
             } = call.request;
 
+
             const skip = (page - 1) * limit;
             let where = {
-                deletedAt: null,
-                ...(organization_id ? { organizationId: organization_id } : {}),
-                ...(category_id ? { categoryId: category_id } : {}),
-                ...(designation_id ? { designationId: designation_id } : {}),
+                deletedAt: null
             };
 
-            // Handle department filter through departmentAssignments
-            if (department_id) {
+            // Handle organization filter
+            if (organization_id && organization_id !== '') {
                 where = {
                     ...where,
-                    departmentAssignments: {
-                        some: {
-                            departmentId: department_id,
-                            deletedAt: null
-                        }
-                    }
+                    organizationId: organization_id,
                 };
             }
 
+            // Handle category filter
+            if (category_id && category_id !== '') {
+                where = {
+                    ...where,
+                    categoryId: category_id,
+                };
+            }
+
+            // Handle designation filter
+            if (designation_id && designation_id !== '') {
+                where = {
+                    ...where,
+                    designationId: designation_id,
+                };
+            }
+
+            // Handle department filter through departmentAssignments
+            if (department_id && department_id !== '') {
+                where = {
+                    ...where,
+                    departmentId: department_id
+                };
+            }
+
+
             // Handle search
-            if (search) {
+            if (search && search !== '') {
                 where = {
                     ...where,
                     OR: [
@@ -165,6 +290,7 @@ const impl = {
                     ],
                 };
             }
+
 
             const validSortFields = {
                 first_name: 'firstName',
@@ -182,9 +308,9 @@ const impl = {
             const employees = await prisma.organizationEmployees.findMany({
                 where,
                 include: {
-                    organization: { select: { name: true } },
-                    category: { select: { name: true } },
-                    designation: { select: { name: true } },
+                    organization: true,
+                    category: true,
+                    designation: true,
                 },
                 orderBy: { [sortField]: order },
                 skip,
@@ -239,11 +365,18 @@ const impl = {
                     });
                 }
             }
+            const getEmployeeCode = () => {
+                const totalEmployee = organizationExists.totalEmployee
+                const employeeCode = `${categoryExists.idPrefix}-${totalEmployee + 1}`
+                return employeeCode
+            }
+
 
             const updateData = {
                 organizationId: data.organization_id ?? existing.organizationId,
                 categoryId: data.category_id ?? existing.categoryId,
                 designationId: data.designation_id ?? existing.designationId,
+                employeeCode: existing.employeeCode || getEmployeeCode(),
                 firstName: data.first_name ?? existing.firstName,
                 lastName: data.last_name ?? existing.lastName,
                 fullName: data.full_name || `${data.first_name || existing.firstName || ''} ${data.last_name || existing.lastName || ''}`.trim(),
@@ -288,13 +421,19 @@ const impl = {
             }
 
             const emp = await prisma.organizationEmployees.findFirst({
-                where: { id, deletedAt: null }
+                where: { id }
             });
 
             if (!emp) {
                 return callback({
                     code: grpc.status.NOT_FOUND,
                     message: 'Employee not found'
+                });
+            }
+            if (emp.deletedAt) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Employee already deleted'
                 });
             }
 
@@ -317,12 +456,26 @@ const impl = {
     },
 };
 
+function formatDate(date) {
+    if (!date) return '';
+    return new Date(date).toLocaleString('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+    });
+}
+
 function mapEmployee(emp) {
     return {
         id: emp.id,
         organization_id: emp.organizationId,
         category_id: emp.categoryId,
         designation_id: emp.designationId ?? '',
+        department_id: emp.designation?.departmentId ?? '',
+        employee_code: emp.employeeCode ?? '',
         first_name: emp.firstName ?? '',
         last_name: emp.lastName ?? '',
         full_name: emp.fullName ?? '',
@@ -330,14 +483,75 @@ function mapEmployee(emp) {
         phone: emp.phone ?? '',
         alt_phone: emp.altPhone ?? '',
         gender: emp.gender ?? '',
-        date_of_birth: emp.dateOfBirth ? emp.dateOfBirth.toISOString().split('T')[0] : '',
-        created_at: emp.createdAt ? emp.createdAt.toISOString() : '',
-        updated_at: emp.updatedAt ? emp.updatedAt.toISOString() : '',
-        deleted_at: emp.deletedAt ? emp.deletedAt.toISOString() : '',
-        // Additional fields from relations
-        organization_name: emp.organization?.name || '',
-        category_name: emp.category?.name || '',
-        designation_name: emp.designation?.name || '',
+        date_of_birth: emp.dateOfBirth ? new Date(emp.dateOfBirth).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '',
+        created_at: emp.createdAt ? formatDate(emp.createdAt) : null,
+        updated_at: emp.updatedAt ? formatDate(emp.updatedAt) : null,
+        deleted_at: emp.deletedAt ? formatDate(emp.deletedAt) : null,
+
+        // Nested objects
+        organization: emp.organization
+            ? {
+                id: emp.organization.id,
+                name: emp.organization.name,
+                domain: emp.organization.domain,
+                gst_number: emp.organization.GSTNumber ?? '',
+                email: emp.organization.email ?? '',
+                contact_person_name: emp.organization.contactPersonName ?? '',
+                contact_person_number: emp.organization.contactPersonNumber ?? '',
+                note: emp.organization.note ?? '',
+                industry: emp.organization.industry ?? '',
+                size: emp.organization.size ?? 0,
+                address: emp.organization.address
+                    ? JSON.stringify(emp.organization.address)
+                    : '',
+                created_at: emp.organization.createdAt ? formatDate(emp.organization.createdAt) : null,
+                updated_at: emp.organization.updatedAt ? formatDate(emp.organization.updatedAt) : null,
+                deleted_at: emp.organization.deletedAt ? formatDate(emp.organization.deletedAt) : null,
+                max_employees: emp.organization.maxEmployees ?? 0,
+                max_storage_in_gb: emp.organization.maxStorageInGB ?? 0,
+                max_api_rate_per_minute: emp.organization.maxApiRatePerMin ?? 0,
+                max_payroll_runs_per_month: emp.organization.maxPayrollRunsPerMonth ?? 0,
+                max_leave_policies: emp.organization.maxLeavePolicies ?? 0,
+                max_admin_accounts: emp.organization.maxAdminAccounts ?? 0,
+            }
+            : null,
+
+        category: emp.category
+            ? {
+                id: emp.category.id,
+                organization_id: emp.category.organizationId,
+                name: emp.category.name,
+                code: emp.category.code ?? '',
+                description: emp.category.description ?? '',
+                id_prefix: emp.category.idPrefix ?? '',
+                is_permanent: emp.category.isPermanent ?? false,
+                benefits_applicable: emp.category.benefitsApplicable ?? false,
+                is_active: emp.category.isActive ?? true,
+                training_required: emp.category.trainingRequired ?? false,
+                training_months: emp.category.trainingMonths ?? 0,
+                probation_required: emp.category.probationRequired ?? false,
+                probation_months: emp.category.probationMonths ?? 0,
+                notice_required: emp.category.noticeRequired ?? false,
+                notice_months: emp.category.noticeMonths ?? 0,
+                created_at: emp.category.createdAt ? formatDate(emp.category.createdAt) : null,
+                updated_at: emp.category.updatedAt ? formatDate(emp.category.updatedAt) : null,
+                deleted_at: emp.category.deletedAt ? formatDate(emp.category.deletedAt) : null,
+            }
+            : null,
+
+        designation: emp.designation
+            ? {
+                id: emp.designation.id,
+                organization_id: emp.designation.organizationId,
+                department_id: emp.designation.departmentId ?? '',
+                name: emp.designation.name ?? '',
+                level: emp.designation.level ?? '',
+                description: emp.designation.description ?? '',
+                created_at: emp.designation.createdAt ? formatDate(emp.designation.createdAt) : null,
+                updated_at: emp.designation.updatedAt ? formatDate(emp.designation.updatedAt) : null,
+                deleted_at: emp.designation.deletedAt ? formatDate(emp.designation.deletedAt) : null,
+            }
+            : null,
     };
 }
 

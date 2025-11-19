@@ -53,10 +53,18 @@ message EmployeeOnboardingStep {
 
 message EmployeeOnboardingStepResponse {
   EmployeeOnboardingStep step = 1;
+  string message = 2;
+  bool success = 3;
 }
 
 message ListEmployeeOnboardingStepsResponse {
   repeated EmployeeOnboardingStep steps = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  string message = 6;
+  bool success = 7;
 }
 
 message DeleteEmployeeOnboardingStepResponse {

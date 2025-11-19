@@ -39,7 +39,6 @@ const impl = {
                 idPrefix: data.id_prefix ?? null,
                 isPermanent: data.is_permanent,
                 benefitsApplicable: data.benefits_applicable,
-                onboardingWorkflow: null, // data.onboarding_workflow,
                 isActive: data.is_active,
                 trainingRequired: data.training_required,
                 trainingMonths: data.training_months,
@@ -62,7 +61,11 @@ const impl = {
                 category = await prisma.employeeCategories.create({ data: mappedData });
             }
 
-            callback(null, { category: mapCategory(category) });
+            callback(null, {
+                category: mapCategory(category),
+                success: true,
+                message: 'Created successfully',
+            });
         } catch (e) {
             console.error('CreateEmployeeCategory Error:', e);
             callback({
@@ -85,6 +88,9 @@ const impl = {
 
             const category = await prisma.employeeCategories.findUnique({
                 where: { id, deletedAt: null },
+                include: {
+                    organization: true,
+                },
             });
 
             if (!category) {
@@ -94,7 +100,11 @@ const impl = {
                 });
             }
 
-            callback(null, { category: mapCategory(category) });
+            callback(null, {
+                category: mapCategory(category),
+                success: true,
+                message: 'Fetched successfully',
+            });
         } catch (e) {
             console.error('GetEmployeeCategory Error:', e);
             callback({
@@ -104,19 +114,124 @@ const impl = {
         }
     },
 
-    ListEmployeeCategories: async (call, callback) => {
+    ListEmployeeAllCategories: async (call, callback) => {
         try {
-            const { organization_id } = call.request;
+            const {
+                organization_id,
+            } = call.request;
+
+            let where = {
+                deletedAt: null,
+            };
+
+            if (organization_id) {
+                where = {
+                    ...where,
+                    organizationId: organization_id,
+                }
+            }
 
             const categories = await prisma.employeeCategories.findMany({
-                where: {
-                    deletedAt: null,
-                    organizationId: organization_id,
+                where,
+                include: {
+                    organization: true
                 },
-                orderBy: { createdAt: 'desc' },
+                orderBy: {
+                    createdAt: 'desc',
+                },
             });
 
-            callback(null, { categories: categories.map(mapCategory) });
+            callback(null, {
+                categories: categories.map(mapCategory),
+                success: true,
+                message: 'Employee categories found successfully',
+            });
+        } catch (e) {
+            console.error('ListEmployeeCategories Error:', e);
+            callback({
+                code: grpc.status.INTERNAL,
+                message: e.message,
+            });
+        }
+    },
+
+    ListEmployeeCategories: async (call, callback) => {
+        try {
+            const {
+                organization_id,
+                page,
+                limit,
+                search,
+                sort_by,
+                sort_order,
+            } = call.request;
+
+            let paginate = {};
+            if (page && limit) {
+                paginate = {
+                    skip: (page - 1) * limit,
+                    take: limit,
+                }
+            }
+
+            let where = {
+                deletedAt: null,
+            };
+
+            if (organization_id) {
+                where = {
+                    ...where,
+                    organizationId: organization_id,
+                }
+            }
+
+            if (search) {
+                where = {
+                    ...where,
+                    OR: [
+                        { name: { contains: search, mode: 'insensitive' } },
+                        { code: { contains: search, mode: 'insensitive' } },
+                        { idPrefix: { contains: search, mode: 'insensitive' } },
+                    ],
+                }
+            }
+
+            const validSortFields = {
+                name: 'name',
+                code: 'code',
+                idPrefix: 'idPrefix',
+                createdAt: 'createdAt',
+                updatedAt: 'updatedAt',
+            };
+
+            const validSortOrders = {
+                asc: 'asc',
+                desc: 'desc',
+            };
+
+            const orderByField = validSortFields[sort_by] || 'createdAt';
+            const order = validSortOrders[sort_order] || 'desc';
+
+            const categories = await prisma.employeeCategories.findMany({
+                where,
+                orderBy: { [orderByField]: order },
+                ...paginate,
+                include: {
+                    organization: true
+                }
+            });
+
+            const total = await prisma.employeeCategories.count({ where });
+
+            callback(null, {
+                categories: categories.map(mapCategory),
+                total,
+                page,
+                limit,
+                total_pages: Math.ceil(total / limit),
+                success: true,
+                message: 'Employee categories found successfully',
+            });
         } catch (e) {
             console.error('ListEmployeeCategories Error:', e);
             callback({
@@ -129,7 +244,6 @@ const impl = {
     UpdateEmployeeCategory: async (call, callback) => {
         try {
             const data = call.request;
-            console.log('🔹 Incoming update payload:', data);
 
             if (!/^[0-9a-fA-F]{24}$/.test(data.id)) {
                 return callback({
@@ -151,14 +265,12 @@ const impl = {
             const updated = await prisma.employeeCategories.update({
                 where: { id: data.id },
                 data: {
-                    organizationId: data.organization_id,
                     name: data.name,
                     code: data.code ?? null,
                     description: data.description ?? null,
                     idPrefix: data.id_prefix ?? null,
                     isPermanent: data.is_permanent,
                     benefitsApplicable: data.benefits_applicable,
-                    onboardingWorkflow: null, // data.onboarding_workflow,
                     isActive: data.is_active,
                     trainingRequired: data.training_required,
                     trainingMonths: data.training_months,
@@ -170,7 +282,11 @@ const impl = {
                 },
             });
 
-            callback(null, { category: mapCategory(updated) });
+            callback(null, {
+                category: mapCategory(updated),
+                success: true,
+                message: 'Updated successfully',
+            });
         } catch (e) {
             console.error('❌ UpdateEmployeeCategory Error:', e);
             callback({
@@ -205,11 +321,44 @@ const impl = {
         }
     },
 };
+function mapOrg(org = {}) {
+    if (!org || !org.id) {
+        return {};
+    }
+    return {
+        id: org.id ?? '',
+        name: org.name ?? '',
+        domain: org.domain ?? '',
+        gst_number: org.GSTNumber ?? '',
+        email: org.email ?? '',
+        contact_person_name: org.contactPersonName ?? '',
+        contact_person_number: org.contactPersonNumber ?? '',
+        note: org.note ?? '',
+        industry: org.industry ?? '',
+        size: org.size ?? 0,
+        address: org.address ? JSON.stringify(org.address) : '',
+        created_at: formatDate(org.createdAt),
+        updated_at: formatDate(org.updatedAt),
+    };
+}
+function formatDate(date) {
+    if (!date) return '';
+    return new Date(date).toLocaleString('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+    });
+}
+
 
 function mapCategory(category) {
     return {
         id: category.id,
         organization_id: category.organizationId,
+        organization: mapOrg(category.organization),
         name: category.name,
         code: category.code ?? '',
         description: category.description ?? '',
@@ -224,9 +373,9 @@ function mapCategory(category) {
         probation_months: category.probationMonths,
         notice_required: category.noticeRequired,
         notice_months: category.noticeMonths,
-        created_at: category.createdAt ? category.createdAt.toISOString() : '',
-        updated_at: category.updatedAt ? category.updatedAt.toISOString() : '',
-        deleted_at: category.deletedAt ? category.deletedAt.toISOString() : '',
+        created_at: formatDate(category.createdAt),
+        updated_at: formatDate(category.updatedAt),
+        deleted_at: formatDate(category.deletedAt),
     };
 }
 
