@@ -4,10 +4,16 @@ console.log("🔍 EMP_SERVICE_ADDR =", process.env.EMP_SERVICE_ADDR);
 console.log("🔍 ADMIN_SERVICE_ADDR =", process.env.ADMIN_SERVICE_ADDR);
 console.log("🔍 ORG_DEPT_SERVICE_ADDR =", process.env.ORG_DEPT_SERVICE_ADDR);
 console.log("🔍 EMP_DEPT_SERVICE_ADDR =", process.env.EMP_DEPT_SERVICE_ADDR)
-console.log("🔍 ORG_DESIGNATION_SERVICE_ADDR =", process.env.ORG_DESIGNATION_SERVICE_ADDR);
+console.log("🔍 ORG_DESG_SERVICE_ADDR =", process.env.ORG_DESG_SERVICE_ADDR);
 console.log("🔍 EMP_ONBOARDING_FLOW_SERVICE_ADDR =", process.env.EMP_ONBOARDING_FLOW_SERVICE_ADDR);
 console.log("🔍 EMP_ONBOARDING_STEP_SERVICE_ADDR =", process.env.EMP_ONBOARDING_STEP_SERVICE_ADDR);
 console.log("🔍 EMP_ONBOARDING_FEATURE_SERVICE_ADDR =", process.env.EMP_ONBOARDING_FEATURE_SERVICE_ADDR);
+console.log("🔍 SHIFT_SERVICE =", process.env.SHIFT_SERVICE_ADDR);
+console.log("🔍 SHIFT_ASSIGNMENT_SERVICE =", process.env.SHIFT_ASSIGNMENT_SERVICE_ADDR);
+console.log("🔍 SHIFT_POLICY_SERVICE =", process.env.SHIFT_POLICY_SERVICE_ADDR);
+console.log("🔍 ATTENDANCE_SERVICE =", process.env.ATTENDANCE_SERVICE_ADDR);
+console.log("🔍 ATTENDANCE_LOG_SERVICE =", process.env.ATTENDANCE_LOG_SERVICE_ADDR);
+
 
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { cors } from 'hono/cors';
@@ -26,6 +32,11 @@ import registerEmployeeOnboardingFlowRoutes from './routes/emp_onboard_flow.rout
 import registerEmployeeOnboardingStepRoutes from './routes/emp_onboard_step.routes.js';
 import registerEmployeeOnboardingFeatureRoutes from './routes/emp_onboard_feature.routes.js';
 import registerEmployeeOnboardingProgressRoutes from './routes/emp_onboard_progress.routes.js';
+import registerShiftRoutes from './routes/shift.routes.js';
+import registerShiftAssignmentRoutes from './routes/shift-assignment.routes.js';
+import registerShiftPolicyRoutes from './routes/shiftPolicy.routes.js';
+import registerAttendanceRoutes from './routes/attendance.routes.js';
+import registerAttendanceLogRoutes from './routes/attendanceLogs.routes.js';
 
 // ---- Initialize Hono App ---- //
 const app = new OpenAPIHono({
@@ -122,6 +133,36 @@ registerEmployeeOnboardingFeatureRoutes({
     },
 });
 registerEmployeeOnboardingProgressRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerShiftRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerShiftAssignmentRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerShiftPolicyRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerAttendanceRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerAttendanceLogRoutes({
     openapi: (def, handler) => {
         // wrap each route handler in queue
         app.openapi(def, withQueue(handler));

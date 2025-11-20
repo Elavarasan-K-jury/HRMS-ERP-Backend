@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package attendance_regularisation;
+
+service AttendanceRegularisationService {
+  rpc CreateRegularisation   (CreateRegularisationRequest)   returns (RegularisationResponse);
+  rpc ApproveRegularisation  (ApproveRegularisationRequest)  returns (RegularisationResponse);
+  rpc RejectRegularisation   (RejectRegularisationRequest)   returns (RegularisationResponse);
+  rpc ListRegularisations    (ListRegularisationsRequest)    returns (ListRegularisationsResponse);
+}
+
+// --------------------
+// Requests
+// --------------------
+
+// Employee raises a request. Optionally sends corrected times.
+// If org wants “reason only” flows, omit new_* fields.
+message CreateRegularisationRequest {
+  string organization_id   = 1;
+  string attendance_id     = 2;
+  string employee_id       = 3;
+  string reason            = 4;
+  bool   is_admin_override = 5;   // bypass caps/windows
+  string new_check_in      = 6;   // ISO datetime (optional)
+  string new_check_out     = 7;   // ISO datetime (optional)
+  string remarks           = 8;   // free text (optional)
+}
+
+// Approver action (multi-level aware).
+message ApproveRegularisationRequest {
+  string id          = 1;  // regularisation id
+  string approver_id = 2;  // org employee id of approver
+  string remarks     = 3;  // optional approver note
+}
+
+message RejectRegularisationRequest {
+  string id          = 1;
+  string approver_id = 2;
+  string reason      = 3;
+}
+
+// Query by employee/month with optional status filter
+message ListRegularisationsRequest {
+  string employee_id = 1;
+  string month       = 2; // YYYY-MM
+  string status      = 3; // PENDING|APPROVED|REJECTED (optional)
+}
+
+// --------------------
+// Entities
+// --------------------
+message Regularisation {
+  string id              = 1;
+  string organization_id = 2;
+  string attendance_id   = 3;
+  string employee_id     = 4;
+  string reason          = 5;
+  string status          = 6; // PENDING|APPROVED|REJECTED
+  string requested_at    = 7;
+  string approved_at     = 8;
+  string approved_by     = 9;
+  string remarks         = 10;
+
+  // Optional proposed corrections (echoed back)
+  string new_check_in    = 11;
+  string new_check_out   = 12;
+}
+
+message RegularisationResponse {
+  Regularisation regularisation = 1;
+}
+
+message ListRegularisationsResponse {
+  repeated Regularisation regularisations = 1;
+}

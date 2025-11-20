@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package shift_assignment;
+
+service ShiftAssignmentService {
+  rpc AssignShift           (AssignShiftRequest)           returns (ShiftAssignmentResponse);
+  rpc GetShiftAssignment    (GetShiftAssignmentRequest)    returns (ShiftAssignmentResponse);
+  rpc ListShiftAssignments  (ListShiftAssignmentsRequest)  returns (ListShiftAssignmentsResponse);
+  rpc UpdateShiftAssignment (UpdateShiftAssignmentRequest) returns (ShiftAssignmentResponse);
+  rpc DeleteShiftAssignment (DeleteShiftAssignmentRequest) returns (DeleteShiftAssignmentResponse);
+}
+
+// =======================
+// Requests / Responses
+// =======================
+
+message AssignShiftRequest {
+  string employee_id = 1;
+  string shift_id    = 2;
+  string valid_from  = 3; 
+  string valid_to    = 4;
+}
+
+message GetShiftAssignmentRequest {
+  string id = 1;
+}
+
+message UpdateShiftAssignmentRequest {
+  string id         = 1;
+  string valid_from = 2;
+  string valid_to   = 3;
+}
+
+message DeleteShiftAssignmentRequest {
+  string id = 1;
+}
+
+message DeleteShiftAssignmentResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// =======================
+// EMPLOYEE + SHIFT SUMMARY
+// =======================
+
+// Employee from OrganizationEmployees
+message EmployeeSummary {
+  string id                 = 1;
+  string full_name          = 2;
+  string email              = 3;
+  string phone              = 4;
+  string gender             = 5;
+
+  // 👇 New fields from OrganizationDesignations
+  string designation_id     = 6;
+  string designation_name   = 7;
+  string designation_level  = 8;
+}
+
+
+// Shift from Shifts table
+message ShiftSummary {
+  string id            = 1;
+  string name          = 2;
+  string start_time    = 3;
+  string end_time      = 4;
+  int32  break_minutes = 5;
+}
+
+// =======================
+// MAIN OBJECT
+// =======================
+
+message ShiftAssignment {
+  string id          = 1;
+  string employee_id = 2;
+  string shift_id    = 3;
+  string valid_from  = 4;
+  string valid_to    = 5;
+  string created_at  = 6;
+  string updated_at  = 7;
+  string deleted_at  = 8;
+
+  // Embedded relational data
+  EmployeeSummary employee = 9;
+  ShiftSummary    shift    = 10;
+}
+
+message ShiftAssignmentResponse {
+  ShiftAssignment assignment = 1;
+}
+
+message ListShiftAssignmentsRequest {
+  string employee_id = 1;
+  string shift_id    = 2;
+  bool   active_only = 3;
+}
+
+message ListShiftAssignmentsResponse {
+  repeated ShiftAssignment assignments = 1;
+}
