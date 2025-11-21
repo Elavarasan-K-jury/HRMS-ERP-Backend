@@ -1,5 +1,5 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
-import { prisma } from '@jury-hrms/db/client.js';
+import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
 
 
 const PORT = Number(process.env.ASSET_CAT_SERVICE_PORT || 50063);
@@ -94,8 +94,8 @@ const impl = {
             callback(null, {
                 category: mapCategory(category),
                 success: true,
-                message : "Asset category fetched successfully"
-             });
+                message: "Asset category fetched successfully"
+            });
         } catch (e) {
             console.error('❌ GetAssetCategory Error:', e);
             callback({
@@ -109,14 +109,20 @@ const impl = {
         try {
             const {
                 organization_id,
-                page = 1,
-                limit = 10,
+                page,
+                limit,
                 search = "",
                 sort_by = "created_at",
                 sort_order = "desc"
             } = call.request;
+            let skip = {}
 
-            const skip = (page - 1) * limit;
+            if (page && limit) {
+                skip = {
+                    skip: (page - 1) * limit,
+                    take: limit,
+                }
+            }
 
             // Mapping API -> Prisma fields
             const sortMap = {
@@ -147,16 +153,15 @@ const impl = {
             const categories = await prisma.assetCategories.findMany({
                 where,
                 orderBy: { [prismaSortField]: sort_order },
-                skip,
-                take: limit,
+                ...skip
             });
 
             callback(null, {
                 categories: categories.map(mapCategory),
                 total,
-                page,
-                limit,
-                total_pages: Math.ceil(total / limit),
+                page: page || 1,
+                limit: limit || total,
+                total_pages: limit ? Math.ceil(total / limit) : 1,
                 success: true,
                 message: "Asset categories fetched successfully",
             });
@@ -208,7 +213,7 @@ const impl = {
                 category: mapCategory(updated),
                 success: true,
                 message: "Asset category updated successfully"
-             });
+            });
         } catch (e) {
             console.error('❌ UpdateAssetCategory Error:', e);
             callback({
@@ -231,7 +236,7 @@ const impl = {
 
             await prisma.assetCategories.update({
                 where: { id },
-                data: { deletedAt: new Date()},
+                data: { deletedAt: new Date() },
             });
 
             callback(null, {
@@ -269,6 +274,7 @@ function mapCategory(category) {
 // Server
 // -----------------------------
 async function main() {
+    await checkDbConnection('asset-category-service');
     const server = new grpc.Server();
     server.addService(assetCategoryProto.AssetCategoryService.service, impl);
 

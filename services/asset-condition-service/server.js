@@ -1,5 +1,5 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
-import { prisma } from '@jury-hrms/db/client.js';
+import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
 
 const PORT = Number(process.env.ASSET_CON_SERVICE_PORT || 50068);
 const assetConditionProto = loadProto('asset_condition');
@@ -272,7 +272,7 @@ const impl = {
                 code: grpc.status.INTERNAL,
                 message: e.message,
             });
-        }   
+        }
     },
 };
 
@@ -296,6 +296,7 @@ function mapAssetCondition(assetCondition) {
     };
 }
 async function main() {
+    await checkDbConnection('asset-condition-service');
     const server = new grpc.Server();
     server.addService(assetConditionProto.AssetConditionService.service, impl);
 

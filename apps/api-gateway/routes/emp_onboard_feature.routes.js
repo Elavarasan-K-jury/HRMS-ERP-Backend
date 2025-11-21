@@ -51,7 +51,7 @@ export default function registerEmployeeOnboardingFeatureRoutes(app) {
                 const response = await new Promise((resolve, reject) => {
                     onboardingFeatureClient.CreateEmployeeOnboardingFeature(parsed, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.feature);
+                        resolve(resp);
                     });
                 });
 
@@ -105,7 +105,7 @@ export default function registerEmployeeOnboardingFeatureRoutes(app) {
                 const response = await new Promise((resolve, reject) => {
                     onboardingFeatureClient.GetEmployeeOnboardingFeature({ id }, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.feature);
+                        resolve(resp);
                     });
                 });
 
@@ -157,7 +157,7 @@ export default function registerEmployeeOnboardingFeatureRoutes(app) {
                 const response = await new Promise((resolve, reject) => {
                     onboardingFeatureClient.ListEmployeeOnboardingFeatures(parsed, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.features);
+                        resolve(resp);
                     });
                 });
 
@@ -242,7 +242,7 @@ export default function registerEmployeeOnboardingFeatureRoutes(app) {
                         { id, ...parsed },
                         (err, resp) => {
                             if (err) return reject(err);
-                            resolve(resp.feature);
+                            resolve(resp);
                         }
                     );
                 });

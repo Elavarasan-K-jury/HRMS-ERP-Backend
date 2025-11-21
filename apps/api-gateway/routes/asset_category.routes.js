@@ -33,13 +33,13 @@ export default function registerAssetCategoryRoutes(app) {
                         'application/json': {
                             schema: z.object({
                                 categories: z.object({
-                                id: z.string(),
-                                name: z.string(),
-                                code: z.string().nullable(),
-                                description: z.string().nullable(),
-                                is_active: z.boolean(),
-                                created_at: z.string(),
-                                updated_at: z.string(),
+                                    id: z.string(),
+                                    name: z.string(),
+                                    code: z.string().nullable(),
+                                    description: z.string().nullable(),
+                                    is_active: z.boolean(),
+                                    created_at: z.string(),
+                                    updated_at: z.string(),
                                 }),
                                 message: z.string(),
                                 success: z.boolean(),
@@ -101,18 +101,18 @@ export default function registerAssetCategoryRoutes(app) {
                         'application/json': {
                             schema: z.object({
                                 categories: z.object({
-                                id: z.string(),
-                                organization_id: z.string(),
-                                name: z.string(),
-                                code: z.string().nullable(),
-                                description: z.string().nullable(),
-                                is_active: z.boolean(),
-                                created_at: z.string(),
-                                updated_at: z.string(),
-                                deleted_at: z.string().nullable(),
+                                    id: z.string(),
+                                    organization_id: z.string(),
+                                    name: z.string(),
+                                    code: z.string().nullable(),
+                                    description: z.string().nullable(),
+                                    is_active: z.boolean(),
+                                    created_at: z.string(),
+                                    updated_at: z.string(),
+                                    deleted_at: z.string().nullable(),
                                 }),
                                 message: z.string(),
-                                success: z.boolean(),   
+                                success: z.boolean(),
                             }),
                         },
                     },
@@ -148,8 +148,8 @@ export default function registerAssetCategoryRoutes(app) {
                 query: z.object({
                     organization_id: z.string({ required_error: 'Organization ID is required' }),
                     search: z.string().optional(),
-                    page: z.coerce.number().optional().default(1),
-                    limit: z.coerce.number().optional().default(10),
+                    page: z.coerce.number().optional(),
+                    limit: z.coerce.number().optional(),
                     sort_by: z.string().optional().default('created_at'),
                     sort_order: z.enum(['asc', 'desc']).optional().default('desc'),
                 }),
@@ -332,7 +332,7 @@ export default function registerAssetCategoryRoutes(app) {
         },
         async (c) => {
             try {
-                const { id } = c.req.valid('params');
+                const id = c.req.param('id');
                 const response = await new Promise((resolve, reject) => {
                     assetCategoryClient.deleteAssetCategory({ id }, (err, resp) => {
                         if (err) return reject(err);

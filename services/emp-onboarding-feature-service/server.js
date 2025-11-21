@@ -1,5 +1,5 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
-import { prisma } from '@jury-hrms/db/client.js';
+import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
 
 const PORT = Number(process.env.EMP_ONBOARDING_FEATURE_SERVICE_PORT || 50059);
 const onboardingFeatureProto = loadProto('emp_onboarding_feature');
@@ -47,7 +47,11 @@ const impl = {
                 },
             });
 
-            callback(null, { feature: mapFeature(created) });
+            callback(null, {
+                feature: mapFeature(created),
+                message: 'Feature created successfully',
+                success: true,
+            });
         } catch (e) {
             console.error('CreateEmployeeOnboardingFeature Error:', e);
             callback({
@@ -82,7 +86,11 @@ const impl = {
                 });
             }
 
-            callback(null, { feature: mapFeature(feature) });
+            callback(null, {
+                feature: mapFeature(feature),
+                message: 'Feature retrieved successfully',
+                success: true,
+            });
         } catch (e) {
             console.error('GetEmployeeOnboardingFeature Error:', e);
             callback({
@@ -97,14 +105,63 @@ const impl = {
     // -----------------------------
     ListEmployeeOnboardingFeatures: async (call, callback) => {
         try {
-            const { step_id } = call.request;
+            const {
+                step_id,
+                page,
+                limit,
+                search,
+                sort_by,
+                sort_order,
+            } = call.request;
+
+            let paginate = {};
+            if (page && limit) {
+                paginate = {
+                    skip: (page - 1) * limit,
+                    take: limit,
+                }
+            }
+
+            let where = {
+                deletedAt: null,
+            };
+
+            if (step_id) {
+                where = {
+                    ...where,
+                    stepId: step_id,
+                }
+            }
+
+            if (search) {
+                where = {
+                    ...where,
+                    featureName: {
+                        contains: search,
+                        mode: 'insensitive',
+                    },
+                }
+            }
+
+            const orderByField = sort_by || 'createdAt';
+            const order = (sort_order || 'asc').toLowerCase() === 'asc' ? 'asc' : 'desc';
 
             const features = await prisma.onboardingStepFeatures.findMany({
-                where: { stepId: step_id },
-                orderBy: { featureName: 'asc' },
+                where,
+                orderBy: { [orderByField]: order },
+                ...paginate,
             });
+            const total = await prisma.onboardingStepFeatures.count({ where });
 
-            callback(null, { features: features.map(mapFeature) });
+            callback(null, {
+                features: features.map(mapFeature),
+                total,
+                page,
+                limit,
+                total_pages: Math.ceil(total / limit),
+                message: 'Features retrieved successfully',
+                success: true,
+            });
         } catch (e) {
             console.error('ListEmployeeOnboardingFeatures Error:', e);
             callback({
@@ -149,7 +206,11 @@ const impl = {
                 },
             });
 
-            callback(null, { feature: mapFeature(updated) });
+            callback(null, {
+                feature: mapFeature(updated),
+                message: 'Feature updated successfully',
+                success: true,
+            });
         } catch (e) {
             console.error('UpdateEmployeeOnboardingFeature Error:', e);
             callback({
@@ -177,7 +238,10 @@ const impl = {
                 where: { id },
             });
 
-            callback(null, { success: true, message: 'Feature deleted successfully' });
+            callback(null, {
+                success: true,
+                message: 'Feature deleted successfully'
+            });
         } catch (e) {
             console.error('DeleteEmployeeOnboardingFeature Error:', e);
             callback({
@@ -206,6 +270,7 @@ function mapFeature(feature) {
 // Bootstrap gRPC Server
 // ---------------------------------
 async function main() {
+    await checkDbConnection('employee-onboarding-feature-service');
     const server = new grpc.Server();
     server.addService(onboardingFeatureProto.EmployeeOnboardingFeatureService.service, impl);
 

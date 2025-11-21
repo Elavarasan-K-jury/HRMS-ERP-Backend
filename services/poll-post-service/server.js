@@ -512,7 +512,7 @@ const impl = {
 
             // Check if user liked the post
             const existing = await prisma.pollLikes.findFirst({
-                where: { postId: post_id}
+                where: { postId: post_id }
             });
 
             const liked = !!existing;
@@ -632,7 +632,7 @@ const impl = {
             const comments = await prisma.pollComments.findMany({
                 where: {
                     postId: post_id,
-                    deletedAt: null 
+                    deletedAt: null
                 },
                 include: { employee: true },
                 orderBy: { createdAt: 'desc' }
@@ -694,7 +694,7 @@ const impl = {
                     updatedAt: new Date(),
                 }
             });
-            
+
             return callback(null, {
                 success: true,
                 message: "Comment deleted successfully",

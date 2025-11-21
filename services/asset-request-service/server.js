@@ -1,5 +1,5 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
-import { prisma } from '@jury-hrms/db/client.js';
+import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
 
 const PORT = Number(process.env.ASSET_REQ_SERVICE_PORT || 50065);
 const assetRequestProto = loadProto('asset_request');
@@ -370,6 +370,7 @@ function mapAssetRequest(r) {
 // Server
 // -----------------------------
 async function main() {
+    await checkDbConnection('asset-requests-service');
     const server = new grpc.Server();
     server.addService(assetRequestProto.AssetRequestService.service, impl);
 

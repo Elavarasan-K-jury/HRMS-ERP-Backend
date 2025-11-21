@@ -40,7 +40,7 @@ export default function registerorgDesignationRoutes({ openapi }) {
                 const res = await new Promise((resolve, reject) => {
                     orgDesignationClient.CreateDesignation(payload, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.designation);
+                        resolve(resp);
                     });
                 });
 
@@ -49,7 +49,6 @@ export default function registerorgDesignationRoutes({ openapi }) {
                 if (error instanceof ZodError) {
                     return c.json({ error: 'Validation failed', details: error.errors.map(e => ({ field: e.path.join('.'), message: e.message })) }, 400);
                 }
-                if (error.code === grpc.status.ALREADY_EXISTS) return c.json({ error: error.message }, 409);
                 return c.json({ error: error.message }, 500);
             }
         }
@@ -59,7 +58,7 @@ export default function registerorgDesignationRoutes({ openapi }) {
     openapi(
         {
             method: 'get',
-            path: '/designations/{id}',
+            path: '/designation/{id}',
             tags: ['Org-Designation'],
             request: { params: z.object({ id: z.string() }) },
             responses: { 200: { description: 'Designation' }, 404: {} },
@@ -70,10 +69,39 @@ export default function registerorgDesignationRoutes({ openapi }) {
                 const res = await new Promise((resolve, reject) => {
                     orgDesignationClient.GetDesignation({ id }, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.designation);
+                        resolve(resp);
                     });
                 });
                 if (!res) return c.json({ error: 'Not found' }, 404);
+                return c.json(res);
+            } catch (error) {
+                return c.json({ error: error.message }, 500);
+            }
+        }
+    );
+
+    // GET /designations (list)
+    openapi(
+        {
+            method: 'get',
+            path: '/designations/all',
+            tags: ['Org-Designation'],
+            request: {
+                query: z.object({
+                    organization_id: z.string().optional(),
+                }),
+            },
+            responses: { 200: { description: 'List' } },
+        },
+        async (c) => {
+            try {
+                const q = c.req.valid('query');
+                const res = await new Promise((resolve, reject) => {
+                    orgDesignationClient.ListAllDesignations(q, (err, resp) => {
+                        if (err) return reject(err);
+                        resolve(resp);
+                    });
+                });
                 return c.json(res);
             } catch (error) {
                 return c.json({ error: error.message }, 500);
@@ -147,14 +175,13 @@ export default function registerorgDesignationRoutes({ openapi }) {
                 const res = await new Promise((resolve, reject) => {
                     orgDesignationClient.UpdateDesignation(payload, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.designation);
+                        resolve(resp);
                     });
                 });
 
                 return c.json(res);
             } catch (error) {
                 if (error instanceof ZodError) return c.json({ error: 'Validation failed', details: error.errors.map(e => ({ field: e.path.join('.'), message: e.message })) }, 400);
-                if (error.code === grpc.status.ALREADY_EXISTS) return c.json({ error: error.message }, 409);
                 return c.json({ error: error.message }, 500);
             }
         }

@@ -1,5 +1,5 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
-import { prisma } from '@jury-hrms/db/client.js';
+import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
 
 const PORT = Number(process.env.ASSETS_SERVICE_PORT || 50065);
 const assetsProto = loadProto('assets');
@@ -99,7 +99,7 @@ const impl = {
                 asset: mapAsset(created),
                 success: true,
                 message: "Asset created successfully"
-             });
+            });
         } catch (e) {
             console.error('❌ CreateAsset Error:', e);
             callback({
@@ -138,7 +138,7 @@ const impl = {
                 asset: mapAsset(asset),
                 success: true,
                 message: "Asset fetched successfully"
-             });
+            });
         } catch (e) {
             console.error('❌ GetAsset Error:', e);
             callback({
@@ -201,7 +201,7 @@ const impl = {
             const total = await prisma.assets.count({
                 where,
             });
-            
+
             callback(null, {
                 assets: assets.map(mapAsset),
                 total,
@@ -261,7 +261,7 @@ const impl = {
                 asset: mapAsset(updated),
                 success: true,
                 message: "Asset updated successfully"
-             });
+            });
         } catch (e) {
             console.error('❌ UpdateAsset Error:', e);
             callback({
@@ -326,6 +326,7 @@ function mapAsset(asset) {
 // Server
 // -----------------------------
 async function main() {
+    await checkDbConnection('assets-service');
     const server = new grpc.Server();
     server.addService(assetsProto.AssetService.service, impl);
 

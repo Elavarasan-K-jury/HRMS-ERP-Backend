@@ -9,6 +9,7 @@ service OrgDesignationService {
   rpc CreateDesignation (CreateDesignationRequest) returns (DesignationResponse);
   rpc GetDesignation    (GetDesignationRequest)    returns (DesignationResponse);
   rpc ListDesignations  (ListDesignationsRequest)  returns (ListDesignationsResponse);
+  rpc ListAllDesignations  (ListAllDesignationsRequest)  returns (ListAllDesignationsResponse);
   rpc UpdateDesignation (UpdateDesignationRequest) returns (DesignationResponse);
   rpc DeleteDesignation (DeleteDesignationRequest) returns (DeleteDesignationResponse);
 }
@@ -51,6 +52,9 @@ message ListDesignationsRequest {
   string sort_by         = 6;
   string sort_order      = 7;
 }
+message ListAllDesignationsRequest {
+  string organization_id = 1;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Response Messages
@@ -59,6 +63,12 @@ message ListDesignationsRequest {
 // ------------------------------
 // Base Designation Message
 // ------------------------------
+message DesignationOnly {
+  string id              = 1;
+  string name            = 2;
+  string level           = 3;
+}
+
 message Designation {
   string id              = 1;
   string organization_id = 2;
@@ -151,6 +161,11 @@ message ListDesignationsResponse {
   int32 total_pages                 = 5;
   bool success                      = 6;
   string message                    = 7;
+}
+message ListAllDesignationsResponse {
+  repeated DesignationOnly designations = 1;
+  bool success                      = 2;
+  string message                    = 3;
 }
 
 message DeleteDesignationResponse {

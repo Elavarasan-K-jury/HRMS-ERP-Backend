@@ -5,12 +5,7 @@
     "main": "index.js",
     "exports": {
         ".": "./index.js",
-        "./client": "./client.js"
-    },
-    "dependencies": {
-        "@prisma/client": "6.18.0"
-    },
-    "devDependencies": {
-        "prisma": "6.18.0"
+        "./client": "./client.js",
+        "./client.js": "./client.js"
     }
 }

@@ -8,7 +8,90 @@ service OrganizationService {
   rpc ListOrganizations  (ListOrganizationsRequest)  returns (ListOrganizationsResponse);
   rpc UpdateOrganization (UpdateOrganizationRequest) returns (OrganizationResponse);
   rpc DeleteOrganization (DeleteOrganizationRequest) returns (DeleteOrganizationResponse);
+  rpc OrganizationHierarchy (OrganizationHierarchyRequest) returns (OrganizationHierarchyResponse);
+  rpc DepartmentHierarchy (DepartmentHierarchyRequest) returns (DepartmentHierarchyResponse);
 }
+// ===============================
+//   REQUEST
+// ===============================
+message OrganizationHierarchyRequest {
+  string organization_id = 1;
+}
+
+// ===============================
+//   INTERNAL STRUCTS
+// ===============================
+message OrgHierarchyDesignation {
+  string id = 1;
+  string name = 2;
+  string department_id = 3;
+  string description = 4;
+}
+
+message OrgHierarchyEmployee {
+  string id = 1;
+  string full_name = 2;
+  string email = 3;
+  string phone = 4;
+  string employee_code = 5;
+  string designation = 6;
+  string department = 7;
+  string category = 8;
+}
+
+message OrgLevelBlock {
+  string level = 1;     // internal level value
+  string label = 2;     // user-friendly label
+
+  int32 designation_count = 3;
+  int32 employee_count = 4;
+
+  repeated OrgHierarchyDesignation designations = 5;
+  repeated OrgHierarchyEmployee employees = 6;
+}
+
+// ===============================
+//   RESPONSE
+// ===============================
+message OrganizationHierarchyResponse {
+  string organization_id = 1;
+  repeated OrgLevelBlock levels = 2;
+}
+
+// ===============================
+//   REQUEST
+// ===============================
+message DepartmentHierarchyRequest {
+  string organization_id = 1;
+  string department_id = 2;
+}
+
+// ===============================
+//   INTERNAL STRUCTS
+// ===============================
+
+message ReportingNode {
+  string id = 1;
+  string full_name = 2;
+  string email = 3;
+  string phone = 4;
+  string employee_code = 5;
+  string designation = 6;
+  string category = 7;
+
+  repeated ReportingNode reportees = 8; // recursive children
+}
+
+// ===============================
+//   RESPONSE
+// ===============================
+message DepartmentHierarchyResponse {
+  string organization_id = 1;
+  string department_id = 2;
+
+  ReportingNode hierarchy = 3; // root → reportees → tree
+}
+
 
 // =============================
 // 🔹 Create

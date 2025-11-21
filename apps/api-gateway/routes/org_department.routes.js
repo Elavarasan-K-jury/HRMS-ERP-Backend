@@ -30,8 +30,8 @@ export default function registerOrgDepartmentRoutes({ openapi }) {
             .optional()
             .nullable(),
 
-        description: z.string().optional(),
-        note: z.string().optional(),
+        description: z.string().nullable().optional(),
+        note: z.string().nullable().optional(),
     }).strict();
 
     // ──────────────────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ export default function registerOrgDepartmentRoutes({ openapi }) {
                 const response = await new Promise((resolve, reject) => {
                     orgDepartmentClient.CreateDepartment(payload, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.department);
+                        resolve(resp);
                     });
                 });
 
@@ -134,7 +134,7 @@ export default function registerOrgDepartmentRoutes({ openapi }) {
     openapi(
         {
             method: 'get',
-            path: '/departments/{id}',
+            path: '/department/{id}',
             tags: ['Org-Department'],
             summary: 'Fetch department by ID',
             request: {
@@ -172,7 +172,7 @@ export default function registerOrgDepartmentRoutes({ openapi }) {
                 const response = await new Promise((resolve, reject) => {
                     orgDepartmentClient.GetDepartment({ id }, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.department);
+                        resolve(resp);
                     });
                 });
 
@@ -190,6 +190,71 @@ export default function registerOrgDepartmentRoutes({ openapi }) {
     // ──────────────────────────────────────────────────────────────────────
     // GET /departments (List with filters)
     // ──────────────────────────────────────────────────────────────────────
+    openapi(
+        {
+            method: 'get',
+            path: '/departments/employee-list',
+            tags: ['Org-Department'],
+            summary: 'List all employees inside a department (including head)',
+            request: {
+                query: z.object({
+                    organization_id: z.string(),
+                    department_id: z.string(),
+                }),
+            },
+            responses: {
+                200: {
+                    description: 'List of department employees',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                employees: z.array(
+                                    z.object({
+                                        id: z.string(),
+                                        full_name: z.string(),
+                                        email: z.string(),
+                                        phone: z.string(),
+                                        employee_code: z.string().optional(),
+
+                                        designation: z.string().optional(),
+                                        category: z.string().optional(),
+                                        profile: z.string().optional(),
+                                        reporting: z.any().optional(),
+
+                                        isHead: z.boolean(),
+                                    })
+                                ),
+                                message: z.string(),
+                                success: z.boolean(),
+                            }),
+                        },
+                    },
+                },
+            },
+        },
+        async (c) => {
+            try {
+                const query = c.req.valid('query');
+
+                const payload = {
+                    organization_id: query.organization_id,
+                    department_id: query.department_id,
+                };
+
+                const response = await new Promise((resolve, reject) => {
+                    orgDepartmentClient.ListDepartmentEmployees(payload, (err, resp) => {
+                        if (err) return reject(err);
+                        resolve(resp);
+                    });
+                });
+
+                return c.json(response, 200);
+            } catch (error) {
+                return c.json({ error: error.message }, 500);
+            }
+        }
+    );
+
     openapi(
         {
             method: 'get',
@@ -254,6 +319,63 @@ export default function registerOrgDepartmentRoutes({ openapi }) {
                     search: query.search,
                     sort_by: query.sort_by,
                     sort_order: query.sort_order,
+                };
+
+                const response = await new Promise((resolve, reject) => {
+                    orgDepartmentClient.ListDepartments(payload, (err, resp) => {
+                        if (err) return reject(err);
+                        resolve(resp);
+                    });
+                });
+
+                return c.json(response, 200);
+            } catch (error) {
+                return c.json({ error: error.message }, 500);
+            }
+        }
+    );
+    // ──────────────────────────────────────────────────────────────────────
+    // GET /departments (List with filters)
+    // ──────────────────────────────────────────────────────────────────────
+    openapi(
+        {
+            method: 'get',
+            path: '/departments/all',
+            tags: ['Org-Department'],
+            summary: 'List departments with pagination, search, and sorting',
+            request: {
+                query: z.object({
+                    organization_id: z.string().optional(),
+                }),
+            },
+            responses: {
+                200: {
+                    description: 'Paginated list of departments',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                departments: z.array(
+                                    z.object({
+                                        id: z.string(),
+                                        organization_id: z.string(),
+                                        name: z.string(),
+                                        code: z.string().optional(),
+                                        department_head_id: z.string().optional(),
+                                        created_at: z.string().optional(),
+                                    })
+                                ),
+                            }),
+                        },
+                    },
+                },
+            },
+        },
+        async (c) => {
+            try {
+                const query = c.req.valid('query');
+
+                const payload = {
+                    organization_id: query.organization_id,
                 };
 
                 const response = await new Promise((resolve, reject) => {
@@ -335,7 +457,7 @@ export default function registerOrgDepartmentRoutes({ openapi }) {
                 const response = await new Promise((resolve, reject) => {
                     orgDepartmentClient.UpdateDepartment(payload, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.department);
+                        resolve(resp);
                     });
                 });
 
