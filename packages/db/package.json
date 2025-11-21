@@ -8,9 +8,9 @@
         "./client": "./client.js"
     },
     "dependencies": {
-        "@prisma/client": "latest"
+        "@prisma/client": "6.18.0"
     },
     "devDependencies": {
-        "prisma": "latest"
+        "prisma": "6.18.0"
     }
 }
