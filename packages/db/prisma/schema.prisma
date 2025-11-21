@@ -58,10 +58,12 @@ model Organizations {
   shiftPolicies       ShiftPolicies[]
   holidayPolicies     HolidayPolicies[]
   networkpolicies     NetworkPolicies[]
-  approvalFlows       ApprovalFlows[]
   approvalLogs        ApprovalLogs[]
+  approvalInstances  ApprovalInstance[]
+  approvers        ApprovalFlowApprovers[]
   leaveRequests       LeaveRequests[]
   workrequests        WorkdayRequests[]
+  approvalflows      ApprovalFlows[]
 }
 
 model OrganizationDepartments {
@@ -325,35 +327,81 @@ model AttendanceRegularisation {
 }
 
 model ApprovalFlows {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId  String        @map("organization_id") @db.ObjectId
-  entityType      String // e.g. "LEAVE", "REGULARISATION", "ON_DUTY", "WORK_FROM_HOME"
-  level           Int // e.g. 1 = Manager, 2 = HR
-  role            String // e.g. "MANAGER", "HR", "LEAD"
-  approverId      String?       @map("approver_id") @db.ObjectId // optional direct approver
-  nextLevelId     String?       @map("next_level_id") @db.ObjectId
-  autoApproveDays Int?          @default(3) // auto approve after 3 days
-  escalationRole  String? // optional escalation role (e.g. "HR")
-  isActive        Boolean       @default(true)
-  organization    Organizations @relation(fields: [organizationId], references: [id])
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
-  deletedAt       DateTime?     @map("deleted_at")
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String   @map("organization_id") @db.ObjectId
+  entityType     String   // LEAVE, REGULARISATION, etc.
+organization Organizations @relation(fields: [organizationId], references: [id])
+
+  levels         ApprovalFlowLevels[]
+  approvalInstances ApprovalInstance[]
+
+
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
 }
 
 model ApprovalLogs {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  approvalId     String   @map("approval_id") @db.ObjectId
   organizationId String   @map("organization_id") @db.ObjectId
-  entityId       String   @map("entity_id") @db.ObjectId // ID of leave/regularisation/on-duty
-  entityType     String // e.g. "LEAVE", "REGULARISATION", "WORK_FROM_HOME"
-  level          Int // approval level
+  entityId       String   @map("entity_id") @db.ObjectId
+  entityType     EntityType
+  level          Int
   approverId     String?  @map("approver_id") @db.ObjectId
-  action         String // "APPROVED" | "REJECTED" | "SKIPPED" | "ESCALATED"
+  action         String    // APPROVED, REJECTED, AUTO_APPROVED etc
   remarks        String?
-  approvedAt     DateTime @default(now()) @map("approved_at")
+  approvedAt     DateTime  @default(now())
 
-  organization Organizations @relation(fields: [organizationId], references: [id])
+  approval     ApprovalInstance @relation(fields: [approvalId], references: [id])
+  organization Organizations     @relation(fields: [organizationId], references: [id])
 }
+enum EntityType {
+  LEAVE
+  REGULARISATION
+  WORKDAY
+}
+model ApprovalInstance {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String   @map("organization_id") @db.ObjectId
+
+  entityId       String   @map("entity_id") @db.ObjectId
+  entityType     EntityType   // LEAVE / REGULARISATION / WORKDAY etc
+
+  flowId         String   @map("flow_id") @db.ObjectId
+  currentLevel   Int
+  status         String   // PENDING / IN_PROGRESS / COMPLETED / REJECTED
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  logs           ApprovalLogs[]
+  flow           ApprovalFlows @relation(fields: [flowId], references: [id])
+  organization   Organizations @relation(fields: [organizationId], references: [id])
+}
+
+model ApprovalFlowLevels {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  flowId         String   @map("flow_id") @db.ObjectId
+  level          Int
+  autoApproveDays Int?    @default(3)
+  escalationRole String?
+  isActive       Boolean  @default(true)
+
+  flow           ApprovalFlows @relation(fields: [flowId], references: [id])
+  approvers      ApprovalFlowApprovers[]
+}
+
+model ApprovalFlowApprovers {
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  levelId  String   @map("level_id") @db.ObjectId
+  userId   String?  @map("user_id") @db.ObjectId // direct approver
+  role     String?  // MANAGER / HR / LEAD
+  organizationId String? @map("organization_id") @db.ObjectId
+  organization   Organizations? @relation(fields: [organizationId], references: [id])
+  level    ApprovalFlowLevels @relation(fields: [levelId], references: [id])
+}
+
 
 model Holidays {
   id             String        @id @default(auto()) @map("_id") @db.ObjectId

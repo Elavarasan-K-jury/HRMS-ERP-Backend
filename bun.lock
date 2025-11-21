@@ -84,6 +84,15 @@
         "@prisma/client": "latest",
       },
     },
+    "services/approval-service": {
+      "name": "@jury-hrms/approval-service",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "@prisma/client": "latest",
+      },
+    },
     "services/attendance-regularisation-service": {
       "name": "@jury-hrms/attendance-regularisation-service",
       "version": "0.1.0",
@@ -291,6 +300,8 @@
     "@jury-hrms/admin-service": ["@jury-hrms/admin-service@workspace:services/admin-service"],
 
     "@jury-hrms/api-gateway": ["@jury-hrms/api-gateway@workspace:apps/api-gateway"],
+
+    "@jury-hrms/approval-service": ["@jury-hrms/approval-service@workspace:services/approval-service"],
 
     "@jury-hrms/attendance-logs-service": ["@jury-hrms/attendance-logs-service@workspace:services/atttendace-logs-service"],
 
@@ -745,6 +756,8 @@
     "zod": ["zod@4.1.12", "", {}, "sha512-JInaHOamG8pt5+Ey8kGmdcAcg3OL9reK8ltczgHTAwNhMys/6ThXHityHxVV2p3fkw/c+MAvBHFVYHFZDmjMCQ=="],
 
     "@eslint-community/eslint-utils/eslint-visitor-keys": ["eslint-visitor-keys@3.4.3", "", {}, "sha512-wpc+LXeiyiisxPlEkUzU6svyS1frIO3Mgxj1fdy7Pm8Ygzguax2N3Fa/D/ag1WqbOprdI+uY6wMUl8/a2G+iag=="],
+
+    "@jury-hrms/approval-service/@prisma/client": ["@prisma/client@7.0.0", "", { "dependencies": { "@prisma/client-runtime-utils": "7.0.0" }, "peerDependencies": { "prisma": "*", "typescript": ">=5.4.0" }, "optionalPeers": ["prisma", "typescript"] }, "sha512-FM1NtJezl0zH3CybLxcbJwShJt7xFGSRg+1tGhy3sCB8goUDnxnBR+RC/P35EAW8gjkzx7kgz7bvb0MerY2VSw=="],
 
     "@jury-hrms/attendance-logs-service/@prisma/client": ["@prisma/client@7.0.0", "", { "dependencies": { "@prisma/client-runtime-utils": "7.0.0" }, "peerDependencies": { "prisma": "*", "typescript": ">=5.4.0" }, "optionalPeers": ["prisma", "typescript"] }, "sha512-FM1NtJezl0zH3CybLxcbJwShJt7xFGSRg+1tGhy3sCB8goUDnxnBR+RC/P35EAW8gjkzx7kgz7bvb0MerY2VSw=="],
 

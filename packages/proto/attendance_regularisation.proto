@@ -1,75 +1,65 @@
 syntax = "proto3";
 
-package attendance_regularisation;
+package regularisation;
 
-service AttendanceRegularisationService {
-  rpc CreateRegularisation   (CreateRegularisationRequest)   returns (RegularisationResponse);
-  rpc ApproveRegularisation  (ApproveRegularisationRequest)  returns (RegularisationResponse);
-  rpc RejectRegularisation   (RejectRegularisationRequest)   returns (RegularisationResponse);
-  rpc ListRegularisations    (ListRegularisationsRequest)    returns (ListRegularisationsResponse);
+service RegularisationService {
+  rpc CreateRegularisation (CreateRegularisationRequest) returns (RegularisationResponse);
+  rpc ApproveRegularisation (ApproveRegularisationRequest) returns (RegularisationResponse);
+  rpc RejectRegularisation (RejectRegularisationRequest) returns (RegularisationResponse);
+  rpc GetRegularisation (GetRegularisationRequest) returns (RegularisationResponse);
+  rpc ListRegularisations (ListRegularisationRequest) returns (ListRegularisationResponse);
 }
 
-// --------------------
-// Requests
-// --------------------
-
-// Employee raises a request. Optionally sends corrected times.
-// If org wants “reason only” flows, omit new_* fields.
 message CreateRegularisationRequest {
-  string organization_id   = 1;
-  string attendance_id     = 2;
-  string employee_id       = 3;
-  string reason            = 4;
-  bool   is_admin_override = 5;   // bypass caps/windows
-  string new_check_in      = 6;   // ISO datetime (optional)
-  string new_check_out     = 7;   // ISO datetime (optional)
-  string remarks           = 8;   // free text (optional)
+  string attendance_id = 1;
+  string employee_id = 2;
+  string organization_id = 3;
+  string reason = 4;
+  string correction_check_in = 5;  // ISO DateTime
+  string correction_check_out = 6; // ISO DateTime
+  string notes = 7;
 }
 
-// Approver action (multi-level aware).
 message ApproveRegularisationRequest {
-  string id          = 1;  // regularisation id
-  string approver_id = 2;  // org employee id of approver
-  string remarks     = 3;  // optional approver note
+  string regularisation_id = 1;
+  string approver_id = 2;
+  string remarks = 3;
 }
 
 message RejectRegularisationRequest {
-  string id          = 1;
+  string regularisation_id = 1;
   string approver_id = 2;
-  string reason      = 3;
+  string remarks = 3;
 }
 
-// Query by employee/month with optional status filter
-message ListRegularisationsRequest {
+message GetRegularisationRequest {
+  string regularisation_id = 1;
+}
+
+message ListRegularisationRequest {
   string employee_id = 1;
-  string month       = 2; // YYYY-MM
-  string status      = 3; // PENDING|APPROVED|REJECTED (optional)
+  string organization_id = 2;
+  string status = 3; // optional filter
 }
 
-// --------------------
-// Entities
-// --------------------
-message Regularisation {
-  string id              = 1;
-  string organization_id = 2;
-  string attendance_id   = 3;
-  string employee_id     = 4;
-  string reason          = 5;
-  string status          = 6; // PENDING|APPROVED|REJECTED
-  string requested_at    = 7;
-  string approved_at     = 8;
-  string approved_by     = 9;
-  string remarks         = 10;
-
-  // Optional proposed corrections (echoed back)
-  string new_check_in    = 11;
-  string new_check_out   = 12;
+message RegularisationObject {
+  string id = 1;
+  string attendance_id = 2;
+  string employee_id = 3;
+  string organization_id = 4;
+  string reason = 5;
+  string status = 6;
+  string correction_check_in = 7;
+  string correction_check_out = 8;
+  string remarks = 9;
+  string requested_at = 10;
+  string approved_at = 11;
 }
 
 message RegularisationResponse {
-  Regularisation regularisation = 1;
+  RegularisationObject regularisation = 1;
 }
 
-message ListRegularisationsResponse {
-  repeated Regularisation regularisations = 1;
+message ListRegularisationResponse {
+  repeated RegularisationObject regularisations = 1;
 }

@@ -13,6 +13,7 @@ console.log("🔍 SHIFT_ASSIGNMENT_SERVICE =", process.env.SHIFT_ASSIGNMENT_SERV
 console.log("🔍 SHIFT_POLICY_SERVICE =", process.env.SHIFT_POLICY_SERVICE_ADDR);
 console.log("🔍 ATTENDANCE_SERVICE =", process.env.ATTENDANCE_SERVICE_ADDR);
 console.log("🔍 ATTENDANCE_LOG_SERVICE =", process.env.ATTENDANCE_LOG_SERVICE_ADDR);
+cobsole.log("🔍 APPROVAL_SERVICE =", process.env.APPROVAL_SERVICE_ADDR);
 
 
 import { OpenAPIHono } from '@hono/zod-openapi';
@@ -37,6 +38,7 @@ import registerShiftAssignmentRoutes from './routes/shift-assignment.routes.js';
 import registerShiftPolicyRoutes from './routes/shiftPolicy.routes.js';
 import registerAttendanceRoutes from './routes/attendance.routes.js';
 import registerAttendanceLogRoutes from './routes/attendanceLogs.routes.js';
+import registerApprovalRoutes from './routes/approval.routes.js';
 
 // ---- Initialize Hono App ---- //
 const app = new OpenAPIHono({
@@ -163,6 +165,12 @@ registerAttendanceRoutes({
     },
 });
 registerAttendanceLogRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerApprovalRoutes({
     openapi: (def, handler) => {
         // wrap each route handler in queue
         app.openapi(def, withQueue(handler));
