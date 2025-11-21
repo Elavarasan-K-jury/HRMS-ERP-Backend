@@ -1,5 +1,5 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
-import { prisma } from '@jury-hrms/db/client.js';
+import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
 
 const PORT = Number(process.env.EMP_ONBOARDING_STEP_SERVICE_PORT || 50058);
 const onboardingStepProto = loadProto('emp_onboarding_step');
@@ -272,6 +272,7 @@ function mapStep(step) {
 // Bootstrap gRPC Server
 // ---------------------------------
 async function main() {
+    await checkDbConnection('employee-onboarding-step-service');
     const server = new grpc.Server();
     server.addService(onboardingStepProto.EmployeeOnboardingStepService.service, impl);
 

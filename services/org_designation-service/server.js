@@ -1,5 +1,5 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
-import { prisma } from '@jury-hrms/db/client.js';
+import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
 
 const PORT = Number(process.env.ORG_DESG_SERVICE_PORT || 50055);
 const designationProto = loadProto('org_designation');
@@ -491,6 +491,7 @@ function formatDate(date) {
 }
 
 async function main() {
+    await checkDbConnection('organization-designation-service');
     const server = new grpc.Server();
     server.addService(designationProto.OrgDesignationService.service, impl);
 

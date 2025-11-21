@@ -8,6 +8,336 @@ const organizationProto = loadProto('organization');
 /* 🧩 Implementation                                                  */
 /* ------------------------------------------------------------------ */
 const impl = {
+    DepartmentHierarchy: async (call, callback) => {
+        try {
+            const { department_id, organization_id } = call.request;
+
+            if (!organization_id || !department_id) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: "organization_id and department_id are required",
+                });
+            }
+
+            // 1. Fetch department with head info
+            const department = await prisma.organizationDepartments.findUnique({
+                where: { id: department_id },
+                select: {
+                    departmentHeadId: true,
+                    createdAt: true
+                }
+            });
+
+            // 2. Fetch all employees assigned to this department
+            const assignments = await prisma.employeeDepartments.findMany({
+                where: {
+                    departmentId: department_id,
+                    deletedAt: null,
+                    employee: {
+                        deletedAt: null
+                    }
+                },
+                include: {
+                    employee: {
+                        include: {
+                            designation: true,
+                            category: true
+                        }
+                    }
+                },
+                orderBy: {
+                    createdAt: 'asc'
+                }
+            });
+
+            // 3. Fetch department head (if not in assignments)
+            let departmentHead = null;
+            if (department?.departmentHeadId) {
+                departmentHead = await prisma.organizationEmployees.findUnique({
+                    where: {
+                        id: department.departmentHeadId,
+                        deletedAt: null
+                    },
+                    include: {
+                        designation: true,
+                        category: true
+                    }
+                });
+            }
+
+            // 4. Build employee map
+            const employeeMap = {};
+
+            // Add head first (if exists)
+            if (departmentHead) {
+                employeeMap[departmentHead.id] = {
+                    id: departmentHead.id,
+                    full_name: departmentHead.fullName,
+                    email: departmentHead.email,
+                    phone: departmentHead.phone,
+                    employee_code: departmentHead.employeeCode,
+                    designation: departmentHead.designation?.name || null,
+                    category: departmentHead.category?.name || null,
+                    organization_id: departmentHead.organizationId,
+                    profile: departmentHead.profilePicture || null,
+                    reportingTo: null,
+                    reportees: [],
+                    isHead: true
+                };
+            }
+
+            // Add all employees from department assignments
+            assignments.forEach(a => {
+                const emp = a.employee;
+
+                // Skip if already added (head)
+                if (employeeMap[emp.id]) {
+                    if (a.reportingTo) {
+                        employeeMap[emp.id].reportingTo = a.reportingTo;
+                    }
+                    return;
+                }
+
+                employeeMap[emp.id] = {
+                    id: emp.id,
+                    full_name: emp.fullName,
+                    email: emp.email,
+                    phone: emp.phone,
+                    employee_code: emp.employeeCode,
+                    designation: emp.designation?.name || null,
+                    category: emp.category?.name || null,
+                    organization_id: emp.organizationId,
+                    profile: emp.profilePicture || null,
+                    reportingTo: a.reportingTo,
+                    reportees: [],
+                    isHead: false
+                };
+            });
+
+            // 5. If no employees, return empty hierarchy
+            if (Object.keys(employeeMap).length === 0) {
+                return callback(null, {
+                    type: "DEPARTMENT_REPORTING_HIERARCHY",
+                    department_id,
+                    hierarchy: null
+                });
+            }
+
+            // 6. Determine actual head
+            let headId = null;
+
+            if (department?.departmentHeadId && employeeMap[department.departmentHeadId]) {
+                headId = department.departmentHeadId;
+            } else {
+                const firstEmployee = assignments[0]?.employeeId;
+
+                if (firstEmployee && employeeMap[firstEmployee]) {
+                    headId = firstEmployee;
+                    employeeMap[firstEmployee].isHead = true;
+                    employeeMap[firstEmployee].reportingTo = null;
+                } else {
+                    const noReportingTo = Object.values(employeeMap).find(e => !e.reportingTo);
+                    if (noReportingTo) {
+                        headId = noReportingTo.id;
+                        noReportingTo.isHead = true;
+                    }
+                }
+            }
+
+            // 7. Build initial parent-child relationships
+            Object.values(employeeMap).forEach(emp => {
+                if (emp.reportingTo && employeeMap[emp.reportingTo]) {
+                    employeeMap[emp.reportingTo].reportees.push(emp);
+                }
+            });
+
+            // 7b. Attach orphan employees (no reportingTo and not head)
+            Object.values(employeeMap).forEach(emp => {
+                // Skip head always
+                if (emp.id === headId) return;
+
+                // If this employee has NO parent AND is not head
+                const hasParent = emp.reportingTo && employeeMap[emp.reportingTo];
+
+                if (!hasParent) {
+                    emp.reportingTo = headId;
+                    employeeMap[headId].reportees.push(emp);
+                }
+            });
+
+
+            // 8. Recursive builder (tree)
+            function buildTree(node) {
+                return {
+                    ...node,
+                    reportees: node.reportees.map(buildTree)
+                };
+            }
+
+            // 9. Final hierarchy
+            const head = employeeMap[headId];
+
+            if (!head) {
+                return callback(null, {
+                    type: "DEPARTMENT_REPORTING_HIERARCHY",
+                    department_id,
+                    hierarchy: null,
+                    employees: Object.values(employeeMap)
+                });
+            }
+
+            const hierarchy = buildTree(head);
+
+            function cleanNode(node) {
+                return {
+                    id: node.id,
+                    full_name: node.full_name,
+                    email: node.email,
+                    phone: node.phone,
+                    employee_code: node.employee_code,
+                    designation: node.designation,
+                    category: node.category,
+                    reportees: node.reportees.map(cleanNode)
+                };
+            }
+
+            return callback(null, {
+                type: "DEPARTMENT_REPORTING_HIERARCHY",
+                department_id,
+                head_id: headId,
+                hierarchy: cleanNode(hierarchy),
+            });
+
+        } catch (e) {
+            console.error("DepartmentHierarchy Error:", e);
+            callback({
+                code: grpc.status.INTERNAL,
+                message: e.message
+            });
+        }
+    },
+
+    OrganizationHierarchy: async (call, callback) => {
+        try {
+            const { organization_id } = call.request;
+
+            if (!organization_id) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: "organization_id is required",
+                });
+            }
+
+            // -- Designation Level Ordering (your provided list) --
+            const LEVEL_ORDER = [
+                "board_level",
+                "executive_level",
+                "senior_management",
+                "managerial_level",
+                "lead_level",
+                "senior_level",
+                "intermediate_level",
+                "junior_level",
+                "entry_level",
+            ];
+
+            const LEVEL_LABELS = {
+                entry_level: "Entry Level",
+                junior_level: "Junior Level",
+                intermediate_level: "Intermediate / Associate Level",
+                senior_level: "Senior / Specialist Level",
+                lead_level: "Lead / Supervisor Level",
+                managerial_level: "Managerial Level",
+                senior_management: "Senior Management",
+                executive_level: "Executive Level",
+                board_level: "Board / Governance Level",
+            };
+
+            // 🟦 Base filters
+            const baseFilters = {
+                deletedAt: null,
+            };
+
+            // 🟩 Fetch all designations for the org
+            const designations = await prisma.organizationDesignations.findMany({
+                where: {
+                    organizationId: organization_id,
+                    ...baseFilters,
+                },
+                orderBy: { name: "asc" },
+            });
+
+            // 🟧 Fetch all employees in the org
+            const employees = await prisma.organizationEmployees.findMany({
+                where: {
+                    organizationId: organization_id,
+                    ...baseFilters,
+                },
+                include: {
+                    designation: true,
+                    departmentAssignments: {
+                        include: {
+                            department: true,
+                        },
+                    },
+                    category: true,
+                },
+            });
+
+            // org-wide, no department filter
+            const filteredEmployees = employees;
+
+            // 🟨 Build hierarchy based on your LEVEL_ORDER
+            const hierarchy = LEVEL_ORDER.map((levelValue) => {
+                const label = LEVEL_LABELS[levelValue];
+
+                const levelDesignations = designations.filter(
+                    (d) => d.level === levelValue
+                );
+
+                const levelEmployees = filteredEmployees.filter(
+                    (emp) => emp.designation?.level === levelValue
+                );
+
+                return {
+                    level: levelValue,
+                    label,
+                    designationCount: levelDesignations.length,
+                    employeeCount: levelEmployees.length,
+                    designations: levelDesignations.map((d) => ({
+                        id: d.id,
+                        name: d.name,
+                        department_id: d.departmentId,
+                        description: d.description || "",
+                    })),
+                    employees: levelEmployees.map((e) => ({
+                        id: e.id,
+                        full_name: e.fullName,
+                        email: e.email,
+                        phone: e.phone,
+                        employee_code: e.employeeCode,
+                        department: e.departmentAssignments[0]?.department?.name || null,
+                        category: e.category?.name || null,
+                        designation: e.designation?.name || null,
+                    })),
+                };
+            });
+
+            // match proto: OrganizationHierarchyResponse { organization_id, levels }
+            return callback(null, {
+                organization_id,
+                levels: hierarchy,
+            });
+        } catch (e) {
+            console.log("OrganizationHierarchy Error:", e);
+            callback({
+                code: grpc.status.INTERNAL,
+                message: e.message || "Internal error",
+            });
+        }
+    },
+
+
     /* ------------------------------------------------------------------ */
     /* 🟢 Create Organization                                             */
     /* ------------------------------------------------------------------ */

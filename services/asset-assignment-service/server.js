@@ -1,7 +1,5 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
-import { prisma } from '@jury-hrms/db/client.js';
-import { includes } from 'zod';
-import { de } from 'zod/locales';
+import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
 
 
 const PORT = Number(process.env.ASSET_ASSIGN_SERVICE_PORT || 50067);
@@ -305,6 +303,7 @@ function mapAssetAssignment(assetAssignment) {
 // Server
 // -----------------------------
 async function main() {
+    await checkDbConnection('asset-assignment-service');
     const server = new grpc.Server();
     server.addService(assetAssignmentProto.AssetAssignmentService.service, impl);
 

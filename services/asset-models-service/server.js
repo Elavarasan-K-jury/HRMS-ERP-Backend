@@ -1,5 +1,5 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
-import { prisma } from '@jury-hrms/db/client.js';
+import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
 
 const PORT = Number(process.env.ASSET_MOD_SERVICE_PORT || 50064);
 const assetModelProto = loadProto('asset_models');
@@ -59,7 +59,7 @@ const impl = {
                 modelName: data.model_name,
                 code: data.code ?? null,
                 description: data.description ?? null,
-                specs: data.specs ? JSON.parse(data.specs) : null, 
+                specs: data.specs ? JSON.parse(data.specs) : null,
                 isActive: data.is_active ?? true,
                 createdAt: new Date(),
                 updatedAt: new Date(),
@@ -102,8 +102,8 @@ const impl = {
             const model = await prisma.assetModels.findUnique({
                 where: { id },
                 include: {
-                    assetCategories: true, 
-                    organization: true, 
+                    assetCategories: true,
+                    organization: true,
                 },
             });
             if (!model || model.deletedAt !== null) {
@@ -118,7 +118,7 @@ const impl = {
                 model: mapModel(model),
                 success: true,
                 message: "Asset model fetched successfully"
-             });
+            });
 
         } catch (e) {
             console.error('❌ GetAssetModel Error:', e);
@@ -138,9 +138,9 @@ const impl = {
                 search = '',
                 sort_by = 'created_at',
                 sort_order = 'desc',
-             } = call.request;
+            } = call.request;
 
-            const skip = (page - 1) * limit;   
+            const skip = (page - 1) * limit;
 
             // Mapping API -> Prisma fields
             const sortMap = {
@@ -175,8 +175,8 @@ const impl = {
                 take: limit,
                 orderBy: { [prismaSortField]: sort_order },
                 include: {
-                    assetCategories: true, 
-                    organization: true, 
+                    assetCategories: true,
+                    organization: true,
                 },
             });
 
@@ -235,9 +235,9 @@ const impl = {
 
             callback(null, {
                 model: mapModel(updated),
-                success: true,  
+                success: true,
                 message: 'Asset model updated successfully',
-             });
+            });
         } catch (e) {
             console.error('❌ UpdateAssetModel Error:', e);
             callback({
@@ -260,7 +260,7 @@ const impl = {
 
             await prisma.assetModels.update({
                 where: { id },
-                data: { deletedAt: new Date()},
+                data: { deletedAt: new Date() },
             });
 
             callback(null, {
@@ -273,7 +273,7 @@ const impl = {
                 code: grpc.status.INTERNAL,
                 message: e.message,
             });
-        }                
+        }
     },
 
 };
@@ -302,6 +302,7 @@ function mapModel(model) {
 // Server
 // -----------------------------
 async function main() {
+    await checkDbConnection('asset-models-service');
     const server = new grpc.Server();
     server.addService(assetModelProto.AssetModelService.service, impl);
 

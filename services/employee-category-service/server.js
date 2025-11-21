@@ -1,5 +1,5 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
-import { prisma } from '@jury-hrms/db/client.js';
+import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
 
 const PORT = Number(process.env.EMP_CAT_SERVICE_PORT || 50052);
 const employeeCategoryProto = loadProto('employee_category');
@@ -382,6 +382,7 @@ function mapCategory(category) {
 
 
 async function main() {
+    await checkDbConnection('employee-category-service');
     const server = new grpc.Server();
 
     server.addService(employeeCategoryProto.EmployeeCategoryService.service, impl);

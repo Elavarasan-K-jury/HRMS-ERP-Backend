@@ -1,5 +1,5 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
-import { prisma } from '@jury-hrms/db/client.js';
+import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
 
 const PORT = process.env.EMP_DEPT_SERVICE_PORT || 50056;
 const proto = loadProto('employee_department');
@@ -459,6 +459,7 @@ function mapAssignment(a) {
 // SERVER START
 // ──────────────────────────────────────────────────────────────────────────
 async function main() {
+    await checkDbConnection('employee-department-service');
     const server = new grpc.Server();
     server.addService(proto.EmployeeDepartmentService.service, impl);
 

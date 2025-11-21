@@ -1,5 +1,5 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
-import { prisma } from '@jury-hrms/db/client.js';
+import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
 
 const PORT = Number(process.env.ORG_DEPT_SERVICE_PORT || 50054);
 const departmentProto = loadProto('org_department');
@@ -215,6 +215,81 @@ const impl = {
         }
     },
 
+    ListDepartmentEmployees: async (call, callback) => {
+        try {
+            const { department_id, organization_id } = call.request;
+            const departmentExists = await prisma.organizationDepartments.findFirst({
+                where: { id: department_id, organizationId: organization_id, deletedAt: null },
+                include: { departmentHead: true },
+            })
+
+            if (!departmentExists) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Department not found',
+                });
+            }
+            const head = departmentExists.departmentHead;
+            const employees = await prisma.employeeDepartments.findMany({
+                where: {
+                    departmentId: department_id,
+                    deletedAt: null,
+                    employee: {
+                        deletedAt: null
+                    }
+                },
+                include: {
+                    employee: true,
+                    reporting: true
+                },
+            });
+            const usedIds = [];
+            if (head) {
+                usedIds.push(head.id);
+            }
+            const mappedEmployees = employees.map(emp => {
+                if (usedIds.includes(emp.employee.id)) {
+                    return null;
+                }
+                usedIds.push(emp.employee.id);
+                return {
+                    ...mapDepartmentHead(emp.employee),
+                    reporting: emp.reporting ? mapDepartmentHead(emp.reporting) : mapDepartmentHead(head),
+                    isHead: emp.employee.id === head.id,
+                }
+            })
+
+            const mappedData = await Promise.all(mappedEmployees);
+
+            let mappedEmployeesWithHead = [];
+            if (head) {
+                mappedEmployeesWithHead = [
+                    {
+                        ...mapDepartmentHead(head),
+                        isHead: true,
+                    },
+                    ...mappedData.filter(e => e !== null)
+                ]
+            } else {
+                mappedEmployeesWithHead = mappedData.filter(e => e !== null);
+            }
+
+            const employeeList = await Promise.all(mappedEmployeesWithHead)
+
+            callback(null, {
+                employees: employeeList,
+                message: 'Employees found successfully',
+                success: true,
+            });
+        } catch (e) {
+            console.error('ListDepartmentEmployees Error:', e);
+            callback({
+                code: grpc.status.INTERNAL,
+                message: e.message,
+            });
+        }
+    },
+
     UpdateDepartment: async (call, callback) => {
         try {
             const data = call.request;
@@ -396,7 +471,6 @@ function formatDate(date) {
     });
 }
 
-
 // ──────────────────────────────────────────────────────────────────────────
 // MAPPER: Prisma → gRPC Response
 // ──────────────────────────────────────────────────────────────────────────
@@ -419,6 +493,7 @@ function mapDepartment(dept) {
 }
 
 async function main() {
+    await checkDbConnection('organization-service');
     const server = new grpc.Server();
     server.addService(departmentProto.OrgDepartmentService.service, impl);
 

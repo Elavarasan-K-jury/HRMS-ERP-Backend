@@ -369,7 +369,7 @@ export default function registerEmployeeRoutes(app) {
                     email: parsed.email,
                     phone: parsed.phone,
                     alt_phone: parsed.altPhone,
-                    gender: parsed.gender ? mapGenderClient(parsed.gender) : undefined,
+                    gender: parsed.gender,
                     date_of_birth: parsed.dateOfBirth,
                 };
 

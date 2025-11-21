@@ -1,5 +1,5 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
-import { prisma } from '@jury-hrms/db/client.js';
+import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
 
 const PORT = Number(process.env.EMP_ONBOARDING_FEATURE_SERVICE_PORT || 50059);
 const onboardingFeatureProto = loadProto('emp_onboarding_feature');
@@ -270,6 +270,7 @@ function mapFeature(feature) {
 // Bootstrap gRPC Server
 // ---------------------------------
 async function main() {
+    await checkDbConnection('employee-onboarding-feature-service');
     const server = new grpc.Server();
     server.addService(onboardingFeatureProto.EmployeeOnboardingFeatureService.service, impl);
 
