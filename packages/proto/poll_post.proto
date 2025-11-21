@@ -1,0 +1,251 @@
+syntax = "proto3";
+
+package poll_post;
+
+// =============================
+// 🔹 Service
+// =============================
+service PostPollService {
+  rpc CreatePostPoll       (CreatePostPollRequest)       returns (PostPollResponse);
+  rpc GetPostPoll          (GetPostPollRequest)          returns (PostPollResponse);
+  rpc ListPostPolls        (ListPostPollsRequest)        returns (ListPostPollsResponse);
+  rpc UpdatePostPoll       (UpdatePostPollRequest)       returns (PostPollResponse);
+  rpc DeletePostPoll       (DeletePostPollRequest)       returns (DeletePostPollResponse);
+
+  // Likes
+  rpc TogglePostPollLike   (TogglePostPollLikeRequest)   returns (TogglePostPollLikeResponse);
+  rpc GetPollLikesDetails  (GetPollLikesDetailsRequest)  returns (GetPollLikesDetailsResponse);
+
+  //Comments
+  rpc AddPollComment       (AddPollCommentRequest)       returns (AddPollCommentResponse);
+  rpc GetPollComments      (GetPollCommentsRequest)      returns (GetPollCommentsResponse);
+  rpc DeletePollComment    (DeletePollCommentRequest)    returns (DeletePollCommentResponse);
+
+}
+
+// =============================
+// 🔹 Requests
+// =============================
+message CreatePostPollRequest {
+  string organization_id = 1;
+  string employee_id     = 2;
+
+  string title           = 3;
+  string description     = 4;
+  string image           = 5;
+  repeated string tags   = 6;
+
+  bool is_voting_poll    = 7;
+
+  repeated PollOptionInput options = 8;
+}
+
+message GetPostPollRequest {
+  string id = 1;
+}
+
+message UpdatePostPollRequest {
+  string id              = 1;
+
+  string organization_id = 2;
+  string employee_id     = 3;
+
+  string title           = 4;
+  string description     = 5;
+  string image           = 6;
+  repeated string tags   = 7;
+
+  bool is_voting_poll    = 8;
+
+  repeated PollOptionInput options = 9;
+}
+
+message DeletePostPollRequest {
+  string id = 1;
+}
+// =============================
+// 🔹 Likes Requests
+// =============================
+message TogglePostPollLikeRequest {
+  string post_id = 1;
+  string employee_id = 2;
+}
+
+message GetPollLikesDetailsRequest {
+  string post_id = 1;
+  string employee_id = 2;
+}
+
+// =============================
+// 🔹 Likes Responses
+// =============================
+message TogglePostPollLikeResponse {
+  bool liked = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message GetPollLikesDetailsResponse {
+  bool liked = 1;
+  int32 count = 2;
+  repeated PollLike likes = 3;
+  bool success = 4;
+  string message = 5;
+}
+
+//Comments Requests
+message AddPollCommentRequest {
+  string post_id = 1;
+  string employee_id = 2;
+  string comment = 3;
+}
+
+message GetPollCommentsRequest {
+  string post_id = 1;
+}
+
+message DeletePollCommentRequest {
+  string comment_id = 1;
+}
+
+//Comments Responses
+message AddPollCommentResponse {
+  PollComment comment = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message GetPollCommentsResponse {
+  int32 count = 1;
+  repeated PollComment comments = 2;
+  bool success = 3;
+  string message = 4;
+}
+
+message DeletePollCommentResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// =============================
+// 🔹 Inputs
+// =============================
+message PollOptionInput {
+  string id    = 1;
+  string label = 2;
+}
+
+// =============================
+// 🔹 List Request (Pagination)
+// =============================
+message ListPostPollsRequest {
+  string organization_id = 1;
+  int32  page            = 2;
+  int32  limit           = 3;
+  string search          = 4;
+  string sort_by         = 5;
+  string sort_order      = 6;
+}
+
+// =============================
+// 🔹 Poll Post Object
+// =============================
+message PostPoll {
+  string id              = 1;
+  string organization_id = 2;
+  string employee_id     = 3;
+
+  string title           = 4;
+  string description     = 5;
+  string image           = 6;
+  repeated string tags   = 7;
+
+  bool is_voting_poll    = 8;
+
+  string created_at      = 9;
+  string updated_at      = 10;
+  string deleted_at      = 11;
+
+  repeated PollOption  options  = 12;
+  repeated PollVote    votes    = 13;
+  repeated PollLike    likes    = 14;
+  repeated PollComment comments = 15;
+  repeated PollSave    saves    = 16;
+  repeated PollShare   shares   = 17;
+}
+
+// =============================
+// 🔹 Child Objects
+// =============================
+message PollOption {
+  string id      = 1;
+  string post_id = 2;
+  string label   = 3;
+}
+
+message PollVote {
+  string id          = 1;
+  string post_id     = 2;
+  string employee_id = 3;
+  string option_id   = 4;
+  string created_at  = 5;
+}
+
+message PollLike {
+  string id          = 1;
+  string post_id     = 2;
+  string employee_id = 3;
+  string created_at  = 4;
+}
+
+message PollComment {
+  string id          = 1;
+  string post_id     = 2;
+  string employee_id = 3;
+  string comment     = 4;
+  string created_at  = 5;
+}
+
+message PollSave {
+  string id          = 1;
+  string post_id     = 2;
+  string employee_id = 3;
+  string created_at  = 4;
+}
+
+message PollShare {
+  string id          = 1;
+  string post_id     = 2;
+  string employee_id = 3;
+  string created_at  = 4;
+}
+
+// =============================
+// 🔹 Response Wrapper
+// =============================
+message PostPollResponse {
+  PostPoll post   = 1;
+  bool success    = 2;
+  string message  = 3;
+}
+
+// =============================
+// 🔹 List Response
+// =============================
+message ListPostPollsResponse {
+  repeated PostPoll posts = 1;
+  int32 total             = 2;
+  int32 page              = 3;
+  int32 limit             = 4;
+  int32 total_pages       = 5;
+  bool success            = 6;
+  string message          = 7;
+}
+
+// =============================
+// 🔹 Delete Response
+// =============================
+message DeletePostPollResponse {
+  bool success = 1;
+  string message = 2;
+}

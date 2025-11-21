@@ -64,6 +64,7 @@ import registerAssetRequestRoutes from './routes/asset_request.routes.js';
 import registerAssetAssignmentRoutes from './routes/asset_assignment.routes.js';
 import registerAssetConditionRoutes from './routes/asset_condition.routes.js';
 import registerHierarchyRoutes from './routes/hierarchy.routes.js';
+import registerPostPollRoutes from './routes/post_poll.routes.js';
 
 /* ------------------------------------------------------------------ */
 /* 🏗️  App Setup                                                       */
@@ -117,6 +118,7 @@ registerAssetRoutes({ openapi: openapiWithQueue });
 registerAssetRequestRoutes({ openapi: openapiWithQueue });
 registerAssetAssignmentRoutes({ openapi: openapiWithQueue });
 registerAssetConditionRoutes({ openapi: openapiWithQueue });
+registerPostPollRoutes({ openapi: openapiWithQueue });
 
 /* ------------------------------------------------------------------ */
 /* 📜 OpenAPI / Swagger                                                */
