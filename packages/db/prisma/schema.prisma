@@ -408,7 +408,7 @@ model PollPosts {
   isVotingPoll Boolean @default(false) @map("is_voting_poll")
 
   createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  updatedAt DateTime  @default(now())@updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
   // Relations
@@ -428,6 +428,8 @@ model PollLikes {
   postId     String   @map("post_id") @db.ObjectId
   employeeId String   @map("employee_id") @db.ObjectId
   createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
 
   poll     PollPosts             @relation(fields: [postId], references: [id])
   employee OrganizationEmployees @relation(fields: [employeeId], references: [id])
@@ -439,7 +441,7 @@ model PollComments {
   employeeId String    @map("employee_id") @db.ObjectId
   comment    String
   createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
+  updatedAt  DateTime   @default(now()) @updatedAt @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
 
   poll     PollPosts             @relation(fields: [postId], references: [id])
@@ -451,6 +453,8 @@ model PollSaves {
   postId     String   @map("post_id") @db.ObjectId
   employeeId String   @map("employee_id") @db.ObjectId
   createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
 
   poll     PollPosts             @relation(fields: [postId], references: [id])
   employee OrganizationEmployees @relation(fields: [employeeId], references: [id])
@@ -461,6 +465,8 @@ model PollShares {
   postId     String   @map("post_id") @db.ObjectId
   employeeId String   @map("employee_id") @db.ObjectId
   createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
 
   poll     PollPosts             @relation(fields: [postId], references: [id])
   employee OrganizationEmployees @relation(fields: [employeeId], references: [id])
@@ -472,7 +478,7 @@ model PollOptions {
   label      String // e.g. "React" or "Goa"
   votesCount Int       @default(0)
   createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
 
   poll  PollPosts   @relation(fields: [postId], references: [id])
@@ -484,7 +490,9 @@ model PollVotes {
   postId     String   @map("post_id") @db.ObjectId
   optionId   String   @map("option_id") @db.ObjectId
   employeeId String   @map("employee_id") @db.ObjectId
-  createdAt  DateTime @default(now())
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
 
   poll     PollPosts             @relation(fields: [postId], references: [id])
   option   PollOptions           @relation(fields: [optionId], references: [id])
