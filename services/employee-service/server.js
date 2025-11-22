@@ -609,7 +609,7 @@ function mapEmployee(emp) {
         departments: emp?.departmentAssignments?.length
             ? emp.departmentAssignments.map(a => ({
                 // Assignment-level fields
-                assignment_id: a?.id ?? '',
+                id: a?.id ?? '',
                 department_id: a?.departmentId ?? '',
                 reporting_to: a?.reportingTo ?? null,
                 start_date: a?.startDate ? formatDate(a.startDate) : null,
