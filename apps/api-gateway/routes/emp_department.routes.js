@@ -316,15 +316,6 @@ export default function registerEmployeeDepartmentRoutes(app) {
                 const body = await c.req.json();
                 const parsed = updateEmployeeDepartmentSchema.parse(body);
 
-                const existing = await new Promise((resolve, reject) => {
-                    empDepartment.GetEmployeeDepartment({ id }, (err, resp) => {
-                        if (err) return reject(err);
-                        resolve(resp.employee_department);
-                    });
-                });
-
-                if (!existing) return c.json({ error: 'Employee department record not found' }, 404);
-
                 const response = await new Promise((resolve, reject) => {
                     empDepartment.UpdateEmployeeDepartment({ id, ...parsed }, (err, resp) => {
                         if (err) return reject(err);
