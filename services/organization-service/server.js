@@ -1,5 +1,5 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
-import { prisma } from '@jury-hrms/db/client.js';
+import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
 
 const PORT = process.env.ORG_SERVICE_PORT || 50051;
 const organizationProto = loadProto('organization');
@@ -634,6 +634,7 @@ function mapOrg(org) {
 /* 🧩 Graceful Server Setup                                            */
 /* ------------------------------------------------------------------ */
 async function main() {
+    await checkDbConnection('organization-service');
     const server = new grpc.Server();
 
     server.addService(organizationProto.OrganizationService.service, impl);

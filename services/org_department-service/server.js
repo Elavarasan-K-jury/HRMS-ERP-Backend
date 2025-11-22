@@ -493,7 +493,7 @@ function mapDepartment(dept) {
 }
 
 async function main() {
-    await checkDbConnection('organization-service');
+    await checkDbConnection('organization-department-service');
     const server = new grpc.Server();
     server.addService(departmentProto.OrgDepartmentService.service, impl);
 
