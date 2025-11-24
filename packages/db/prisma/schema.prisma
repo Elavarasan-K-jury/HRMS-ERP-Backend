@@ -69,7 +69,7 @@ model Organizations {
   assetModel      AssetModels[]
   assets          Assets[]
   assetAssignment AssetAssignments[]
-  pollPosts       PollPosts[]
+  pollPosts       Posts[]
 }
 
 model OrganizationDepartments {
@@ -218,12 +218,12 @@ model OrganizationEmployees {
   assetAssignment        AssetAssignments[]
   attendance             Attendance[]
   departmentAssignments  EmployeeDepartments[]
-  pollPosts              PollPosts[]
-  pollLikes              PollLikes[]
-  pollComments           PollComments[]
-  pollSaves              PollSaves[]
-  pollShares             PollShares[]
-  pollVotes              PollVotes[]
+  pollPosts              Posts[]
+  pollLikes              PostLikes[]
+  pollComments           PostComments[]
+  pollSaves              PostSaves[]
+  pollShares             PostShares[]
+  pollVotes              PostVotes[]
   onboardingProgress     OnboardingProgress[]      @relation("EmployeeOnboardingProgress")
   assetRequests          AssetRequest[]            @relation("RequestedBy")
   approvedRequests       AssetRequest[]            @relation("ApprovedBy")
@@ -395,7 +395,7 @@ model AssetCondition {
   deletedAt        DateTime?              @map("deleted_at")
 }
 
-model PollPosts {
+model Posts {
   id             String @id @default(auto()) @map("_id") @db.ObjectId
   organizationId String @map("organization_id") @db.ObjectId
   employeeId     String @map("employee_id") @db.ObjectId
@@ -415,15 +415,15 @@ model PollPosts {
   employee     OrganizationEmployees @relation(fields: [employeeId], references: [id])
   organization Organizations         @relation(fields: [organizationId], references: [id])
 
-  options  PollOptions[]
-  votes    PollVotes[]
-  likes    PollLikes[]
-  comments PollComments[]
-  saves    PollSaves[]
-  shares   PollShares[]
+  options  PostOptions[]
+  votes    PostVotes[]
+  likes    PostLikes[]
+  comments PostComments[]
+  saves    PostSaves[]
+  shares   PostShares[]
 }
 
-model PollLikes {
+model PostLikes {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
   postId     String   @map("post_id") @db.ObjectId
   employeeId String   @map("employee_id") @db.ObjectId
@@ -431,11 +431,11 @@ model PollLikes {
   updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
 
-  poll     PollPosts             @relation(fields: [postId], references: [id])
+  poll     Posts             @relation(fields: [postId], references: [id])
   employee OrganizationEmployees @relation(fields: [employeeId], references: [id])
 }
 
-model PollComments {
+model PostComments {
   id         String    @id @default(auto()) @map("_id") @db.ObjectId
   postId     String    @map("post_id") @db.ObjectId
   employeeId String    @map("employee_id") @db.ObjectId
@@ -444,11 +444,11 @@ model PollComments {
   updatedAt  DateTime   @default(now()) @updatedAt @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
 
-  poll     PollPosts             @relation(fields: [postId], references: [id])
+  poll     Posts             @relation(fields: [postId], references: [id])
   employee OrganizationEmployees @relation(fields: [employeeId], references: [id])
 }
 
-model PollSaves {
+model PostSaves {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
   postId     String   @map("post_id") @db.ObjectId
   employeeId String   @map("employee_id") @db.ObjectId
@@ -456,11 +456,11 @@ model PollSaves {
   updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
 
-  poll     PollPosts             @relation(fields: [postId], references: [id])
+  poll     Posts             @relation(fields: [postId], references: [id])
   employee OrganizationEmployees @relation(fields: [employeeId], references: [id])
 }
 
-model PollShares {
+model PostShares {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
   postId     String   @map("post_id") @db.ObjectId
   employeeId String   @map("employee_id") @db.ObjectId
@@ -468,11 +468,11 @@ model PollShares {
   updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
 
-  poll     PollPosts             @relation(fields: [postId], references: [id])
+  poll     Posts             @relation(fields: [postId], references: [id])
   employee OrganizationEmployees @relation(fields: [employeeId], references: [id])
 }
 
-model PollOptions {
+model PostOptions {
   id         String    @id @default(auto()) @map("_id") @db.ObjectId
   postId     String    @map("post_id") @db.ObjectId
   label      String // e.g. "React" or "Goa"
@@ -481,11 +481,11 @@ model PollOptions {
   updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
 
-  poll  PollPosts   @relation(fields: [postId], references: [id])
-  votes PollVotes[]
+  poll  Posts   @relation(fields: [postId], references: [id])
+  votes PostVotes[]
 }
 
-model PollVotes {
+model PostVotes {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
   postId     String   @map("post_id") @db.ObjectId
   optionId   String   @map("option_id") @db.ObjectId
@@ -494,7 +494,7 @@ model PollVotes {
   updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
 
-  poll     PollPosts             @relation(fields: [postId], references: [id])
-  option   PollOptions           @relation(fields: [optionId], references: [id])
+  poll     Posts             @relation(fields: [postId], references: [id])
+  option   PostOptions           @relation(fields: [optionId], references: [id])
   employee OrganizationEmployees @relation(fields: [employeeId], references: [id])
 }
