@@ -338,7 +338,7 @@ export default function registerPostPollRoutes(app) {
                             }),
                         },
                     },
-                },  
+                },
                 500: {
                     description: 'Server error',
                     content: {
@@ -533,7 +533,7 @@ export default function registerPostPollRoutes(app) {
                             schema: z.object({
                                 message: z.string(),
                             }),
-                        },  
+                        },
                     },
                 },
             },
@@ -911,6 +911,553 @@ export default function registerPostPollRoutes(app) {
                 return c.json({ message: err.message }, 500);
             }
         }
-    );  
+    );
+
+    // Get Poll Options By Post ID
+    app.openapi(
+        {
+            method: 'get',
+            path: '/post-polls/{id}/options',
+            tags: ['Post Polls'],
+            summary: 'Get options for a post poll',
+            request: {
+                params: z.object({
+                    id: z.string({ required_error: "Post Poll ID is required" }),
+                }),
+            },
+            responses: {
+                200: {
+                    description: 'Options fetched successfully',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                options: z.array(
+                                    z.object({
+                                        id: z.string(),
+                                        post_id: z.string(),
+                                        label: z.string(),
+                                        votesCount: z.number(),
+                                        created_at: z.string().nullable(),
+                                        updated_at: z.string().nullable(),
+                                        deleted_at: z.string().nullable(),
+                                    })
+                                ),
+                                success: z.boolean(),
+                                message: z.string(),
+                            }),
+                        },
+                    },
+                },
+            },
+        },
+        async (c) => {
+            try {
+                const id = c.req.param("id");
+
+                const response = await new Promise((resolve, reject) => {
+                    postPollClient.getPollOptions(
+                        { post_id: id },
+                        (err, response) => {
+                            if (err) reject(err);
+                            else resolve(response);
+                        }
+                    );
+                });
+
+                return c.json(response, 200);
+            } catch (err) {
+                return c.json({ message: err.message }, 500);
+            }
+        }
+    );
+
+    // Delete Poll Option By ID
+    app.openapi(
+        {
+            method: 'delete',
+            path: '/post-polls/{id}/options/{option_id}',
+            tags: ['Post Polls'],
+            summary: 'Delete an option for a post poll',
+            request: {
+                params: z.object({
+                    id: z.string({ required_error: "Post Poll ID is required" }),
+                    option_id: z.string({ required_error: "Option ID is required" }),
+                }),
+            },
+            responses: {
+                200: {
+                    description: 'Option deleted successfully',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                success: z.boolean(),
+                                message: z.string(),
+                            }),
+                        },
+                    },
+                },
+            },
+        },
+        async (c) => {
+            try {
+                const option_id = c.req.param("option_id");
+
+                const response = await new Promise((resolve, reject) => {
+                    postPollClient.deletePollOption(
+                        { option_id },
+                        (err, response) => {
+                            if (err) reject(err);
+                            else resolve(response);
+                        }
+                    );
+                });
+
+                return c.json(response, 200);
+            } catch (err) {
+                return c.json({ message: err.message }, 500);
+            }
+        }
+    );
+
+    // Cast Poll Vote
+    app.openapi(
+        {
+            method: 'post',
+            path: '/post-polls/{id}/cast-vote',
+            tags: ['Post Polls'],
+            summary: 'Cast a vote for a post poll',
+            request: {
+                params: z.object({
+                    id: z.string(),
+                }),
+                body: {
+                    content: {
+                        "application/json": {
+                            schema: z.object({
+                                employee_id: z.string(),
+                                option_id: z.string(),
+                            })
+                        }
+                    }
+                }
+            },
+            responses: {
+                200: {
+                    description: 'Vote cast successfully',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                votes: z.object({
+                                    id: z.string(),
+                                    post_id: z.string(),
+                                    option_id: z.string(),
+                                    employee_id: z.string(),
+                                    created_at: z.string().nullable(),
+                                    updated_at: z.string().nullable(),
+                                    deleted_at: z.string().nullable(),
+                                }),
+                                success: z.boolean(),
+                                message: z.string(),
+                            }),
+                        },
+                    },
+                },
+                400: {
+                    description: 'Validation error',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                message: z.string(),
+                            }),
+                        },
+                    },
+                },
+            },
+        },
+        async (c) => {
+            try {
+                const id = c.req.param("id");
+                const { employee_id, option_id } = await c.req.json();
+
+                const response = await new Promise((resolve, reject) => {
+                    postPollClient.castPollVote(
+                        { post_id: id, employee_id, option_id },
+                        (err, response) => {
+                            if (err) reject(err);
+                            else resolve(response);
+                        }
+                    );
+                });
+
+                return c.json(response, 200);
+            } catch (err) {
+                return c.json({ message: err.message }, 500);
+            }
+        }
+    );
+
+    // Get Poll Votes Details
+    app.openapi(
+        {
+            method: 'get',
+            path: '/post-polls/{id}/votes',
+            tags: ['Post Polls'],
+            summary: 'Get votes for a post poll',
+            request: {
+                params: z.object({
+                    id: z.string({ required_error: "Post Poll ID is required" }),
+                }),
+            },
+            responses: {
+                200: {
+                    description: 'Votes fetched successfully',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                votes: z.array(
+                                    z.object({
+                                        id: z.string(),
+                                        post_id: z.string(),
+                                        user_id: z.string(),
+                                        option_id: z.string(),
+                                        created_at: z.string().nullable(),
+                                        updated_at: z.string().nullable(),
+                                        deleted_at: z.string().nullable(),
+                                    })
+                                ),
+                                success: z.boolean(),
+                                message: z.string(),
+                            }),
+                        },
+                    },
+                },
+            },
+        },
+        async (c) => {
+            try {
+                const id = c.req.param("id");
+                const response = await new Promise((resolve, reject) => {
+                    postPollClient.getPollVotesDetails(
+                        { post_id: id },
+                        (err, response) => {
+                            if (err) reject(err);
+                            else resolve(response);
+                        }
+                    );
+                });
+
+                return c.json(response, 200);
+            } catch (err) {
+                return c.json({ message: err.message }, 500);
+            }
+        }
+    );
+
+    // Save / Unsave Post Poll
+    app.openapi(
+        {
+            method: 'post',
+            path: '/post-polls/{id}/save',
+            tags: ['Post Polls'],
+            summary: 'Save or Unsave a post poll',
+            request: {
+                params: z.object({
+                    id: z.string().min(1, "Post Poll ID is required"),
+                }),
+                body: {
+                    content: {
+                        "application/json": {
+                            schema: z.object({
+                                employee_id: z.string().min(1, "Employee ID is required"),
+                            })
+                        }
+                    }
+                }
+            },
+            responses: {
+                200: {
+                    description: 'Save/Unsave completed',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                save: z
+                                    .object({
+                                        id: z.string(),
+                                        post_id: z.string(),
+                                        employee_id: z.string(),
+                                        created_at: z.string().nullable(),
+                                        updated_at: z.string().nullable(),
+                                        deleted_at: z.string().nullable(),
+                                        employee: z
+                                            .object({
+                                                id: z.string(),
+                                                organization_id: z.string(),
+                                                first_name: z.string(),
+                                                last_name: z.string(),
+                                                email: z.string(),
+                                            })
+                                            .nullable(),
+                                    })
+                                    .nullable(), // IMPORTANT: allow null for unsave
+                                saved: z.boolean(),
+                                success: z.boolean(),
+                                message: z.string(),
+                            }),
+                        },
+                    },
+                },
+                400: {
+                    description: 'Validation error',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                message: z.string(),
+                            }),
+                        },
+                    },
+                },
+            },
+        },
+        async (c) => {
+            try {
+                const id = c.req.param("id");
+                const { employee_id } = await c.req.json();
+
+                const response = await new Promise((resolve, reject) => {
+                    postPollClient.togglePostPollSave(
+                        { post_id: id, employee_id },
+                        (err, response) => {
+                            if (err) reject(err);
+                            else resolve(response);
+                        }
+                    );
+                });
+
+                return c.json(response, 200);
+            } catch (err) {
+                return c.json({ message: err.message }, 500);
+            }
+        }
+    );
+
+    // Get Saved Post Status
+    app.openapi(
+        {
+            method: 'get',
+            path: '/post-polls/{id}/saved',
+            tags: ['Post Polls'],
+            summary: 'Check if a post poll is saved by user',
+            request: {
+                params: z.object({
+                    id: z.string({ required_error: "Post Poll ID is required" }),
+                }),
+                query: z.object({
+                    employee_id: z.string({ required_error: "Employee ID is required" })
+                })
+            },
+            responses: {
+                200: {
+                    description: 'Saved post poll fetched successfully',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                saved: z.boolean(),
+                                count: z.number(),
+                                saves: z.array(
+                                    z.object({
+                                        id: z.string(),
+                                        post_id: z.string(),
+                                        employee_id: z.string(),
+                                        created_at: z.string().nullable(),
+                                        updated_at: z.string().nullable(),
+                                        deleted_at: z.string().nullable(),
+                                        employee: z.object({
+                                            id: z.string(),
+                                            organization_id: z.string(),
+                                            first_name: z.string(),
+                                            last_name: z.string(),
+                                            email: z.string()
+                                        }).nullable()
+                                    })
+                                ),
+                                success: z.boolean(),
+                                message: z.string(),
+                            })
+
+                        },
+                    },
+                },
+            },
+        },
+        async (c) => {
+            try {
+                const id = c.req.param("id");
+                const { employee_id } = c.req.valid("query");
+
+                const response = await new Promise((resolve, reject) => {
+                    postPollClient.getPollSavesDetails(
+                        { post_id: id, employee_id },
+                        (err, res) => {
+                            if (err) reject(err);
+                            else resolve(res);
+                        }
+                    );
+                });
+
+                return c.json(response, 200);
+
+            } catch (err) {
+                return c.json({ message: err.message }, 500);
+            }
+        }
+    );
+
+    // Share Post Poll
+    app.openapi(
+        {
+            method: 'post',
+            path: '/post-polls/{id}/share',
+            tags: ['Post Polls'],
+            summary: 'Share a post poll',
+            request: {
+                params: z.object({
+                    id: z.string().min(1, "Post Poll ID is required"),
+                }),
+                body: {
+                    content: {
+                        "application/json": {
+                            schema: z.object({
+                                employee_id: z.string().min(1, "Employee ID is required"),
+                            })
+                        }
+                    }
+                }
+            },
+            responses: {
+                200: {
+                    description: 'Post poll shared successfully',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                share: z.object({
+                                    id: z.string(),
+                                    post_id: z.string(),
+                                    employee_id: z.string(),
+                                    created_at: z.string().nullable(),
+                                    updated_at: z.string().nullable(),
+                                    deleted_at: z.string().nullable(),
+                                    employee: z.object({
+                                        id: z.string(),
+                                        organization_id: z.string(),
+                                        first_name: z.string(),
+                                        last_name: z.string(),
+                                        email: z.string(),
+                                    }).nullable(),
+                                }).nullable(), // very important!
+                                success: z.boolean(),
+                                message: z.string(),
+                            }),
+                        },
+                    },
+                },
+                400: {
+                    description: 'Validation error',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                message: z.string(),
+                            }),
+                        },
+                    },
+                },
+            },
+        },
+        async (c) => {
+            try {
+                const id = c.req.param("id");
+                const { employee_id } = await c.req.json();
+
+                const response = await new Promise((resolve, reject) => {
+                    postPollClient.sharePostPoll(
+                        { post_id: id, employee_id },
+                        (err, response) => {
+                            if (err) reject(err);
+                            else resolve(response);
+                        }
+                    );
+                });
+
+                return c.json(response, 200);
+            } catch (err) {
+                return c.json({ message: err.message }, 500);
+            }
+        }
+    );
+
+
+    // Get Post Poll Shares
+    app.openapi(
+        {
+            method: 'get',
+            path: '/post-polls/{id}/shares',
+            tags: ['Post Polls'],
+            summary: 'Get shares of a post poll',
+            request: {
+                params: z.object({
+                    id: z.string().min(1, "Post Poll ID is required"),
+                }),
+            },
+            responses: {
+                200: {
+                    description: 'Post poll shares fetched successfully',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                shares: z.array(
+                                    z.object({
+                                        id: z.string(),
+                                        post_id: z.string(),
+                                        employee_id: z.string(),
+                                        created_at: z.string().nullable(),
+                                        updated_at: z.string().nullable(),
+                                        deleted_at: z.string().nullable(),
+                                        employee: z.object({
+                                            id: z.string(),
+                                            organization_id: z.string(),
+                                            first_name: z.string(),
+                                            last_name: z.string(),
+                                            email: z.string(),
+                                        }).nullable(),
+                                    })
+                                ),
+                                count: z.number(),
+                                success: z.boolean(),
+                                message: z.string(),
+                            }),
+                        },
+                    },
+                },
+            },
+        },
+        async (c) => {
+            try {
+                const id = c.req.param("id");
+
+                const response = await new Promise((resolve, reject) => {
+                    postPollClient.getPostPollShares(
+                        { post_id: id },
+                        (err, response) => {
+                            if (err) reject(err);
+                            else resolve(response);
+                        }
+                    );
+                });
+
+                return c.json(response, 200);
+            } catch (err) {
+                return c.json({ message: err.message }, 500);
+            }
+        }
+    );
 
 }

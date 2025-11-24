@@ -21,6 +21,24 @@ service PostPollService {
   rpc GetPollComments      (GetPollCommentsRequest)      returns (GetPollCommentsResponse);
   rpc DeletePollComment    (DeletePollCommentRequest)    returns (DeletePollCommentResponse);
 
+  //option
+  rpc GetPollOptions (GetPollOptionsRequest) returns (GetPollOptionsResponse);
+  rpc DeletePollOption     (DeletePollOptionRequest)     returns (DeletePollOptionResponse);
+
+  //votes
+  rpc CastPollVote      (CastPollVoteRequest)      returns (CastPollVoteResponse);
+  rpc GetPollVotesDetails (GetPollVotesDetailsRequest) returns (GetPollVotesDetailsResponse);
+
+  //saves
+  rpc TogglePostPollSave   (TogglePostPollSaveRequest)   returns (TogglePostPollSaveResponse);
+  rpc GetPollSavesDetails  (GetPollSavesDetailsRequest)  returns (GetPollSavesDetailsResponse);
+
+//shares
+  rpc SharePostPoll       (SharePostPollRequest)       returns (SharePostPollResponse);
+  rpc GetPostPollShares   (GetPostPollSharesRequest)   returns (GetPostPollSharesResponse);
+
+
+
 }
 
 // =============================
@@ -178,9 +196,13 @@ message PostPoll {
 // 🔹 Child Objects
 // =============================
 message PollOption {
-  string id      = 1;
-  string post_id = 2;
-  string label   = 3;
+  string id        = 1;
+  string post_id   = 2;
+  string label     = 3;
+  int32 votesCount = 4;
+  string created_at = 5;
+  string updated_at = 6;
+  string deleted_at = 7;
 }
 
 message PollVote {
@@ -204,20 +226,6 @@ message PollComment {
   string employee_id = 3;
   string comment     = 4;
   string created_at  = 5;
-}
-
-message PollSave {
-  string id          = 1;
-  string post_id     = 2;
-  string employee_id = 3;
-  string created_at  = 4;
-}
-
-message PollShare {
-  string id          = 1;
-  string post_id     = 2;
-  string employee_id = 3;
-  string created_at  = 4;
 }
 
 // =============================
@@ -248,4 +256,160 @@ message ListPostPollsResponse {
 message DeletePostPollResponse {
   bool success = 1;
   string message = 2;
+}
+
+//Option Request
+message GetPollOptionsRequest {
+  string post_id = 1;
+}
+
+message DeletePollOptionRequest {
+  string option_id = 1;
+}
+
+//Option Response
+message GetPollOptionsResponse {
+  repeated PollOption options = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message DeletePollOptionResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+//Vote Requests
+message CastPollVoteRequest {
+  string post_id = 1;
+  string option_id = 2;
+  string employee_id = 3;
+}
+
+message GetPollVotesDetailsRequest {
+  string post_id = 1;
+  string employee_id = 2; // optional: to check user vote
+}
+
+//Vote Responses
+
+message CastPollVoteResponse {
+  PollVote vote = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+
+message GetPollVotesDetailsResponse {
+  int32 total_votes = 1;
+
+  repeated PollVoteOptionStats options = 2;
+  repeated PollVote votes = 3;
+
+  string user_vote_option_id = 4; // null if not voted
+
+  bool success = 5;
+  string message = 6;
+}
+
+message PollVoteOptionStats {
+  string option_id = 1;
+  string label = 2;
+  int32 votes = 3;
+  double percentage = 4;
+}
+
+// Save Requests
+message TogglePostPollSaveRequest {
+  string post_id     = 1;
+  string employee_id = 2;
+}
+
+message GetPollSavesDetailsRequest {
+  string post_id     = 1;
+  string employee_id = 2; // optional: check if this user saved
+}
+
+// Save Responses
+message TogglePostPollSaveResponse {
+  PollSave save = 1;  // Full save object (null when unsaved)
+  bool saved = 2;     // true = saved, false = unsaved
+  bool success = 3;
+  string message = 4;
+}
+
+// Returned when fetching save list + count
+message GetPollSavesDetailsResponse {
+  bool saved = 1;     // whether given user saved the post
+  int32 count = 2;    // total save count
+  repeated PollSave saves = 3; // full details
+  bool success = 4;
+  string message = 5;
+}
+
+// Save Object
+message PollSave {
+  string id          = 1;
+  string post_id     = 2;
+  string employee_id = 3;
+
+  string created_at  = 4;
+  string updated_at  = 5;
+  string deleted_at  = 6;
+
+  PollSaveEmployee employee = 7; // employee details
+}
+
+// Employee details included inside PollSave
+message PollSaveEmployee {
+  string id              = 1;
+  string organization_id = 2;
+  string first_name      = 3;
+  string last_name       = 4;
+  string email           = 5;
+}
+
+//Post share Request
+message SharePostPollRequest {
+  string post_id     = 1;
+  string employee_id = 2;
+}
+
+message GetPostPollSharesRequest {
+  string post_id = 1;
+}
+
+//Post Share Responses
+message SharePostPollResponse {
+  PollShare share = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message GetPostPollSharesResponse {
+  int32 count = 1;              // unique share count
+  repeated PollShare shares = 2;
+  bool success = 3;
+  string message = 4;
+}
+
+//Share Object
+message PollShare {
+  string id          = 1;
+  string post_id     = 2;
+  string employee_id = 3;
+
+  string created_at  = 4;
+  string updated_at  = 5;
+  string deleted_at  = 6;
+
+  PollShareEmployee employee = 7;
+}
+
+message PollShareEmployee {
+  string id              = 1;
+  string organization_id = 2;
+  string first_name      = 3;
+  string last_name       = 4;
+  string email           = 5;
 }
