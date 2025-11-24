@@ -58,7 +58,7 @@ const impl = {
 
             const otp = genOtp();
 
-            await prisma.adminOtps.create({
+            await prisma.otps.create({
                 data: {
                     adminId: admin.id,
                     otp,
@@ -128,7 +128,7 @@ const impl = {
             if (!admin) return cb({ code: grpc.status.NOT_FOUND, message: 'Admin not found' });
 
             // Get the latest (not soft-deleted) OTP
-            const record = await prisma.adminOtps.findFirst({
+            const record = await prisma.otps.findFirst({
                 where: { adminId: admin.id, deletedAt: null },
                 orderBy: { createdAt: 'desc' },
             });
@@ -137,7 +137,7 @@ const impl = {
             const age = Date.now() - new Date(record.createdAt).getTime();
             if (age > OTP_TTL_MS) {
                 // mark expired/consumed to avoid re-use
-                await prisma.adminOtps.update({
+                await prisma.otps.update({
                     where: { id: record.id },
                     data: { deletedAt: new Date(), updatedAt: new Date() },
                 });
@@ -149,7 +149,7 @@ const impl = {
             }
 
             // consume OTP
-            await prisma.adminOtps.update({
+            await prisma.otps.update({
                 where: { id: record.id },
                 data: { deletedAt: new Date(), updatedAt: new Date() },
             });

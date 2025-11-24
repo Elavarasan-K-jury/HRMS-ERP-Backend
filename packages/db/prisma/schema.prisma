@@ -24,14 +24,16 @@ model Admins {
   deletedAt    DateTime? @map("deleted_at")
 }
 
-model AdminOtps {
-  id        String    @id @default(auto()) @map("_id") @db.ObjectId
-  adminId   String    @map("admin_id") @db.ObjectId
-  otp       String
-  purpose   String?
-  createdAt DateTime  @map("created_at")
-  updatedAt DateTime  @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+model Otps {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  adminId        String?   @map("admin_id") @db.ObjectId
+  employeeId     String?   @map("employee_id") @db.ObjectId
+  organizationId String?   @map("organization_id") @db.ObjectId
+  otp            String
+  purpose        String?
+  createdAt      DateTime  @map("created_at")
+  updatedAt      DateTime  @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
 }
 
 model Organizations {
@@ -42,6 +44,8 @@ model Organizations {
   email               String?
   contactPersonName   String?   @map("contact_person_name")
   contactPersonNumber String?   @map("contact_person_number")
+  accessToken         String?   @map("access_token")
+  refreshToken        String?   @map("refresh_token")
   note                String?
   industry            String?
   size                Int?
@@ -51,6 +55,11 @@ model Organizations {
   createdAt           DateTime  @map("created_at")
   updatedAt           DateTime  @map("updated_at")
   deletedAt           DateTime? @map("deleted_at")
+
+  smsNotification      Boolean @default(false)
+  emailNotification    Boolean @default(true)
+  whatsappNotification Boolean @default(false)
+  pushNotification     Boolean @default(true)
 
   maxEmployees           Int? @default(20) @map("max_employees")
   maxStorageInGB         Int? @default(10) @map("max_storage_in_gb")
@@ -204,6 +213,8 @@ model OrganizationEmployees {
   lastName           String?                   @map("last_name")
   fullName           String                    @map("full_name")
   employeeCode       String?                   @map("employee_code")
+  accessToken        String?                   @map("access_token")
+  refreshToken       String?                   @map("refresh_token")
   email              String?
   phone              String
   altPhone           String?                   @map("alt_phone")
