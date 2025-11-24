@@ -67,9 +67,9 @@ const impl = {
             });
 
             // Create poll options (only if voting poll)
-            if (data.is_voting_poll && data.options?.length > 0) {
-                const optionsToCreate = data.options
-                    .filter(opt => typeof opt.label === 'string' && opt.label.trim().length > 0)
+            if (data.is_voting_poll) {
+                const optionsToCreate = (data.options || [])
+                    .filter(opt => opt.label && opt.label.trim().length > 0)
                     .map(opt => ({
                         postId: newPost.id,
                         label: opt.label.trim(),
@@ -78,12 +78,12 @@ const impl = {
                         updatedAt: new Date(),
                         deletedAt: null
                     }));
+
                 if (optionsToCreate.length > 0) {
-                    await prisma.pollOptions.createMany({
-                        data: optionsToCreate
-                    });
+                    await prisma.pollOptions.createMany({ data: optionsToCreate });
                 }
             }
+
 
             // Fetch full post with all relations
             const fullPost = await prisma.pollPosts.findUnique({
@@ -454,18 +454,22 @@ const impl = {
                 });
             }
 
-            // Check if like already exists
             const existing = await prisma.pollLikes.findFirst({
                 where: {
                     postId: post_id,
-                    employeeId: employee_id
+                    employeeId: employee_id,
+                    deletedAt: null
                 }
             });
 
-            // 🔹 If exists → UNLIKE (delete)
+            // 🔹 If exists → Soft UNLIKE
             if (existing) {
-                await prisma.pollLikes.delete({
-                    where: { id: existing.id }
+                await prisma.pollLikes.update({
+                    where: { id: existing.id },
+                    data: {
+                        deletedAt: new Date(),
+                        updatedAt: new Date()
+                    }
                 });
 
                 return callback(null, {
@@ -481,6 +485,8 @@ const impl = {
                     postId: post_id,
                     employeeId: employee_id,
                     createdAt: new Date(),
+                    updatedAt: new Date(),
+                    deletedAt: null
                 }
             });
 
@@ -498,6 +504,7 @@ const impl = {
             });
         }
     },
+
 
     GetPollLikesDetails: async (call, callback) => {
         try {
@@ -536,6 +543,8 @@ const impl = {
                     post_id: like.postId,
                     employee_id: like.employeeId,
                     created_at: like.createdAt?.toISOString() || null,
+                    updated_at: like.updatedAt?.toISOString() || null,
+                    deleted_at: like.deletedAt?.toISOString() || null,
                     employee: like.employee ? {
                         id: like.employee.id,
                         organization_id: like.employee.organizationId,
@@ -708,6 +717,543 @@ const impl = {
             });
         }
     },
+
+    GetPollOptions: async (call, callback) => {
+        try {
+            const { post_id } = call.request;
+
+            if (!post_id) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: "Post ID is required",
+                });
+            }
+
+            const options = await prisma.pollOptions.findMany({
+                where: { postId: post_id, deletedAt: null },
+            });
+
+            return callback(null, {
+                options: options.map(o => ({
+                    id: o.id,
+                    post_id: o.postId,
+                    label: o.label,
+                    votesCount: o.votesCount,
+                    created_at: o.createdAt?.toISOString() || null,
+                    updated_at: o.updatedAt?.toISOString() || null,
+                    deleted_at: o.deletedAt?.toISOString() || null,
+                })),
+                success: true,
+                message: "Poll options fetched successfully",
+            });
+
+        } catch (e) {
+            console.error("❌ GetPollOptions Error:", e);
+            return callback({
+                code: grpc.status.INTERNAL,
+                message: "Internal server error",
+            });
+        }
+    },
+
+    DeletePollOption: async (call, callback) => {
+        try {
+            const { option_id } = call.request;
+
+            if (!option_id) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: "Option ID is required",
+                });
+            }
+
+            const existing = await prisma.pollOptions.findUnique({
+                where: {
+                    id: option_id,
+                    deletedAt: null
+                },
+
+            });
+
+            if (!existing) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: "Option not found",
+                });
+            }
+
+            await prisma.pollOptions.update({
+                where: { id: option_id },
+                data: {
+                    deletedAt: new Date(),
+                    updatedAt: new Date(),
+                }
+            });
+
+            return callback(null, {
+                success: true,
+                message: "Poll option deleted successfully",
+            });
+
+        } catch (e) {
+            console.error("❌ DeletePollOption Error:", e);
+            return callback({
+                code: grpc.status.INTERNAL,
+                message: "Internal server error",
+            });
+        }
+    },
+
+    CastPollVote: async (call, callback) => {
+        try {
+            const { post_id, employee_id, option_id } = call.request;
+
+            if (!post_id || !employee_id || !option_id) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: "Post ID, Employee ID, and Option ID are required",
+                });
+            }
+
+            const post = await prisma.pollPosts.findFirst({
+                where: { id: post_id, deletedAt: null },
+            });
+
+            if (!post) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: "Post not found",
+                });
+            }
+
+            const option = await prisma.pollOptions.findFirst({
+                where: { id: option_id, deletedAt: null },
+            });
+
+            if (!option || option.postId !== post_id) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: "Option not found for this post",
+                });
+            }
+
+            const existingVote = await prisma.pollVotes.findFirst({
+                where: {
+                    postId: post_id,
+                    employeeId: employee_id,
+                    deletedAt: null
+                }
+            });
+
+            if (existingVote) {
+                return callback({
+                    code: grpc.status.ALREADY_EXISTS,
+                    message: "Employee has already voted on this poll",
+                });
+            }
+
+            // Create vote
+            const createdVote = await prisma.pollVotes.create({
+                data: {
+                    postId: post_id,
+                    employeeId: employee_id,
+                    optionId: option_id,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    deletedAt: null
+                }
+            });
+
+            // Map vote for proto
+            const voteResponse = {
+                id: createdVote.id,
+                post_id: createdVote.postId,
+                employee_id: createdVote.employeeId,
+                option_id: createdVote.optionId,
+                created_at: createdVote.createdAt?.toISOString() || null,
+                updated_at: createdVote.updatedAt?.toISOString() || null,
+                deleted_at: createdVote.deletedAt?.toISOString() || null,
+            };
+
+            return callback(null, {
+                vote: voteResponse,
+                success: true,
+                message: "Vote cast successfully"
+            });
+
+        } catch (e) {
+            console.error("❌ CastPollVote Error:", e);
+            return callback({
+                code: grpc.status.INTERNAL,
+                message: "Internal server error",
+            });
+        }
+    },
+
+
+    GetPollVotesDetails: async (call, callback) => {
+        try {
+            const { post_id, employee_id } = call.request;
+
+            if (!post_id) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: "Post ID is required"
+                });
+            }
+
+            // 1️⃣ Get poll options
+            const options = await prisma.pollOptions.findMany({
+                where: { postId: post_id, deletedAt: null }
+            });
+
+            // 2️⃣ Get all active votes
+            const votes = await prisma.pollVotes.findMany({
+                where: { postId: post_id, deletedAt: null }
+            });
+
+            const totalVotes = votes.length;
+
+            // 3️⃣ Count votes per option
+            const votesByOption = {};
+            votes.forEach(v => {
+                if (!votesByOption[v.optionId]) votesByOption[v.optionId] = 0;
+                votesByOption[v.optionId]++;
+            });
+
+            // 4️⃣ Calculate percentages
+            const optionStats = options.map(opt => {
+                const count = votesByOption[opt.id] || 0;
+                const pct = totalVotes > 0 ? (count / totalVotes) * 100 : 0;
+
+                return {
+                    option_id: opt.id,
+                    label: opt.label,
+                    votes: count,
+                    percentage: Number(pct.toFixed(2))
+                };
+            });
+
+            // 5️⃣ Find user vote (optional)
+            let userVote = null;
+            if (employee_id) {
+                const uv = await prisma.pollVotes.findFirst({
+                    where: { postId: post_id, employeeId: employee_id, deletedAt: null }
+                });
+
+                userVote = uv ? uv.optionId : null;
+            }
+
+            // 6️⃣ Response
+            return callback(null, {
+                total_votes: totalVotes,
+                options: optionStats,
+                votes: votes.map(v => ({
+                    id: v.id,
+                    post_id: v.postId,
+                    employee_id: v.employeeId,
+                    option_id: v.optionId,
+                    created_at: v.createdAt?.toISOString() || null
+                })),
+                user_vote_option_id: userVote,
+                success: true,
+                message: "Poll vote details fetched successfully"
+            });
+
+        } catch (e) {
+            console.error("❌ GetPollVotesDetails Error:", e);
+            return callback({
+                code: grpc.status.INTERNAL,
+                message: "Internal server error"
+            });
+        }
+    },
+
+    TogglePostPollSave: async (call, callback) => {
+        try {
+            const { post_id, employee_id } = call.request;
+
+            if (!post_id || !employee_id) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: "Post ID and Employee ID are required",
+                });
+            }
+
+            // 1️⃣ Check if post exists
+            const post = await prisma.pollPosts.findUnique({
+                where: { id: post_id }
+            });
+
+            if (!post) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: "Post not found",
+                });
+            }
+
+            // 2️⃣ Check if employee already saved the post
+            const existing = await prisma.pollSaves.findFirst({
+                where: {
+                    postId: post_id,
+                    employeeId: employee_id,
+                    deletedAt: null
+                }
+            });
+
+            if (existing) {
+                return callback({
+                    code: grpc.status.ALREADY_EXISTS,
+                    message: "Post already saved by this employee",
+                });
+            }
+
+            // 3️⃣ Create save
+            const newSave = await prisma.pollSaves.create({
+                data: {
+                    postId: post_id,
+                    employeeId: employee_id,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    deletedAt: null
+                },
+                include: { employee: true }
+            });
+
+            return callback(null, {
+                save: {
+                    id: newSave.id,
+                    post_id: newSave.postId,
+                    employee_id: newSave.employeeId,
+                    created_at: newSave.createdAt.toISOString(),
+                    updated_at: newSave.updatedAt.toISOString(),
+                    deleted_at: null,
+                    employee: {
+                        id: newSave.employee.id,
+                        organization_id: newSave.employee.organizationId,
+                        first_name: newSave.employee.firstName,
+                        last_name: newSave.employee.lastName,
+                        email: newSave.employee.email,
+                    }
+                },
+                saved: true,
+                success: true,
+                message: "Post saved successfully",
+            });
+
+        } catch (e) {
+            console.error("❌ TogglePostPollSave Error:", e);
+            return callback({
+                code: grpc.status.INTERNAL,
+                message: "Internal server error",
+            });
+        }
+    },
+
+
+    GetPollSavesDetails: async (call, callback) => {
+        try {
+            const { post_id } = call.request;
+
+            if (!post_id) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: "Post ID is required",
+                });
+            }
+
+            const saves = await prisma.pollSaves.findMany({
+                where: {
+                    postId: post_id,
+                    deletedAt: null
+                },
+                include: { employee: true }
+            });
+
+            const saved = saves.length > 0;   
+
+            const mappedSaves = saves.map(s => ({
+                id: s.id,
+                post_id: s.postId,
+                employee_id: s.employeeId,
+                created_at: s.createdAt?.toISOString() || null,
+                updated_at: s.updatedAt?.toISOString() || null,
+                deleted_at: s.deletedAt?.toISOString() || null,
+                employee: s.employee ? {
+                    id: s.employee.id,
+                    organization_id: s.employee.organizationId,
+                    first_name: s.employee.firstName,
+                    last_name: s.employee.lastName,
+                    email: s.employee.email
+                } : null
+            }));
+
+            return callback(null, {
+                saved,
+                count: mappedSaves.length,
+                saves: mappedSaves,
+                success: true,
+                message: "Poll save details fetched successfully"
+            });
+
+        } catch (e) {
+            console.error("❌ GetPollSavesDetails Error:", e);
+            return callback({
+                code: grpc.status.INTERNAL,
+                message: "Internal server error"
+            });
+        }
+    },
+
+    SharePostPoll: async (call, callback) => {
+        try {
+            const { post_id, employee_id } = call.request;
+
+            if (!post_id || !employee_id) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: "Post ID and Employee ID are required",
+                });
+            }
+
+            const post = await prisma.pollPosts.findUnique({ where: { id: post_id } });
+
+            if (!post) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: "Post not found",
+                });
+            }
+
+            // 🔍 Check if already shared
+            let existingShare = await prisma.pollShares.findFirst({
+                where: {
+                    postId: post_id,
+                    employeeId: employee_id,
+                    deletedAt: null
+                },
+                include: { employee: true }
+            });
+
+            // Already shared → return existing (NO ERROR)
+            if (existingShare) {
+                return callback(null, {
+                    share: {
+                        id: existingShare.id,
+                        post_id: existingShare.postId,
+                        employee_id: existingShare.employeeId,
+                        created_at: existingShare.createdAt.toISOString(),
+                        updated_at: existingShare.updatedAt.toISOString(),
+                        deleted_at: existingShare.deletedAt?.toISOString() || null,
+                        employee: {
+                            id: existingShare.employee.id,
+                            organization_id: existingShare.employee.organizationId,
+                            first_name: existingShare.employee.firstName,
+                            last_name: existingShare.employee.lastName,
+                            email: existingShare.employee.email,
+                        }
+                    },
+                    success: true,
+                    message: "Post already shared",
+                });
+            }
+
+            // First share → Create new
+            const newShare = await prisma.pollShares.create({
+                data: {
+                    postId: post_id,
+                    employeeId: employee_id,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    deletedAt: null
+                },
+                include: { employee: true }
+            });
+
+            return callback(null, {
+                share: {
+                    id: newShare.id,
+                    post_id: newShare.postId,
+                    employee_id: newShare.employeeId,
+                    created_at: newShare.createdAt.toISOString(),
+                    updated_at: newShare.updatedAt.toISOString(),
+                    deleted_at: null,
+                    employee: {
+                        id: newShare.employee.id,
+                        organization_id: newShare.employee.organizationId,
+                        first_name: newShare.employee.firstName,
+                        last_name: newShare.employee.lastName,
+                        email: newShare.employee.email,
+                    }
+                },
+                success: true,
+                message: "Post shared successfully",
+            });
+
+        } catch (e) {
+            console.error("❌ SharePostPoll Error:", e);
+            return callback({
+                code: grpc.status.INTERNAL,
+                message: "Internal server error",
+            });
+        }
+    },
+
+
+    GetPostPollShares: async (call, callback) => {
+        try {
+            const { post_id } = call.request;
+
+            if (!post_id) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: "Post ID is required",
+                });
+            }
+
+            const shares = await prisma.pollShares.findMany({
+                where: {
+                    postId: post_id,
+                    deletedAt: null
+                },
+                include: { employee: true }
+            });
+
+            const mapped = shares.map(sh => ({
+                id: sh.id,
+                post_id: sh.postId,
+                employee_id: sh.employeeId,
+                created_at: sh.createdAt.toISOString(),
+                updated_at: sh.updatedAt.toISOString(),
+                deleted_at: sh.deletedAt?.toISOString() || null,
+                employee: {
+                    id: sh.employee.id,
+                    organization_id: sh.employee.organizationId,
+                    first_name: sh.employee.firstName,
+                    last_name: sh.employee.lastName,
+                    email: sh.employee.email
+                }
+            }));
+
+            // ⭐ DISTINCT employee count
+            const uniqueCount = new Set(mapped.map(sh => sh.employee_id)).size;
+
+            return callback(null, {
+                count: uniqueCount,
+                shares: mapped,
+                success: true,
+                message: "Poll share details fetched successfully"
+            });
+
+        } catch (e) {
+            console.error("❌ GetPostPollShares Error:", e);
+            return callback({
+                code: grpc.status.INTERNAL,
+                message: "Internal server error",
+            });
+        }
+    },
+
 };
 
 function mapPostPoll(poll) {
@@ -740,6 +1286,8 @@ function mapPostPoll(poll) {
             employee_id: v.employeeId,
             option_id: v.optionId,
             created_at: v.createdAt?.toISOString() || null,
+            updated_at: v.updatedAt?.toISOString() || null,
+            deleted_at: v.deletedAt?.toISOString() || null,
         })),
 
         likes: (poll.likes || []).map(l => ({
@@ -747,6 +1295,8 @@ function mapPostPoll(poll) {
             post_id: l.postId,
             employee_id: l.employeeId,
             created_at: l.createdAt?.toISOString() || null,
+            updated_at: l.updatedAt?.toISOString() || null,
+            deleted_at: l.deletedAt?.toISOString() || null, 
         })),
 
         comments: (poll.comments || []).map(c => ({
@@ -764,14 +1314,36 @@ function mapPostPoll(poll) {
             post_id: s.postId,
             employee_id: s.employeeId,
             created_at: s.createdAt?.toISOString() || null,
-        })),
+            updated_at: s.updatedAt?.toISOString() || null,
+            deleted_at: s.deletedAt?.toISOString() || null,
 
+            employee: s.employee ? {
+                id: s.employee.id,
+                organization_id: s.employee.organizationId,
+                first_name: s.employee.firstName,
+                last_name: s.employee.lastName,
+                email: s.employee.email,
+            } : null,
+        })),
         shares: (poll.shares || []).map(sh => ({
             id: sh.id,
             post_id: sh.postId,
             employee_id: sh.employeeId,
             created_at: sh.createdAt?.toISOString() || null,
+            updated_at: sh.updatedAt?.toISOString() || null,
+            deleted_at: sh.deletedAt?.toISOString() || null,
+
+            employee: sh.employee
+                ? {
+                    id: sh.employee.id,
+                    organization_id: sh.employee.organizationId,
+                    first_name: sh.employee.firstName,
+                    last_name: sh.employee.lastName,
+                    email: sh.employee.email,
+                }
+                : null,
         })),
+
     };
 }
 
