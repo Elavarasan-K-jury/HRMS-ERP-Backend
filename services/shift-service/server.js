@@ -1,9 +1,10 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma } from '@jury-hrms/db/client.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
 
-
-const PORT = Number(process.env.SHIFT_SERVICE_PORT || 5063);
+const PORT = Number(process.env.SHIFT_SERVICE_PORT || 5071);
 const shiftProto = loadProto('shift');
 
 const impl = {
@@ -73,14 +74,14 @@ const impl = {
             applicable_days && Object.keys(applicable_days).length
               ? applicable_days
               : {
-                  monday: true,
-                  tuesday: true,
-                  wednesday: true,
-                  thursday: true,
-                  friday: true,
-                  saturday: false,
-                  sunday: false,
-                },
+                monday: true,
+                tuesday: true,
+                wednesday: true,
+                thursday: true,
+                friday: true,
+                saturday: false,
+                sunday: false,
+              },
           weeklyOff: weekly_off ?? [],
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -127,35 +128,35 @@ const impl = {
   // List Shifts
   // --------------------
   ListShifts: async (call, callback) => {
-  try {
-    const { organization_id } = call.request;
+    try {
+      const { organization_id } = call.request;
 
-    if (!organization_id || organization_id.length !== 24) {
-      return callback({
-        code: grpc.status.INVALID_ARGUMENT,
-        message: "Invalid organization_id",
+      if (!organization_id || organization_id.length !== 24) {
+        return callback({
+          code: grpc.status.INVALID_ARGUMENT,
+          message: "Invalid organization_id",
+        });
+      }
+
+      const shifts = await prisma.shifts.findMany({
+        where: {
+          organizationId: organization_id,
+          deletedAt: null
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      callback(null, { shifts: shifts.map(mapShift) });
+
+    } catch (e) {
+      console.error("[ListShifts Error]", e);
+      callback({
+        code: grpc.status.INTERNAL,
+        message: e.message,
       });
     }
-
-    const shifts = await prisma.shifts.findMany({
-      where: { 
-        organizationId: organization_id,
-        deletedAt: null
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    callback(null, { shifts: shifts.map(mapShift) });
-
-  } catch (e) {
-    console.error("[ListShifts Error]", e);
-    callback({
-      code: grpc.status.INTERNAL,
-      message: e.message,
-    });
   }
-}
-,
+  ,
 
   // --------------------
   // Update Shift
@@ -272,53 +273,53 @@ function mapShift(shift) {
 /* ------------------------------------------------------------------ */
 
 async function main() {
-    const server = new grpc.Server();
+  const server = new grpc.Server();
 
-    server.addService(shiftProto.ShiftService.service, impl);
+  server.addService(shiftProto.ShiftService.service, impl);
 
-    // Convert bindAsync to Promise
-    await new Promise((resolve, reject) => {
-        server.bindAsync(
-            `0.0.0.0:${PORT}`,
-            grpc.ServerCredentials.createInsecure(),
-            (err) => (err ? reject(err) : resolve())
-        );
-    });
+  // Convert bindAsync to Promise
+  await new Promise((resolve, reject) => {
+    server.bindAsync(
+      `0.0.0.0:${PORT}`,
+      grpc.ServerCredentials.createInsecure(),
+      (err) => (err ? reject(err) : resolve())
+    );
+  });
 
-    console.log(`[shift-service] gRPC running on :${PORT}`);
+  console.log(`[shift-service] gRPC running on :${PORT}`);
 
-    // Graceful shutdown handler
-    const shutdown = async (signal) => {
-        console.log(`\n[shift-service] Received ${signal}, shutting down gracefully...`);
+  // Graceful shutdown handler
+  const shutdown = async (signal) => {
+    console.log(`\n[shift-service] Received ${signal}, shutting down gracefully...`);
 
-        try {
-            // 🧹 Stop accepting new gRPC calls
-            server.tryShutdown((err) => {
-                if (err) {
-                    console.error('[shift-service] Force closing due to error:', err);
-                    server.forceShutdown();
-                } else {
-                    console.log('[shift-service] gRPC server stopped.');
-                }
-            });
-
-            // 🧹 Disconnect Prisma cleanly
-            await prisma.$disconnect();
-            console.log('[shift-service] Prisma disconnected.');
-
-            process.exit(0);
-        } catch (e) {
-            console.error('[shift-service] Error during shutdown:', e);
-            process.exit(1);
+    try {
+      // 🧹 Stop accepting new gRPC calls
+      server.tryShutdown((err) => {
+        if (err) {
+          console.error('[shift-service] Force closing due to error:', err);
+          server.forceShutdown();
+        } else {
+          console.log('[shift-service] gRPC server stopped.');
         }
-    };
+      });
 
-    // Handle termination signals
-    process.on('SIGINT', () => shutdown('SIGINT'));
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
+      // 🧹 Disconnect Prisma cleanly
+      await prisma.$disconnect();
+      console.log('[shift-service] Prisma disconnected.');
+
+      process.exit(0);
+    } catch (e) {
+      console.error('[shift-service] Error during shutdown:', e);
+      process.exit(1);
+    }
+  };
+
+  // Handle termination signals
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
 main().catch((err) => {
-    console.error('[shift-service] Fatal error:', err);
-    process.exit(1);
+  console.error('[shift-service] Fatal error:', err);
+  process.exit(1);
 });

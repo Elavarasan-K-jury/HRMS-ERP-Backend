@@ -1,4 +1,6 @@
 import { loadProto, grpc } from '@jury-hrms/proto';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const EmpOnboardingProgressProto = loadProto('emp_onboarding_progress');
 const EMP_ONBOARDING_PROGRESS_SERVICE_ADDR = process.env.EMP_ONBOARDING_PROGRESS_SERVICE_ADDR || 'localhost:50061';

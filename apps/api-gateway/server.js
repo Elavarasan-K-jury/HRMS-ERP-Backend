@@ -1,21 +1,3 @@
-console.log("🔍 EMP_CAT_SERVICE_ADDR =", process.env.EMP_CAT_SERVICE_ADDR);
-console.log("🔍 ORG_SERVICE_ADDR =", process.env.ORG_SERVICE_ADDR);
-console.log("🔍 EMP_SERVICE_ADDR =", process.env.EMP_SERVICE_ADDR);
-console.log("🔍 ADMIN_SERVICE_ADDR =", process.env.ADMIN_SERVICE_ADDR);
-console.log("🔍 ORG_DEPT_SERVICE_ADDR =", process.env.ORG_DEPT_SERVICE_ADDR);
-console.log("🔍 EMP_DEPT_SERVICE_ADDR =", process.env.EMP_DEPT_SERVICE_ADDR)
-console.log("🔍 ORG_DESG_SERVICE_ADDR =", process.env.ORG_DESG_SERVICE_ADDR);
-console.log("🔍 EMP_ONBOARDING_FLOW_SERVICE_ADDR =", process.env.EMP_ONBOARDING_FLOW_SERVICE_ADDR);
-console.log("🔍 EMP_ONBOARDING_STEP_SERVICE_ADDR =", process.env.EMP_ONBOARDING_STEP_SERVICE_ADDR);
-console.log("🔍 EMP_ONBOARDING_FEATURE_SERVICE_ADDR =", process.env.EMP_ONBOARDING_FEATURE_SERVICE_ADDR);
-console.log("🔍 SHIFT_SERVICE =", process.env.SHIFT_SERVICE_ADDR);
-console.log("🔍 SHIFT_ASSIGNMENT_SERVICE =", process.env.SHIFT_ASSIGNMENT_SERVICE_ADDR);
-console.log("🔍 SHIFT_POLICY_SERVICE =", process.env.SHIFT_POLICY_SERVICE_ADDR);
-console.log("🔍 ATTENDANCE_SERVICE =", process.env.ATTENDANCE_SERVICE_ADDR);
-console.log("🔍 ATTENDANCE_LOG_SERVICE =", process.env.ATTENDANCE_LOG_SERVICE_ADDR);
-cobsole.log("🔍 APPROVAL_SERVICE =", process.env.APPROVAL_SERVICE_ADDR);
-
-
 /* ------------------------------------------------------------------ */
 /* 🌱 Environment Setup                                                */
 /* ------------------------------------------------------------------ */
@@ -26,40 +8,47 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const log = console.log;
+
 // Load root .env (../../.env from apps/api-gateway/server.js)
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-console.log('🔍 EMP_CAT_SERVICE_ADDR =', process.env.EMP_CAT_SERVICE_ADDR);
-console.log('🔍 ORG_SERVICE_ADDR =', process.env.ORG_SERVICE_ADDR);
-console.log('🔍 EMP_SERVICE_ADDR =', process.env.EMP_SERVICE_ADDR);
-console.log('🔍 ADMIN_SERVICE_ADDR =', process.env.ADMIN_SERVICE_ADDR);
-console.log('🔍 ORG_DEPT_SERVICE_ADDR =', process.env.ORG_DEPT_SERVICE_ADDR);
-console.log('🔍 EMP_DEPT_SERVICE_ADDR =', process.env.EMP_DEPT_SERVICE_ADDR);
-console.log('🔍 ORG_DESG_SERVICE_ADDR =', process.env.ORG_DESG_SERVICE_ADDR);
-console.log(
+log('🔍 EMP_CAT_SERVICE_ADDR =', process.env.EMP_CAT_SERVICE_ADDR);
+log('🔍 ORG_SERVICE_ADDR =', process.env.ORG_SERVICE_ADDR);
+log('🔍 EMP_SERVICE_ADDR =', process.env.EMP_SERVICE_ADDR);
+log('🔍 ADMIN_SERVICE_ADDR =', process.env.ADMIN_SERVICE_ADDR);
+log('🔍 ORG_DEPT_SERVICE_ADDR =', process.env.ORG_DEPT_SERVICE_ADDR);
+log('🔍 EMP_DEPT_SERVICE_ADDR =', process.env.EMP_DEPT_SERVICE_ADDR);
+log('🔍 ORG_DESG_SERVICE_ADDR =', process.env.ORG_DESG_SERVICE_ADDR);
+log(
     '🔍 EMP_ONBOARDING_FLOW_SERVICE_ADDR =',
     process.env.EMP_ONBOARDING_FLOW_SERVICE_ADDR
 );
-console.log(
+log(
     '🔍 EMP_ONBOARDING_STEP_SERVICE_ADDR =',
     process.env.EMP_ONBOARDING_STEP_SERVICE_ADDR
 );
-console.log(
+log(
     '🔍 EMP_ONBOARDING_FEATURE_SERVICE_ADDR =',
     process.env.EMP_ONBOARDING_FEATURE_SERVICE_ADDR
 );
-console.log(
+log(
     '🔍 EMP_ONBOARDING_PROGRESS_SERVICE_ADDR =',
     process.env.EMP_ONBOARDING_PROGRESS_SERVICE_ADDR
 );
-console.log('🔍 ASSET_CATEGORY_SERVICE_ADDR =', process.env.ASSET_CATEGORY_SERVICE_ADDR);
-console.log('🔍 ASSET_MODEL_SERVICE_ADDR =', process.env.ASSET_MODEL_SERVICE_ADDR);
-console.log('🔍 ASSET_SERVICE_ADDR =', process.env.ASSET_SERVICE_ADDR);
-console.log('🔍 ASSET_REQUEST_SERVICE_ADDR =', process.env.ASSET_REQUEST_SERVICE_ADDR);
-console.log('🔍 ASSET_ASSIGNMENT_SERVICE_ADDR =', process.env.ASSET_ASSIGNMENT_SERVICE_ADDR);
-console.log('🔍 ASSET_CONDITION_SERVICE_ADDR =', process.env.ASSET_CONDITION_SERVICE_ADDR);
-console.log('🔍 HIERARCHY_SERVICE_ADDR =', process.env.HIERARCHY_SERVICE_ADDR);
-console.log('🔍 POST_POLL_SERVICE_ADDR =', process.env.POST_POLL_SERVICE_ADDR);
+log("🔍 SHIFT_SERVICE =", process.env.SHIFT_SERVICE_ADDR);
+log("🔍 SHIFT_ASSIGNMENT_SERVICE =", process.env.SHIFT_ASSIGNMENT_SERVICE_ADDR);
+log("🔍 SHIFT_POLICY_SERVICE =", process.env.SHIFT_POLICY_SERVICE_ADDR);
+log("🔍 ATTENDANCE_SERVICE =", process.env.ATTENDANCE_SERVICE_ADDR);
+log("🔍 ATTENDANCE_LOG_SERVICE =", process.env.ATTENDANCE_LOG_SERVICE_ADDR);
+log("🔍 APPROVAL_SERVICE =", process.env.APPROVAL_SERVICE_ADDR);
+log('🔍 ASSET_CATEGORY_SERVICE_ADDR =', process.env.ASSET_CAT_SERVICE_ADDR);
+log('🔍 ASSET_MODEL_SERVICE_ADDR =', process.env.ASSET_MOD_SERVICE_ADDR);
+log('🔍 ASSET_SERVICE_ADDR =', process.env.ASSETS_SERVICE_ADDR);
+log('🔍 ASSET_REQUEST_SERVICE_ADDR =', process.env.ASSET_REQ_SERVICE_ADDR);
+log('🔍 ASSET_ASSIGNMENT_SERVICE_ADDR =', process.env.ASSET_ASSIGN_SERVICE_ADDR);
+log('🔍 ASSET_CONDITION_SERVICE_ADDR =', process.env.ASSET_CON_SERVICE_ADDR);
+log('🔍 POST_POLL_SERVICE_ADDR =', process.env.POST_POLL_SERVICE_ADDR);
 
 /* ------------------------------------------------------------------ */
 /* 📦 Imports                                                          */
@@ -69,10 +58,10 @@ import { swaggerUI } from '@hono/swagger-ui';
 import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
 
-import { ipWhitelist } from './middlewares/ipWhitelist.js';
-import { rateLimiter } from './middlewares/rateLimiter.js';
-import { withQueue } from './middlewares/requestQueue.js';
-import { requestLogger } from './middlewares/reqLogged.js';
+import { ipWhitelist } from './middlewares/ip_whitelist.js';
+import { rateLimiter } from './middlewares/rate_limiter.js';
+import { withQueue } from './middlewares/request_queue.js';
+import { requestLogger } from './middlewares/req_logged.js';
 
 import registerOrganizationRoutes from './routes/organization.routes.js';
 import registerEmployeeCategoryRoutes from './routes/employee_category.routes.js';
@@ -86,10 +75,10 @@ import registerEmployeeOnboardingStepRoutes from './routes/emp_onboard_step.rout
 import registerEmployeeOnboardingFeatureRoutes from './routes/emp_onboard_feature.routes.js';
 import registerEmployeeOnboardingProgressRoutes from './routes/emp_onboard_progress.routes.js';
 import registerShiftRoutes from './routes/shift.routes.js';
-import registerShiftAssignmentRoutes from './routes/shift-assignment.routes.js';
-import registerShiftPolicyRoutes from './routes/shiftPolicy.routes.js';
+import registerShiftAssignmentRoutes from './routes/shift_assignment.routes.js';
+import registerShiftPolicyRoutes from './routes/shift_policy.routes.js';
 import registerAttendanceRoutes from './routes/attendance.routes.js';
-import registerAttendanceLogRoutes from './routes/attendanceLogs.routes.js';
+import registerAttendanceLogRoutes from './routes/attendance_logs.routes.js';
 import registerApprovalRoutes from './routes/approval.routes.js';
 import registerAssetCategoryRoutes from './routes/asset_category.routes.js';
 import registerAssetModelRoutes from './routes/asset_model.routes.js';
@@ -115,7 +104,7 @@ const app = new OpenAPIHono({
 app.use(
     '*',
     cors({
-        origin: ['http://localhost:3030', 'http://127.0.0.1:3030'],
+        origin: ['http://localhost:3030', 'http://127.0.0.1:3030', 'http://localhost:3040', 'http://127.0.0.1:3040'],
         allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     })
 );
@@ -205,7 +194,7 @@ registerOrgDepartmentRoutes({
         app.openapi(def, withQueue(handler));
     },
 });
-registerorgDesignationRoutes({
+registerOrgDesignationRoutes({
     openapi: (def, handler) => {
         // wrap each route handler in queue
         app.openapi(def, withQueue(handler));
@@ -280,9 +269,9 @@ registerApprovalRoutes({
 
 // ---- Start Server (HMR-safe) ---- //
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename);
- 
+
 if (isMain) {
-    const PORT = Number(process.env.GATEWAY_PORT || 3030);
+    const PORT = Number(process.env.GATEWAY_PORT || 50050);
 
     try {
         serve({

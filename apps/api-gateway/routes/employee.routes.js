@@ -432,9 +432,183 @@ export default function registerEmployeeRoutes(app) {
             }
         }
     );
-}
 
-function mapGenderClient(g) {
-    const map = { MALE: 1, FEMALE: 2, OTHER: 3, UNKNOWN: 0 };
-    return map[g.toUpperCase()] ?? 0;
+    app.openapi(
+        {
+            method: 'post',
+            path: '/employee/login/request-otp',
+            tags: ['Employee'],
+            summary: 'Request login OTP (email-only delivery)',
+            request: {
+                body: {
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                email: z.string().email().optional(),
+                                phone: z.string().optional(),
+                                purpose: z.string().optional().default('login'),
+                            })
+                                .refine(b => b.email || b.phone, { message: 'Provide email or phone' })
+                        }
+                    }
+                }
+            },
+            responses: {
+                200: {
+                    description: 'OTP sent',
+                    content: { 'application/json': { schema: z.object({ message: z.string() }) } }
+                },
+                404: { description: 'Admin not found' }
+            }
+        },
+        async (c) => {
+            try {
+                const body = await c.req.json();
+                const resp = await new Promise((resolve, reject) => {
+                    employeeClient.RequestLoginOtp(body, (err, r) => err ? reject(err) : resolve(r));
+                });
+                return c.json(resp, 200);
+            } catch (error) {
+                return c.json({ error: error.message }, error.code === 5 ? 404 : 500);
+            }
+        }
+    );
+
+    // ===== Verify Token
+    app.openapi({
+        method: 'post',
+        path: '/employee/auth/verify-token',
+        tags: ['Employee'],
+        summary: 'Verify a JWT token and return decoded data',
+        request: {
+            body: {
+                content: {
+                    'application/json': {
+                        schema: z.object({ token: z.string() })
+                    }
+                }
+            }
+        },
+        responses: {
+            200: {
+                description: 'Token data',
+                content: {
+                    'application/json': {
+                        schema: z.object({
+                            sub: z.string(),
+                            user: z.object(),
+                            email: z.string().optional(),
+                            scope: z.string().optional(),
+                            typ: z.string(),
+                            iat: z.string(),
+                            exp: z.string(),
+                            success: z.boolean(),
+                            message: z.string()
+                        })
+                    }
+                }
+            }
+        }
+    }, async (c) => {
+        try {
+            const { token } = await c.req.json();
+            const response = await new Promise((resolve, reject) => {
+                employeeClient.VerifyToken({ token }, (err, resp) => {
+                    if (err) return reject(err);
+                    resolve(resp);
+                });
+            });
+            return c.json({
+                ...response,
+                success: true,
+                message: 'Token verified successfully',
+                user: response.user ? JSON.parse(response.user) : null
+            }, 200);
+        } catch (error) {
+            return c.json({ error: error.message }, error.code === 5 ? 404 : 500);
+        }
+    });
+
+    // ===== Verify OTP
+    app.openapi(
+        {
+            method: 'post',
+            path: '/employee/login/verify',
+            tags: ['Employee'],
+            summary: 'Verify OTP and get tokens',
+            request: {
+                body: {
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                email: z.string().email().optional(),
+                                phone: z.string().optional(),
+                                otp: z.string().regex(/^\d{6}$/)
+                            }).refine(b => b.email || b.phone, { message: 'Provide email or phone' })
+                        }
+                    }
+                }
+            },
+            responses: {
+                200: {
+                    description: 'Tokens', content: {
+                        'application/json': {
+                            schema: z.object({
+                                access_token: z.string(),
+                                refresh_token: z.string(),
+                                token_type: z.string(),
+                                expires_in: z.string(),
+                                admin: z.object({
+                                    id: z.string(),
+                                    email: z.string(),
+                                    phone: z.string(),
+                                    created_at: z.string().optional(),
+                                    updated_at: z.string().optional(),
+                                    deleted_at: z.string().optional(),
+                                })
+                            })
+                        }
+                    }
+                },
+                403: { description: 'Invalid/expired OTP' }
+            }
+        },
+        async (c) => {
+            try {
+                const body = await c.req.json();
+                const resp = await new Promise((resolve, reject) => {
+                    employeeClient.VerifyLoginOtp(body, (err, r) => err ? reject(err) : resolve(r));
+                });
+                return c.json(resp, 200);
+            } catch (error) {
+                const code = error.code === 7 ? 403 : (error.code === 5 ? 404 : 500);
+                return c.json({ error: error.message }, code);
+            }
+        }
+    );
+
+    // ===== Refresh tokens
+    app.openapi(
+        {
+            method: 'post',
+            path: '/employee/token/refresh',
+            tags: ['Employee'],
+            summary: 'Issue new tokens using refresh token',
+            request: {
+                body: { content: { 'application/json': { schema: z.object({ refresh_token: z.string() }) } } }
+            },
+            responses: { 200: { description: 'Tokens' } }
+        },
+        async (c) => {
+            try {
+                const body = await c.req.json();
+                const resp = await new Promise((resolve, reject) => {
+                    employeeClient.RefreshTokens(body, (err, r) => err ? reject(err) : resolve(r));
+                });
+                return c.json(resp, 200);
+            } catch (error) {
+                return c.json({ error: error.message }, error.code === 7 ? 403 : 500);
+            }
+        }
+    );
 }

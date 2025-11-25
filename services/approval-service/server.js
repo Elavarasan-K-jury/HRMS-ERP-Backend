@@ -1,8 +1,10 @@
 // src/services/approval/approval.server.js
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma } from '@jury-hrms/db/client.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const PORT = Number(process.env.APPROVAL_SERVICE_PORT || 5070);
+const PORT = Number(process.env.APPROVAL_SERVICE_PORT || 5075);
 const approvalProto = loadProto('approval');
 
 // 24-char hex validator

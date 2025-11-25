@@ -1,10 +1,9 @@
 import { z, ZodError } from 'zod';
-import { shiftAssignmentClient } from '../grpc/shift_assignment.client';
+import { shiftAssignmentClient } from '../grpc/shift_assignment.client.js';
 
 export default function registerShiftAssignmentRoutes({ openapi }) {
   const isoDateTime = z
     .string({ required_error: 'Datetime is required' })
-    .datetime('Invalid datetime format');
 
   // ================
   // Create (Assign)
@@ -211,7 +210,7 @@ export default function registerShiftAssignmentRoutes({ openapi }) {
 
   // =========================
   // Update assignment (dates)
-// =========================
+  // =========================
   const updateAssignmentSchema = z
     .object({
       valid_from: isoDateTime.optional(),
@@ -286,7 +285,7 @@ export default function registerShiftAssignmentRoutes({ openapi }) {
 
   // =========================
   // Delete assignment (soft)
-// =========================
+  // =========================
   openapi(
     {
       method: 'delete',

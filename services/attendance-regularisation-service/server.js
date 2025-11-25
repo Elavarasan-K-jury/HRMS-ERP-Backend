@@ -1,7 +1,9 @@
 import { grpc, loadProto } from "@jury-hrms/proto";
-import { prisma } from "@jury-hrms/db/client.js";
+import { prisma, checkDbConnection } from "@jury-hrms/db/client.js";
+import dotenv from 'dotenv';
+dotenv.config();
 
-const PORT = Number(process.env.REGULARISATION_SERVICE_PORT || 5070);
+const PORT = Number(process.env.REGULARISATION_SERVICE_PORT || 5073);
 const proto = loadProto("attendance_regularisation");
 
 function parseDate(d) {
@@ -185,20 +187,51 @@ const impl = {
   },
 };
 
-/* ------------------------ */
-async function main() {
-  const server = new grpc.Server();
-  server.addService(proto.AttendanceRegularisationService.service, impl);
 
-  await new Promise((resolve) =>
+/* Main */
+async function main() {
+  await checkDbConnection('Attendance-regularisation-service');
+  const server = new grpc.Server();
+
+  server.addService(proto.RegularisationService.service, impl);
+
+  await new Promise((resolve, reject) => {
     server.bindAsync(
       `0.0.0.0:${PORT}`,
       grpc.ServerCredentials.createInsecure(),
-      resolve
-    )
-  );
+      (err) => (err ? reject(err) : resolve())
+    );
+  });
 
-  console.log(`[regularisation-service] running on :${PORT}`);
-  server.start();
+  console.log(`[attendance-regularisation-service] gRPC running on :${PORT}`);
+
+  const shutdown = async (signal) => {
+    console.log(`\n[attendance-regularisation-service] Received ${signal}, shutting down gracefully...`);
+
+    try {
+      server.tryShutdown((err) => {
+        if (err) {
+          console.error('[attendance-regularisation-service] Force closing due to error:', err);
+          server.forceShutdown();
+        } else {
+          console.log('[attendance-regularisation-service] gRPC server stopped.');
+        }
+      });
+
+      await prisma.$disconnect();
+      console.log('[attendance-regularisation-service] Prisma disconnected.');
+      process.exit(0);
+    } catch (e) {
+      console.error('[attendance-regularisation-service] Error during shutdown:', e);
+      process.exit(1);
+    }
+  };
+
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
-main();
+
+main().catch((err) => {
+  console.error('[attendance-regularisation-service] Fatal error:', err);
+  process.exit(1);
+});

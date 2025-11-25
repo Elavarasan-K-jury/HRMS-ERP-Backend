@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package regularisation;
+package attendance_regularisation;
 
 service RegularisationService {
   rpc CreateRegularisation (CreateRegularisationRequest) returns (RegularisationResponse);

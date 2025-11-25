@@ -1,5 +1,5 @@
 import { z, ZodError } from 'zod';
-import { shiftPolicyClient } from '../grpc/shiftPolicy.client.js';
+import { shiftPolicyClient } from '../grpc/shift_policy.client.js';
 
 export default function registerShiftPolicyRoutes({ openapi }) {
   // Reusable core schema
@@ -36,10 +36,10 @@ export default function registerShiftPolicyRoutes({ openapi }) {
     rotational: z.boolean().optional().default(false),
 
     rotation_period: z
-  .number()
-  .int()
-  .positive('rotation_period must be positive')
-  .optional(),
+      .number()
+      .int()
+      .positive('rotation_period must be positive')
+      .optional(),
 
     is_active: z.boolean().optional().default(true),
   });

@@ -1,7 +1,9 @@
 import { grpc, loadProto } from "@jury-hrms/proto";
 import { prisma } from "@jury-hrms/db/client.js";
+import dotenv from 'dotenv';
+dotenv.config();
 
-const PORT = Number(process.env.SHIFT_ASSIGNMENT_SERVICE_PORT || 5064);
+const PORT = Number(process.env.SHIFT_ASSIGNMENT_SERVICE_PORT || 5072);
 const shiftAssignmentProto = loadProto("shift_assignment");
 
 /**
@@ -470,7 +472,8 @@ const impl = {
         },
         include: {
           employee: { include: { designation: true } },
-          shift: true },
+          shift: true
+        },
       });
 
       callback(null, {

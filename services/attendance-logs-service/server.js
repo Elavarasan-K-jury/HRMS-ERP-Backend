@@ -1,13 +1,13 @@
-// services/attendance-log.service.js
+// services/attendance-log-service/server.js
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma } from '@jury-hrms/db/client.js';
+import dotenv from 'dotenv';
 
-const PORT = Number(process.env.ATTENDANCE_LOG_SERVICE_PORT || 5067);
+dotenv.config();
+
+const PORT = Number(process.env.ATTENDANCE_LOG_SERVICE_PORT || 5070);
 const attendanceLogProto = loadProto('attendance_log');
 
-/**
- * Helper: format Date -> 'yyyy-mm-dd'
- */
 function toDateString(d) {
   if (!d) return '';
   const dt = new Date(d);
@@ -18,9 +18,6 @@ function toDateString(d) {
   return `${year}-${month}-${day}`;
 }
 
-/**
- * 🔹 Map Prisma AttendanceLogs (+ attendance) → gRPC AttendanceLog
- */
 function mapAttendanceLog(log) {
   if (!log) return null;
 
@@ -41,33 +38,16 @@ function mapAttendanceLog(log) {
 }
 
 const impl = {
-  // ======================================
-  // ListAttendanceLogs
-  // ======================================
   ListAttendanceLogs: async (call, callback) => {
     try {
-      const {
-        organization_id,
-        employee_id,
-        attendance_id,
-        date,
-      } = call.request;
+      const { organization_id, employee_id, attendance_id, date } = call.request;
 
-      // Base where for logs table
-      const whereLogs = {
-        deletedAt: null,
-      };
+      const whereLogs = { deletedAt: null };
+      if (attendance_id) whereLogs.attendanceId = attendance_id;
 
-      if (attendance_id) {
-        whereLogs.attendanceId = attendance_id;
-      }
-
-      // Fetch logs + joined attendance – then filter in JS by org/employee/date
       const logs = await prisma.attendanceLogs.findMany({
         where: whereLogs,
-        include: {
-          attendance: true,
-        },
+        include: { attendance: true },
         orderBy: { createdAt: 'asc' },
       });
 
@@ -75,13 +55,8 @@ const impl = {
         const att = log.attendance;
         if (!att) return false;
 
-        if (organization_id && String(att.organizationId) !== String(organization_id)) {
-          return false;
-        }
-
-        if (employee_id && String(att.employeeId) !== String(employee_id)) {
-          return false;
-        }
+        if (organization_id && String(att.organizationId) !== String(organization_id)) return false;
+        if (employee_id && String(att.employeeId) !== String(employee_id)) return false;
 
         if (date) {
           const attDate = toDateString(att.date);
@@ -91,9 +66,7 @@ const impl = {
         return true;
       });
 
-      callback(null, {
-        logs: filtered.map(mapAttendanceLog),
-      });
+      callback(null, { logs: filtered.map(mapAttendanceLog) });
     } catch (e) {
       console.error('[ListAttendanceLogs Error]', e);
       callback({
@@ -103,10 +76,6 @@ const impl = {
     }
   },
 };
-
-/* ------------------------------------------------------------------ */
-/* 🧩 Graceful shutdown-aware main()                                  */
-/* ------------------------------------------------------------------ */
 
 async function main() {
   const server = new grpc.Server();
@@ -124,17 +93,12 @@ async function main() {
   console.log(`[attendance-log-service] gRPC running on :${PORT}`);
 
   const shutdown = async (signal) => {
-    console.log(
-      `\n[attendance-log-service] Received ${signal}, shutting down gracefully...`,
-    );
+    console.log(`\n[attendance-log-service] Received ${signal}, shutting down gracefully...`);
 
     try {
       server.tryShutdown((err) => {
         if (err) {
-          console.error(
-            '[attendance-log-service] Force closing due to error:',
-            err,
-          );
+          console.error('[attendance-log-service] Force closing due to error:', err);
           server.forceShutdown();
         } else {
           console.log('[attendance-log-service] gRPC server stopped.');
@@ -143,7 +107,6 @@ async function main() {
 
       await prisma.$disconnect();
       console.log('[attendance-log-service] Prisma disconnected.');
-
       process.exit(0);
     } catch (e) {
       console.error('[attendance-log-service] Error during shutdown:', e);

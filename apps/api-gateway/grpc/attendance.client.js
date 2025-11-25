@@ -1,4 +1,6 @@
 import { loadProto, grpc } from '@jury-hrms/proto';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const AttendanceProto = loadProto('attendance');
 
