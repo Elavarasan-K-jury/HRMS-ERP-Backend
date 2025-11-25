@@ -1,0 +1,259 @@
+syntax = "proto3";
+
+package approval;
+
+// =======================================================
+//  COMMON MESSAGES (Org, Employee, Entity summaries)
+// =======================================================
+message OrganizationSummary {
+  string id    = 1;
+  string name  = 2;
+  string domain = 3;
+}
+
+message DepartmentSummary {
+  string id    = 1;
+  string name  = 2;
+}
+
+message DesignationSummary {
+  string id    = 1;
+  string name  = 2;
+}
+
+message EmployeeSummary {
+  string id               = 1;
+  string organization_id  = 2;
+  string full_name        = 3;
+  string email            = 4;
+  string phone            = 5;
+  string designation_id   = 6;
+  string designation_name = 7;
+  string department_id    = 8;
+  string department_name  = 9;
+}
+
+// ---------- Entity summaries ----------
+message LeaveSummary {
+  string id             = 1;
+  string organization_id = 2;
+  string employee_id     = 3;
+  string leave_type_id   = 4;
+  string leave_type_name = 5;
+  string start_date      = 6;
+  string end_date        = 7;
+  string reason          = 8;
+  string status          = 9;
+}
+
+message RegularisationSummary {
+  string id              = 1;
+  string organization_id = 2;
+  string employee_id     = 3;
+  string attendance_id   = 4;
+  string date            = 5;
+  string reason          = 6;
+  string status          = 7;
+}
+
+message WorkdaySummary {
+  string id              = 1;
+  string organization_id = 2;
+  string employee_id     = 3;
+  string type            = 4;
+  string start_date      = 5;
+  string end_date        = 6;
+  string start_time      = 7;
+  string end_time        = 8;
+  string reason          = 9;
+  string status          = 10;
+}
+
+// =======================================================
+//  FLOW SERVICE (create/update/list/delete flows)
+// =======================================================
+service ApprovalFlowService {
+  rpc CreateFlow (CreateFlowRequest)   returns (FlowResponse);
+  rpc GetFlow    (GetFlowRequest)      returns (FlowResponse);
+  rpc ListFlows  (ListFlowsRequest)    returns (ListFlowsResponse);
+  rpc UpdateFlow (UpdateFlowRequest)   returns (FlowResponse);
+  rpc DeleteFlow (DeleteFlowRequest)   returns (DeleteFlowResponse);
+}
+
+// ---------- Flow messages ----------
+message FlowApproverInput {
+  string user_id = 1;   // OrganizationEmployees.id
+  string role    = 2;   // MANAGER / HR / LEAD etc
+}
+
+message FlowLevelInput {
+  int32 level             = 1;
+  int32 auto_approve_days = 2;
+  string escalation_role  = 3;
+  bool is_active          = 4;
+  repeated FlowApproverInput approvers = 5;
+}
+
+message CreateFlowRequest {
+  string organization_id = 1;
+  string entity_type     = 2; // LEAVE / REGULARISATION / WORKDAY
+  repeated FlowLevelInput levels = 3;
+}
+
+message UpdateFlowRequest {
+  string id              = 1;
+  repeated FlowLevelInput levels = 2;
+}
+
+message GetFlowRequest {
+  string id = 1;
+}
+
+message ListFlowsRequest {
+  string organization_id = 1;
+  string entity_type     = 2;
+}
+
+message DeleteFlowRequest {
+  string id = 1;
+}
+
+// ---------- Flow response structures ----------
+message FlowApprover {
+  string id               = 1;
+  string level_id         = 2;
+  string user_id          = 3;
+  string role             = 4;
+  string organization_id  = 5;
+  EmployeeSummary employee = 6; // optional, may be empty
+}
+
+message FlowLevel {
+  string id              = 1;
+  int32 level            = 2;
+  int32 auto_approve_days = 3;
+  string escalation_role = 4;
+  bool is_active         = 5;
+  repeated FlowApprover approvers = 6;
+}
+
+message ApprovalFlow {
+  string id              = 1;
+  string organization_id = 2;
+  string entity_type     = 3;
+  OrganizationSummary organization = 4;
+  repeated FlowLevel levels = 5;
+  string created_at      = 6;
+  string updated_at      = 7;
+}
+
+message FlowResponse {
+  ApprovalFlow flow = 1;
+  string message     = 2;
+  bool success       = 3;
+}
+
+message ListFlowsResponse {
+  repeated ApprovalFlow flows = 1;
+  bool success                = 2;
+  string message              = 3;
+}
+
+message DeleteFlowResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// =======================================================
+//  INSTANCE SERVICE (start, approve, reject, list)
+// =======================================================
+service ApprovalInstanceService {
+  rpc StartApproval   (StartApprovalRequest)  returns (ApprovalInstanceResponse);
+  rpc GetApproval     (GetApprovalRequest)    returns (ApprovalInstanceResponse);
+  rpc Approve         (ApproveRequest)        returns (ApprovalInstanceResponse);
+  rpc Reject          (RejectRequest)         returns (ApprovalInstanceResponse);
+  rpc ListPending     (ListPendingRequest)    returns (ListPendingResponse);
+}
+
+// ---------- Instance requests ----------
+message StartApprovalRequest {
+  string organization_id = 1;
+  string entity_id       = 2;
+  string entity_type     = 3; // LEAVE / REGULARISATION / WORKDAY
+  string employee_id     = 4; // requester
+}
+
+message GetApprovalRequest {
+  string id = 1; // approval instance id
+}
+
+message ApproveRequest {
+  string id          = 1; // approval instance id
+  string approver_id = 2;
+  string remarks     = 3;
+}
+
+message RejectRequest {
+  string id          = 1; // approval instance id
+  string approver_id = 2;
+  string remarks     = 3;
+}
+
+message ListPendingRequest {
+  string organization_id = 1;
+  string approver_id     = 2; // optional filter
+  int32 page             = 3;
+  int32 limit            = 4;
+}
+
+// ---------- Logs & Instance responses ----------
+message ApprovalLogMessage {
+  string id              = 1;
+  string approval_id     = 2;
+  string organization_id = 3;
+  string entity_id       = 4;
+  string entity_type     = 5;
+  int32  level           = 6;
+  string approver_id     = 7;
+  string action          = 8;
+  string remarks         = 9;
+  string approved_at     = 10;
+  EmployeeSummary approver = 11;
+}
+
+message ApprovalInstanceMessage {
+  string id              = 1;
+  string organization_id = 2;
+  string entity_id       = 3;
+  string entity_type     = 4;
+  string flow_id         = 5;
+  int32  current_level   = 6;
+  string status          = 7;
+  string created_at      = 8;
+  string updated_at      = 9;
+
+  OrganizationSummary organization = 10;
+  EmployeeSummary employee         = 11;
+
+  LeaveSummary          leave          = 12;
+  RegularisationSummary regularisation = 13;
+  WorkdaySummary        workday        = 14;
+
+  repeated ApprovalLogMessage logs = 15;
+}
+
+message ApprovalInstanceResponse {
+  ApprovalInstanceMessage approval = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message ListPendingResponse {
+  repeated ApprovalInstanceMessage approvals = 1;
+  int32 total        = 2;
+  int32 page         = 3;
+  int32 limit        = 4;
+  int32 total_pages  = 5;
+  bool success       = 6;
+  string message     = 7;
+}

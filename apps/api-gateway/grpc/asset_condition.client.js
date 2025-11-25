@@ -1,4 +1,6 @@
 import { loadProto, grpc } from '@jury-hrms/proto';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const AssetConditionProto = loadProto('asset_condition');
 const ASSET_CON_SERVICE_ADDR = process.env.ASSET_CON_SERVICE_ADDR || 'localhost:50068';

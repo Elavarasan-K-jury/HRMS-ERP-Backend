@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package attendance_log;
+
+// =======================
+// Service
+// =======================
+
+service AttendanceLogService {
+  // List logs by attendance/employee/date/org
+  rpc ListAttendanceLogs (ListAttendanceLogsRequest) returns (ListAttendanceLogsResponse);
+}
+
+// =======================
+// Messages
+// =======================
+
+message ListAttendanceLogsRequest {
+  string organization_id = 1; // optional but recommended
+  string employee_id     = 2; // optional
+  string attendance_id   = 3; // optional
+  string date            = 4; // optional, yyyy-mm-dd
+}
+
+message AttendanceLog {
+  string id              = 1;
+  string attendance_id   = 2;
+  string organization_id = 3;
+  string employee_id     = 4;
+  string date            = 5;  // yyyy-mm-dd
+  string type            = 6;  // CHECK_IN | CHECK_OUT | ADJUSTMENT
+  string ip_address      = 7;
+  string source          = 8;
+  string geo_location    = 9;  // JSON string
+  string created_at      = 10; // ISO string
+}
+
+message ListAttendanceLogsResponse {
+  repeated AttendanceLog logs = 1;
+}

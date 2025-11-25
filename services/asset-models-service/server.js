@@ -1,7 +1,9 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const PORT = Number(process.env.ASSET_MOD_SERVICE_PORT || 50064);
+const PORT = Number(process.env.ASSET_MOD_SERVICE_PORT || 5064);
 const assetModelProto = loadProto('asset_models');
 
 const impl = {

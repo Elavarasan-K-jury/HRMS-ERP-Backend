@@ -1,10 +1,12 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
+import dotenv from 'dotenv';
+dotenv.config();
 import { signAccessToken, signRefreshToken, verifyToken, ACCESS_EXPIRES_IN } from '@jury-hrms/auth/jwt.js';
 
 const OTP_TTL_MS = Number(process.env.OTP_TTL_MS || 5 * 60 * 1000); // default 5 min
 
-const PORT = Number(process.env.EMP_SERVICE_PORT || 50053);
+const PORT = Number(process.env.EMP_SERVICE_PORT || 5053);
 const employeeProto = loadProto('employee');
 
 /* ------------------------------------------------------------------ */

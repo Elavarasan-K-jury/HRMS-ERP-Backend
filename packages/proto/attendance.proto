@@ -1,0 +1,215 @@
+syntax = "proto3";
+
+package attendance;
+
+service AttendanceService {
+  // Punch
+  rpc CheckIn (CheckInRequest) returns (AttendanceResponse);
+  rpc CheckOut (CheckOutRequest) returns (AttendanceResponse);
+
+  // Recompute attendance for a specific day
+  rpc RecomputeAttendance (RecomputeRequest) returns (AttendanceResponse);
+
+  // List attendance for a month (like Keka calendar)
+  rpc ListAttendance (ListAttendanceRequest) returns (ListAttendanceResponse);
+
+  // Attendance Policies
+  rpc CreateAttendancePolicy (AttendancePolicyRequest) returns (AttendancePolicyResponse);
+  rpc UpdateAttendancePolicy (UpdateAttendancePolicyRequest) returns (AttendancePolicyResponse);
+  rpc ListAttendancePolicy (ListAttendancePolicyRequest) returns (ListAttendancePolicyResponse);
+
+  // Network Policies (IP restriction)
+  rpc CreateNetworkPolicy (NetworkPolicyRequest) returns (NetworkPolicyResponse);
+  rpc UpdateNetworkPolicy (UpdateNetworkPolicyRequest) returns (NetworkPolicyResponse);
+  rpc ListNetworkPolicy (ListNetworkPolicyRequest) returns (ListNetworkPolicyResponse);
+
+  // Geo Fences (Location restriction)
+  rpc CreateGeoFence (GeoFenceRequest) returns (GeoFenceResponse);
+  rpc UpdateGeoFence (UpdateGeoFenceRequest) returns (GeoFenceResponse);
+  rpc ListGeoFence (ListGeoFenceRequest) returns (ListGeoFenceResponse);
+}
+
+/* ============================================================
+   CHECK-IN / CHECK-OUT
+============================================================ */
+
+message CheckInRequest {
+  string employee_id = 1;
+  string ip_address = 2;
+  double latitude = 3;
+  double longitude = 4;
+  string source = 5; // MOBILE | WEB | BIOMETRIC
+}
+
+message CheckOutRequest {
+  string employee_id = 1;
+  string ip_address = 2;
+  double latitude = 3;
+  double longitude = 4;
+  string source = 5;
+}
+
+message RecomputeRequest {
+  string employee_id = 1;
+  string date = 2; // "2025-11-19"
+}
+
+/* ============================================================
+   ATTENDANCE OBJECT
+============================================================ */
+
+message AttendanceObject {
+  string id = 1;
+  string organization_id = 2;
+  string employee_id = 3;
+  string date = 4;
+  string check_in = 5;
+  string check_out = 6;
+
+  double gross_hours = 7;
+  double effective_hours = 8;
+
+  int32 late_arrival_minutes = 9;
+  string status = 10; // PRESENT | ABSENT | HALF_DAY | HOLIDAY | LATE | PENDING
+}
+
+message AttendanceResponse {
+  AttendanceObject attendance = 1;
+}
+
+message ListAttendanceRequest {
+  string employee_id = 1;
+  string month = 2; // "2025-11" (YYYY-MM)
+}
+
+message ListAttendanceResponse {
+  repeated AttendanceObject attendance = 1;
+}
+
+/* ============================================================
+   ATTENDANCE POLICY CRUD
+============================================================ */
+
+message AttendancePolicyRequest {
+  string organization_id = 1;
+  string name = 2;
+  int32 grace_minutes = 3;
+  int32 half_day_minutes = 4;
+  int32 full_day_minutes = 5;
+  bool allow_geo_checkin = 6;
+  bool allow_outside_geo = 7;
+  bool auto_mark_absent = 8;
+  int32 checkin_buffer_min = 9;
+  int32 checkout_buffer_min = 10;
+  string rounding_strategy = 11;
+  bool overtime_allowed = 12;
+  int32 min_overtime_minutes = 13;
+}
+
+message UpdateAttendancePolicyRequest {
+  string policy_id = 1;
+  AttendancePolicyRequest data = 2;
+}
+
+message AttendancePolicy {
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  int32 grace_minutes = 4;
+  int32 half_day_minutes = 5;
+  int32 full_day_minutes = 6;
+  bool allow_geo_checkin = 7;
+  bool allow_outside_geo = 8;
+  bool auto_mark_absent = 9;
+  int32 checkin_buffer_min = 10;
+  int32 checkout_buffer_min = 11;
+  string rounding_strategy = 12;
+  bool overtime_allowed = 13;
+  int32 min_overtime_minutes = 14;
+}
+
+message AttendancePolicyResponse {
+  AttendancePolicy policy = 1;
+}
+
+message ListAttendancePolicyRequest {
+  string organization_id = 1;
+}
+
+message ListAttendancePolicyResponse {
+  repeated AttendancePolicy policies = 1;
+}
+
+/* ============================================================
+   NETWORK POLICY CRUD (IP restriction)
+============================================================ */
+
+message NetworkPolicyRequest {
+  string organization_id = 1;
+  string name = 2;
+  string enforce_on = 3; // "ATTENDANCE" | "LOGIN" | "BOTH"
+  repeated string allowed_ips = 4;
+}
+
+message UpdateNetworkPolicyRequest {
+  string policy_id = 1;
+  NetworkPolicyRequest data = 2;
+}
+
+message NetworkPolicy {
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  string enforce_on = 4;
+  repeated string allowed_ips = 5;
+}
+
+message NetworkPolicyResponse {
+  NetworkPolicy policy = 1;
+}
+
+message ListNetworkPolicyRequest {
+  string organization_id = 1;
+}
+
+message ListNetworkPolicyResponse {
+  repeated NetworkPolicy policies = 1;
+}
+
+/* ============================================================
+   GEO FENCE CRUD
+============================================================ */
+
+message GeoFenceRequest {
+  string organization_id = 1;
+  string name = 2;
+  double latitude = 3;
+  double longitude = 4;
+  int32 radius_meters = 5;
+}
+
+message UpdateGeoFenceRequest {
+  string geofence_id = 1;
+  GeoFenceRequest data = 2;
+}
+
+message GeoFence {
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  double latitude = 4;
+  double longitude = 5;
+  int32 radius_meters = 6;
+}
+
+message GeoFenceResponse {
+  GeoFence geofence = 1;
+}
+
+message ListGeoFenceRequest {
+  string organization_id = 1;
+}
+
+message ListGeoFenceResponse {
+  repeated GeoFence geofences = 1;
+}

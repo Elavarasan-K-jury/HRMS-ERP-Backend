@@ -3,8 +3,10 @@ import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
 import { sendOtpEmail } from '@jury-hrms/mailer';
 import { signAccessToken, signRefreshToken, verifyToken, ACCESS_EXPIRES_IN } from '@jury-hrms/auth/jwt.js';
 import { success } from 'zod';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const PORT = process.env.ADMIN_SERVICE_PORT || 50053;
+const PORT = process.env.ADMIN_SERVICE_PORT || 5060;
 const adminProto = loadProto('admin');
 
 const OTP_TTL_MS = Number(process.env.OTP_TTL_MS || 5 * 60 * 1000); // default 5 min

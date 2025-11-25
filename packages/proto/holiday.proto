@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package holiday;
+
+service HolidayService {
+  rpc CreateHoliday (CreateHolidayRequest) returns (HolidayResponse);
+  rpc GetHoliday    (GetHolidayRequest)    returns (HolidayResponse);
+  rpc ListHolidays  (ListHolidaysRequest)  returns (ListHolidaysResponse);
+  rpc UpdateHoliday (UpdateHolidayRequest) returns (HolidayResponse);
+  rpc DeleteHoliday (DeleteHolidayRequest) returns (DeleteHolidayResponse);
+}
+
+// --------------------
+// Request Messages
+// --------------------
+
+message CreateHolidayRequest {
+  string organization_id = 1;
+  string name            = 2;
+  string date            = 3; // ISO format date string
+  string region          = 4;
+}
+
+message GetHolidayRequest {
+  string id = 1;
+}
+
+message UpdateHolidayRequest {
+  string id              = 1;
+  string organization_id = 2;
+  string name            = 3;
+  string date            = 4;
+  string region          = 5;
+}
+
+message DeleteHolidayRequest {
+  string id = 1;
+}
+
+message ListHolidaysRequest {
+  string organization_id = 1;
+  string region          = 2; // optional filter
+}
+
+// --------------------
+// Response Messages
+// --------------------
+
+message DeleteHolidayResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message Holiday {
+  string id                = 1;
+  string organization_id   = 2;
+  string organization_name = 3;
+  string name              = 4;
+  string date              = 5;
+  string region            = 6;
+}
+
+message HolidayResponse {
+  Holiday holiday = 1;
+}
+
+message ListHolidaysResponse {
+  repeated Holiday holidays = 1;
+}

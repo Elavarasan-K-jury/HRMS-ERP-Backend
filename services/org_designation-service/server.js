@@ -1,7 +1,9 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const PORT = Number(process.env.ORG_DESG_SERVICE_PORT || 50055);
+const PORT = Number(process.env.ORG_DESG_SERVICE_PORT || 5055);
 const designationProto = loadProto('org_designation');
 
 const impl = {

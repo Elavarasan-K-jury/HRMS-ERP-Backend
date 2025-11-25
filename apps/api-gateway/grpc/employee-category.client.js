@@ -1,4 +1,6 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const employeeCategoryProto = loadProto('employee_category');
 const EMP_CAT_SERVICE_ADDR = process.env.EMP_CAT_SERVICE_ADDR || 'localhost:50052';

@@ -1,4 +1,6 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
+import dotenv from 'dotenv';
+dotenv.config();
 
 // Load the compiled proto definition
 const employeeProto = loadProto('employee');

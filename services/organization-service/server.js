@@ -1,7 +1,9 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const PORT = process.env.ORG_SERVICE_PORT || 50051;
+const PORT = process.env.ORG_SERVICE_PORT || 5051;
 const organizationProto = loadProto('organization');
 
 /* ------------------------------------------------------------------ */

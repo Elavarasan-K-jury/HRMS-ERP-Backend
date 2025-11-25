@@ -1,5 +1,7 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma } from '@jury-hrms/db/client.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const PORT = process.env.POST_POLL_SERVICE_PORT || 50069;
 const postPollProto = loadProto('poll_post');
@@ -51,7 +53,7 @@ const impl = {
             }
 
             // Create main post
-            const newPost = await prisma.pollPosts.create({
+            const newPost = await prisma.posts.create({
                 data: {
                     organizationId: data.organization_id,
                     employeeId: data.employee_id,
@@ -86,7 +88,7 @@ const impl = {
 
 
             // Fetch full post with all relations
-            const fullPost = await prisma.pollPosts.findUnique({
+            const fullPost = await prisma.posts.findUnique({
                 where: { id: newPost.id },
                 include: {
                     options: true,
@@ -134,7 +136,7 @@ const impl = {
             }
 
             // --- Fetch poll with all related models ---
-            const model = await prisma.pollPosts.findUnique({
+            const model = await prisma.posts.findUnique({
                 where: { id },
                 include: {
                     options: true,
@@ -190,7 +192,7 @@ const impl = {
             }
 
             // --- Check if poll exists ---
-            const existingPoll = await prisma.pollPosts.findUnique({
+            const existingPoll = await prisma.posts.findUnique({
                 where: { id },
                 include: { options: true }
             });
@@ -237,7 +239,7 @@ const impl = {
             await prisma.$transaction(async (tx) => {
 
                 // Update base poll
-                await tx.pollPosts.update({
+                await tx.posts.update({
                     where: { id },
                     data: updatePayload
                 });
@@ -271,7 +273,7 @@ const impl = {
             // ----------------------------
             // 🔹 Re-fetch full updated poll
             // ----------------------------
-            const updatedPost = await prisma.pollPosts.findUnique({
+            const updatedPost = await prisma.posts.findUnique({
                 where: { id },
                 include: {
                     options: true,
@@ -335,8 +337,8 @@ const impl = {
             };
 
             const [totalCount, posts] = await Promise.all([
-                prisma.pollPosts.count({ where }),
-                prisma.pollPosts.findMany({
+                prisma.posts.count({ where }),
+                prisma.posts.findMany({
                     where,
                     include: {
                         options: true,
@@ -393,7 +395,7 @@ const impl = {
             }
 
             // --- Check if poll exists ---
-            const existing = await prisma.pollPosts.findUnique({
+            const existing = await prisma.posts.findUnique({
                 where: { id },
             });
 
@@ -413,7 +415,7 @@ const impl = {
             }
 
             // --- Soft delete by setting deletedAt ---
-            await prisma.pollPosts.update({
+            await prisma.posts.update({
                 where: { id },
                 data: { deletedAt: new Date() },
             });
@@ -443,7 +445,7 @@ const impl = {
                 });
             }
 
-            const post = await prisma.pollPosts.findUnique({
+            const post = await prisma.posts.findUnique({
                 where: { id: post_id }
             });
 
@@ -454,7 +456,7 @@ const impl = {
                 });
             }
 
-            const existing = await prisma.pollLikes.findFirst({
+            const existing = await prisma.postLikes.findFirst({
                 where: {
                     postId: post_id,
                     employeeId: employee_id,
@@ -464,7 +466,7 @@ const impl = {
 
             // 🔹 If exists → Soft UNLIKE
             if (existing) {
-                await prisma.pollLikes.update({
+                await prisma.postLikes.update({
                     where: { id: existing.id },
                     data: {
                         deletedAt: new Date(),
@@ -480,7 +482,7 @@ const impl = {
             }
 
             // 🔹 If not exists → LIKE (create)
-            await prisma.pollLikes.create({
+            await prisma.postLikes.create({
                 data: {
                     postId: post_id,
                     employeeId: employee_id,
@@ -508,7 +510,7 @@ const impl = {
 
     GetPollLikesDetails: async (call, callback) => {
         try {
-            const { post_id, employee_id } = call.request;
+            const { post_id } = call.request;
 
             if (!post_id) {
                 return callback({
@@ -518,19 +520,19 @@ const impl = {
             }
 
             // Check if user liked the post
-            const existing = await prisma.pollLikes.findFirst({
+            const existing = await prisma.postLikes.findFirst({
                 where: { postId: post_id }
             });
 
             const liked = !!existing;
 
             // Count likes
-            const count = await prisma.pollLikes.count({
+            const count = await prisma.postLikes.count({
                 where: { postId: post_id }
             });
 
             // List likes with employee info
-            const likes = await prisma.pollLikes.findMany({
+            const likes = await prisma.postLikes.findMany({
                 where: { postId: post_id },
                 include: { employee: true }
             });
@@ -577,7 +579,7 @@ const impl = {
                 });
             }
 
-            const post = await prisma.pollPosts.findUnique({
+            const post = await prisma.posts.findUnique({
                 where: { id: post_id },
             });
 
@@ -588,7 +590,7 @@ const impl = {
                 });
             }
 
-            const newComment = await prisma.pollComments.create({
+            const newComment = await prisma.postComments.create({
                 data: {
                     postId: post_id,
                     employeeId: employee_id,
@@ -629,7 +631,7 @@ const impl = {
 
     GetPollComments: async (call, callback) => {
         try {
-            const { post_id } = call.request;
+            const { post_id, employee_id } = call.request;
 
             if (!post_id) {
                 return callback({
@@ -638,7 +640,33 @@ const impl = {
                 });
             }
 
-            const comments = await prisma.pollComments.findMany({
+
+            const post = await prisma.posts.findUnique({
+                where: { id: post_id },
+            });
+
+            if (!post) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: "Post not found",
+                });
+            }
+
+            if (employee_id) {
+                const employeeExists = await prisma.organizationEmployees.findUnique({
+                    where: { id: employee_id }
+                });
+
+                if (!employeeExists) {
+                    return callback({
+                        code: grpc.status.NOT_FOUND,
+                        message: "Employee not found",
+                    });
+                }
+            }
+
+
+            const comments = await prisma.postComments.findMany({
                 where: {
                     postId: post_id,
                     deletedAt: null
@@ -646,6 +674,7 @@ const impl = {
                 include: { employee: true },
                 orderBy: { createdAt: 'desc' }
             });
+
             return callback(null, {
                 count: comments.length,
                 comments: comments.map(c => ({
@@ -675,6 +704,7 @@ const impl = {
         }
     },
 
+
     DeletePollComment: async (call, callback) => {
         try {
             const { comment_id } = call.request;
@@ -686,7 +716,7 @@ const impl = {
                 });
             }
 
-            const existing = await prisma.pollComments.findUnique({
+            const existing = await prisma.postComments.findUnique({
                 where: { id: comment_id },
             });
 
@@ -696,7 +726,7 @@ const impl = {
                     message: "Comment not found",
                 });
             }
-            await prisma.pollComments.update({
+            await prisma.postComments.update({
                 where: { id: comment_id },
                 data: {
                     deletedAt: new Date(),
@@ -729,7 +759,7 @@ const impl = {
                 });
             }
 
-            const options = await prisma.pollOptions.findMany({
+            const options = await prisma.postOptions.findMany({
                 where: { postId: post_id, deletedAt: null },
             });
 
@@ -767,7 +797,7 @@ const impl = {
                 });
             }
 
-            const existing = await prisma.pollOptions.findUnique({
+            const existing = await prisma.postOptions.findUnique({
                 where: {
                     id: option_id,
                     deletedAt: null
@@ -782,7 +812,7 @@ const impl = {
                 });
             }
 
-            await prisma.pollOptions.update({
+            await prisma.postOptions.update({
                 where: { id: option_id },
                 data: {
                     deletedAt: new Date(),
@@ -815,7 +845,7 @@ const impl = {
                 });
             }
 
-            const post = await prisma.pollPosts.findFirst({
+            const post = await prisma.posts.findFirst({
                 where: { id: post_id, deletedAt: null },
             });
 
@@ -826,7 +856,7 @@ const impl = {
                 });
             }
 
-            const option = await prisma.pollOptions.findFirst({
+            const option = await prisma.postOptions.findFirst({
                 where: { id: option_id, deletedAt: null },
             });
 
@@ -837,7 +867,7 @@ const impl = {
                 });
             }
 
-            const existingVote = await prisma.pollVotes.findFirst({
+            const existingVote = await prisma.postVotes.findFirst({
                 where: {
                     postId: post_id,
                     employeeId: employee_id,
@@ -853,7 +883,7 @@ const impl = {
             }
 
             // Create vote
-            const createdVote = await prisma.pollVotes.create({
+            const createdVote = await prisma.postVotes.create({
                 data: {
                     postId: post_id,
                     employeeId: employee_id,
@@ -903,12 +933,12 @@ const impl = {
             }
 
             // 1️⃣ Get poll options
-            const options = await prisma.pollOptions.findMany({
+            const options = await prisma.postOptions.findMany({
                 where: { postId: post_id, deletedAt: null }
             });
 
             // 2️⃣ Get all active votes
-            const votes = await prisma.pollVotes.findMany({
+            const votes = await prisma.postVotes.findMany({
                 where: { postId: post_id, deletedAt: null }
             });
 
@@ -937,7 +967,7 @@ const impl = {
             // 5️⃣ Find user vote (optional)
             let userVote = null;
             if (employee_id) {
-                const uv = await prisma.pollVotes.findFirst({
+                const uv = await prisma.postVotes.findFirst({
                     where: { postId: post_id, employeeId: employee_id, deletedAt: null }
                 });
 
@@ -981,7 +1011,7 @@ const impl = {
             }
 
             // 1️⃣ Check if post exists
-            const post = await prisma.pollPosts.findUnique({
+            const post = await prisma.posts.findUnique({
                 where: { id: post_id }
             });
 
@@ -993,7 +1023,7 @@ const impl = {
             }
 
             // 2️⃣ Check if employee already saved the post
-            const existing = await prisma.pollSaves.findFirst({
+            const existing = await prisma.postSaves.findFirst({
                 where: {
                     postId: post_id,
                     employeeId: employee_id,
@@ -1009,7 +1039,7 @@ const impl = {
             }
 
             // 3️⃣ Create save
-            const newSave = await prisma.pollSaves.create({
+            const newSave = await prisma.postSaves.create({
                 data: {
                     postId: post_id,
                     employeeId: employee_id,
@@ -1062,7 +1092,7 @@ const impl = {
                 });
             }
 
-            const saves = await prisma.pollSaves.findMany({
+            const saves = await prisma.postSaves.findMany({
                 where: {
                     postId: post_id,
                     deletedAt: null
@@ -1070,7 +1100,7 @@ const impl = {
                 include: { employee: true }
             });
 
-            const saved = saves.length > 0;   
+            const saved = saves.length > 0;
 
             const mappedSaves = saves.map(s => ({
                 id: s.id,
@@ -1116,7 +1146,7 @@ const impl = {
                 });
             }
 
-            const post = await prisma.pollPosts.findUnique({ where: { id: post_id } });
+            const post = await prisma.posts.findUnique({ where: { id: post_id } });
 
             if (!post) {
                 return callback({
@@ -1126,7 +1156,7 @@ const impl = {
             }
 
             // 🔍 Check if already shared
-            let existingShare = await prisma.pollShares.findFirst({
+            let existingShare = await prisma.postShares.findFirst({
                 where: {
                     postId: post_id,
                     employeeId: employee_id,
@@ -1159,7 +1189,7 @@ const impl = {
             }
 
             // First share → Create new
-            const newShare = await prisma.pollShares.create({
+            const newShare = await prisma.postShares.create({
                 data: {
                     postId: post_id,
                     employeeId: employee_id,
@@ -1211,7 +1241,7 @@ const impl = {
                 });
             }
 
-            const shares = await prisma.pollShares.findMany({
+            const shares = await prisma.postShares.findMany({
                 where: {
                     postId: post_id,
                     deletedAt: null
@@ -1296,7 +1326,7 @@ function mapPostPoll(poll) {
             employee_id: l.employeeId,
             created_at: l.createdAt?.toISOString() || null,
             updated_at: l.updatedAt?.toISOString() || null,
-            deleted_at: l.deletedAt?.toISOString() || null, 
+            deleted_at: l.deletedAt?.toISOString() || null,
         })),
 
         comments: (poll.comments || []).map(c => ({
