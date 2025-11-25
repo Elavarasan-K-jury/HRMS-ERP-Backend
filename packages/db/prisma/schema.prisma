@@ -523,21 +523,24 @@ model LeaveTypes {
 }
 
 model LeaveRequests {
-  id             String                @id @default(auto()) @map("_id") @db.ObjectId
-  employeeId     String                @map("employee_id") @db.ObjectId
-  organizationId String                @map("organization_id") @db.ObjectId
-  leaveTypeId    String                @map("leave_type_id") @db.ObjectId
-  startDate      DateTime              @map("start_date")
-  endDate        DateTime              @map("end_date")
-  reason         String?
-  status         LeaveStatus           @default(PENDING)
-  approvedAt     DateTime?
-  createdAt      DateTime              @default(now()) @map("created_at")
-  updatedAt      DateTime              @updatedAt @map("updated_at")
-  deletedAt      DateTime?             @map("deleted_at")
-  organization   Organizations         @relation(fields: [organizationId], references: [id])
-  employee       OrganizationEmployees @relation(fields: [employeeId], references: [id])
-  leaveType      LeaveTypes            @relation(fields: [leaveTypeId], references: [id])
+  id                 String      @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId         String      @map("employee_id") @db.ObjectId
+  organizationId     String      @map("organization_id") @db.ObjectId
+  leaveTypeId        String      @map("leave_type_id") @db.ObjectId
+  startDate          DateTime    @map("start_date")
+  endDate            DateTime    @map("end_date")
+  reason             String?
+  status             LeaveStatus @default(PENDING)
+  approvalInstanceId String?     @db.ObjectId
+  approvalLevel      Int?        @default(1)
+
+  approvedAt   DateTime?
+  createdAt    DateTime              @default(now()) @map("created_at")
+  updatedAt    DateTime              @updatedAt @map("updated_at")
+  deletedAt    DateTime?             @map("deleted_at")
+  organization Organizations         @relation(fields: [organizationId], references: [id])
+  employee     OrganizationEmployees @relation(fields: [employeeId], references: [id])
+  leaveType    LeaveTypes            @relation(fields: [leaveTypeId], references: [id])
 }
 
 model AttendancePolicies {
