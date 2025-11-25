@@ -142,6 +142,12 @@ registerAssetRequestRoutes({ openapi: openapiWithQueue });
 registerAssetAssignmentRoutes({ openapi: openapiWithQueue });
 registerAssetConditionRoutes({ openapi: openapiWithQueue });
 registerPostPollRoutes({ openapi: openapiWithQueue });
+registerShiftRoutes({ openapi: openapiWithQueue });
+registerShiftAssignmentRoutes({ openapi: openapiWithQueue });
+registerShiftPolicyRoutes({ openapi: openapiWithQueue });
+registerAttendanceRoutes({ openapi: openapiWithQueue });
+registerAttendanceLogRoutes({ openapi: openapiWithQueue });
+registerApprovalRoutes({ openapi: openapiWithQueue });
 
 /* ------------------------------------------------------------------ */
 /* 📜 OpenAPI / Swagger                                                */
@@ -157,115 +163,6 @@ app.doc('/doc', {
 });
 
 app.get('/swagger', swaggerUI({ url: '/doc' }));
-
-/* ------------------------------------------------------------------ */
-/* 🚀 Server Start (Node.js, no Bun/HMR)                               */
-/* ------------------------------------------------------------------ */
-
-
-// ---- Register Routes ---- //
-registerOrganizationRoutes({
-    openapi: (def, handler) => {
-        // wrap each route handler in queue
-        app.openapi(def, withQueue(handler));
-    },
-});
-registerEmployeeCategoryRoutes({
-    openapi: (def, handler) => {
-        // wrap each route handler in queue
-        app.openapi(def, withQueue(handler));
-    },
-});
-registerEmployeeRoutes({
-    openapi: (def, handler) => {
-        // wrap each route handler in queue
-        app.openapi(def, withQueue(handler));
-    },
-});
-registerAdminRoutes({
-    openapi: (def, handler) => {
-        // wrap each route handler in queue
-        app.openapi(def, withQueue(handler));
-    },
-});
-registerOrgDepartmentRoutes({
-    openapi: (def, handler) => {
-        // wrap each route handler in queue
-        app.openapi(def, withQueue(handler));
-    },
-});
-registerOrgDesignationRoutes({
-    openapi: (def, handler) => {
-        // wrap each route handler in queue
-        app.openapi(def, withQueue(handler));
-    },
-});
-registerEmployeeDepartmentRoutes({
-    openapi: (def, handler) => {
-        // wrap each route handler in queue
-        app.openapi(def, withQueue(handler));
-    },
-});
-registerEmployeeOnboardingFlowRoutes({
-    openapi: (def, handler) => {
-        // wrap each route handler in queue
-        app.openapi(def, withQueue(handler));
-    },
-});
-registerEmployeeOnboardingStepRoutes({
-    openapi: (def, handler) => {
-        // wrap each route handler in queue
-        app.openapi(def, withQueue(handler));
-    },
-});
-registerEmployeeOnboardingFeatureRoutes({
-    openapi: (def, handler) => {
-        // wrap each route handler in queue
-        app.openapi(def, withQueue(handler));
-    },
-});
-registerEmployeeOnboardingProgressRoutes({
-    openapi: (def, handler) => {
-        // wrap each route handler in queue
-        app.openapi(def, withQueue(handler));
-    },
-});
-registerShiftRoutes({
-    openapi: (def, handler) => {
-        // wrap each route handler in queue
-        app.openapi(def, withQueue(handler));
-    },
-});
-registerShiftAssignmentRoutes({
-    openapi: (def, handler) => {
-        // wrap each route handler in queue
-        app.openapi(def, withQueue(handler));
-    },
-});
-registerShiftPolicyRoutes({
-    openapi: (def, handler) => {
-        // wrap each route handler in queue
-        app.openapi(def, withQueue(handler));
-    },
-});
-registerAttendanceRoutes({
-    openapi: (def, handler) => {
-        // wrap each route handler in queue
-        app.openapi(def, withQueue(handler));
-    },
-});
-registerAttendanceLogRoutes({
-    openapi: (def, handler) => {
-        // wrap each route handler in queue
-        app.openapi(def, withQueue(handler));
-    },
-});
-registerApprovalRoutes({
-    openapi: (def, handler) => {
-        // wrap each route handler in queue
-        app.openapi(def, withQueue(handler));
-    },
-});
 
 // ---- Start Server (HMR-safe) ---- //
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename);
@@ -300,5 +197,3 @@ if (isMain) {
         });
     }
 }
-
-export default app;

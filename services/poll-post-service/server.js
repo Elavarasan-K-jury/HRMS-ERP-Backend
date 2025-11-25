@@ -3,7 +3,7 @@ import { prisma } from '@jury-hrms/db/client.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const PORT = process.env.POST_POLL_SERVICE_PORT || 50069;
+const PORT = process.env.POST_POLL_SERVICE_PORT || 5069;
 const postPollProto = loadProto('poll_post');
 
 const impl = {
