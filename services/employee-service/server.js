@@ -2,6 +2,7 @@ import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
 import { signAccessToken, signRefreshToken, verifyToken, ACCESS_EXPIRES_IN } from '@jury-hrms/auth/jwt.js';
 
+const OTP_TTL_MS = Number(process.env.OTP_TTL_MS || 5 * 60 * 1000); // default 5 min
 
 const PORT = Number(process.env.EMP_SERVICE_PORT || 50053);
 const employeeProto = loadProto('employee');
@@ -9,17 +10,6 @@ const employeeProto = loadProto('employee');
 /* ------------------------------------------------------------------ */
 /* 🧩 Implementation                                                  */
 /* ------------------------------------------------------------------ */
-
-function toApiEmployee(e) {
-    return {
-        id: e.id,
-        email: e.email,
-        phone: e.phone,
-        created_at: e.createdAt?.toISOString() || '',
-        updated_at: e.updatedAt?.toISOString() || '',
-        deleted_at: e.deletedAt?.toISOString() || '',
-    };
-}
 
 function genOtp() {
     const env = process.env.ENVIRONMENT || 'DEVELOPMENT';
@@ -550,8 +540,24 @@ const impl = {
             }
 
             let user = null;
-            if (payload.scope == 'admin') {
-                user = await prisma.admins.findFirst({ where: { id: payload.sub, deletedAt: null, accessToken: token } });
+            if (payload.scope == 'employee') {
+                user = await prisma.organizationEmployees.findFirst({
+                    where: {
+                        id: payload.sub,
+                        deletedAt: null
+                    },
+                    include: {
+                        organization: true,
+                        category: true,
+                        designation: true,
+                        departmentAssignments: {
+                            where: { deletedAt: null },
+                            include: {
+                                department: true
+                            }
+                        }
+                    }
+                });
                 if (!user) {
                     return cb({ code: grpc.status.PERMISSION_DENIED, message: 'Invalid or expired token' });
                 }
@@ -562,10 +568,8 @@ const impl = {
                 message: 'Token verified successfully',
                 sub: payload.sub || '',
                 user: JSON.stringify({
-                    id: user?.id || '',
-                    email: user?.email || '',
-                    phone: user?.phone || '',
-                }) || '',
+                    ...mapEmployee(user),
+                }),
                 email: payload.email || '',
                 scope: payload.scope || '',
                 typ: payload.typ || 'access',
@@ -582,12 +586,12 @@ const impl = {
         try {
             const { email, phone, otp } = call.request;
 
-            const admin = await findEmployeeByEMailOrPhone({ email, phone });
-            if (!admin) return cb({ code: grpc.status.NOT_FOUND, message: 'Admin not found' });
+            const employee = await findEmployeeByEMailOrPhone({ email, phone });
+            if (!employee) return cb({ code: grpc.status.NOT_FOUND, message: 'Employee not found' });
 
             // Get the latest (not soft-deleted) OTP
-            const record = await prisma.adminOtps.findFirst({
-                where: { adminId: admin.id, deletedAt: null },
+            const record = await prisma.otps.findFirst({
+                where: { employeeId: employee.id, deletedAt: null },
                 orderBy: { createdAt: 'desc' },
             });
             if (!record) return cb({ code: grpc.status.INVALID_ARGUMENT, message: 'OTP not found' });
@@ -595,7 +599,7 @@ const impl = {
             const age = Date.now() - new Date(record.createdAt).getTime();
             if (age > OTP_TTL_MS) {
                 // mark expired/consumed to avoid re-use
-                await prisma.adminOtps.update({
+                await prisma.otps.update({
                     where: { id: record.id },
                     data: { deletedAt: new Date(), updatedAt: new Date() },
                 });
@@ -607,18 +611,37 @@ const impl = {
             }
 
             // consume OTP
-            await prisma.adminOtps.update({
-                where: { id: record.id },
-                data: { deletedAt: new Date(), updatedAt: new Date() },
-            });
+            // await prisma.otps.update({
+            //     where: { id: record.id },
+            //     data: { deletedAt: new Date(), updatedAt: new Date() },
+            // });
 
-            const access_token = await signAccessToken({ sub: admin.id, email: admin.email, scope: 'admin' });
-            const refresh_token = await signRefreshToken({ sub: admin.id, typ: 'refresh' });
+            const access_token = await signAccessToken({ sub: employee.id, email: employee.email, scope: 'employee' });
+            const refresh_token = await signRefreshToken({ sub: employee.id, typ: 'refresh' });
 
-            await prisma.admins.update({
-                where: { id: admin.id },
+            await prisma.organizationEmployees.update({
+                where: { id: employee.id },
                 data: { accessToken: access_token, refreshToken: refresh_token, updatedAt: new Date() },
             });
+
+            const empData = await prisma.organizationEmployees.findFirst({
+                where: {
+                    id: employee.id,
+                    deletedAt: null
+                },
+                include: {
+                    organization: true,
+                    category: true,
+                    designation: true,
+                    departmentAssignments: {
+                        where: { deletedAt: null },
+                        include: {
+                            department: true
+                        }
+                    }
+                }
+            });
+
 
             cb(null, {
                 success: true,
@@ -627,7 +650,7 @@ const impl = {
                 refresh_token,
                 token_type: 'Bearer',
                 expires_in: String(ACCESS_EXPIRES_IN),
-                admin: toApiAdmin(admin),
+                employee: mapEmployee(empData),
             });
         } catch (e) {
             cb({ code: grpc.status.INTERNAL, message: e.message });
@@ -642,18 +665,36 @@ const impl = {
                 return cb({ code: grpc.status.PERMISSION_DENIED, message: 'Invalid refresh token' });
             }
 
-            const admin = await prisma.admins.findFirst({ where: { id: payload.sub, deletedAt: null } });
-            if (!admin || admin.refreshToken !== refresh_token) {
+            const employee = await prisma.organizationEmployees.findFirst({ where: { id: payload.sub, deletedAt: null } });
+            if (!employee || employee.refreshToken !== refresh_token) {
                 return cb({ code: grpc.status.PERMISSION_DENIED, message: 'Refresh token mismatch' });
             }
 
             // rotate tokens
-            const newAccess = await signAccessToken({ sub: admin.id, email: admin.email, scope: 'admin' });
-            const newRefresh = await signRefreshToken({ sub: admin.id, typ: 'refresh' });
+            const newAccess = await signAccessToken({ sub: employee.id, email: employee.email, scope: 'employee' });
+            const newRefresh = await signRefreshToken({ sub: employee.id, typ: 'refresh' });
 
-            await prisma.admins.update({
-                where: { id: admin.id },
+            await prisma.organizationEmployees.update({
+                where: { id: employee.id },
                 data: { accessToken: newAccess, refreshToken: newRefresh, updatedAt: new Date() },
+            });
+
+            const empData = await prisma.organizationEmployees.findFirst({
+                where: {
+                    id: employee.id,
+                    deletedAt: null
+                },
+                include: {
+                    organization: true,
+                    category: true,
+                    designation: true,
+                    departmentAssignments: {
+                        where: { deletedAt: null },
+                        include: {
+                            department: true
+                        }
+                    }
+                }
             });
 
             cb(null, {
@@ -663,7 +704,7 @@ const impl = {
                 refresh_token: newRefresh,
                 token_type: 'Bearer',
                 expires_in: String(ACCESS_EXPIRES_IN),
-                admin: toApiAdmin(admin),
+                employee: mapEmployee(empData),
             });
         } catch (e) {
             cb({ code: grpc.status.INTERNAL, message: e.message });

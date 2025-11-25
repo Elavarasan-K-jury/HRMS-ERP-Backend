@@ -419,7 +419,7 @@ model PollPosts {
   isVotingPoll Boolean @default(false) @map("is_voting_poll")
 
   createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @default(now())@updatedAt @map("updated_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
   // Relations
@@ -435,10 +435,10 @@ model PollPosts {
 }
 
 model PollLikes {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  postId     String   @map("post_id") @db.ObjectId
-  employeeId String   @map("employee_id") @db.ObjectId
-  createdAt  DateTime @default(now()) @map("created_at")
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  postId     String    @map("post_id") @db.ObjectId
+  employeeId String    @map("employee_id") @db.ObjectId
+  createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
 
@@ -452,7 +452,7 @@ model PollComments {
   employeeId String    @map("employee_id") @db.ObjectId
   comment    String
   createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime   @default(now()) @updatedAt @map("updated_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
 
   poll     PollPosts             @relation(fields: [postId], references: [id])
@@ -460,10 +460,10 @@ model PollComments {
 }
 
 model PollSaves {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  postId     String   @map("post_id") @db.ObjectId
-  employeeId String   @map("employee_id") @db.ObjectId
-  createdAt  DateTime @default(now()) @map("created_at")
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  postId     String    @map("post_id") @db.ObjectId
+  employeeId String    @map("employee_id") @db.ObjectId
+  createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
 
@@ -472,10 +472,10 @@ model PollSaves {
 }
 
 model PollShares {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  postId     String   @map("post_id") @db.ObjectId
-  employeeId String   @map("employee_id") @db.ObjectId
-  createdAt  DateTime @default(now()) @map("created_at")
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  postId     String    @map("post_id") @db.ObjectId
+  employeeId String    @map("employee_id") @db.ObjectId
+  createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
 
@@ -497,11 +497,11 @@ model PollOptions {
 }
 
 model PollVotes {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  postId     String   @map("post_id") @db.ObjectId
-  optionId   String   @map("option_id") @db.ObjectId
-  employeeId String   @map("employee_id") @db.ObjectId
-  createdAt  DateTime @default(now()) @map("created_at")
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  postId     String    @map("post_id") @db.ObjectId
+  optionId   String    @map("option_id") @db.ObjectId
+  employeeId String    @map("employee_id") @db.ObjectId
+  createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
 

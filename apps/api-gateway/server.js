@@ -36,13 +36,12 @@ console.log(
     '🔍 EMP_ONBOARDING_PROGRESS_SERVICE_ADDR =',
     process.env.EMP_ONBOARDING_PROGRESS_SERVICE_ADDR
 );
-console.log('🔍 ASSET_CATEGORY_SERVICE_ADDR =', process.env.ASSET_CATEGORY_SERVICE_ADDR);
-console.log('🔍 ASSET_MODEL_SERVICE_ADDR =', process.env.ASSET_MODEL_SERVICE_ADDR);
-console.log('🔍 ASSET_SERVICE_ADDR =', process.env.ASSET_SERVICE_ADDR);
-console.log('🔍 ASSET_REQUEST_SERVICE_ADDR =', process.env.ASSET_REQUEST_SERVICE_ADDR);
-console.log('🔍 ASSET_ASSIGNMENT_SERVICE_ADDR =', process.env.ASSET_ASSIGNMENT_SERVICE_ADDR);
-console.log('🔍 ASSET_CONDITION_SERVICE_ADDR =', process.env.ASSET_CONDITION_SERVICE_ADDR);
-console.log('🔍 HIERARCHY_SERVICE_ADDR =', process.env.HIERARCHY_SERVICE_ADDR);
+console.log('🔍 ASSET_CATEGORY_SERVICE_ADDR =', process.env.ASSET_CAT_SERVICE_ADDR);
+console.log('🔍 ASSET_MODEL_SERVICE_ADDR =', process.env.ASSET_MOD_SERVICE_ADDR);
+console.log('🔍 ASSET_SERVICE_ADDR =', process.env.ASSETS_SERVICE_ADDR);
+console.log('🔍 ASSET_REQUEST_SERVICE_ADDR =', process.env.ASSET_REQ_SERVICE_ADDR);
+console.log('🔍 ASSET_ASSIGNMENT_SERVICE_ADDR =', process.env.ASSET_ASSIGN_SERVICE_ADDR);
+console.log('🔍 ASSET_CONDITION_SERVICE_ADDR =', process.env.ASSET_CON_SERVICE_ADDR);
 console.log('🔍 POST_POLL_SERVICE_ADDR =', process.env.POST_POLL_SERVICE_ADDR);
 
 /* ------------------------------------------------------------------ */
@@ -93,7 +92,7 @@ const app = new OpenAPIHono({
 app.use(
     '*',
     cors({
-        origin: ['http://localhost:3030', 'http://127.0.0.1:3030'],
+        origin: ['http://localhost:3030', 'http://127.0.0.1:3030', 'http://localhost:3040', 'http://127.0.0.1:3040'],
         allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     })
 );

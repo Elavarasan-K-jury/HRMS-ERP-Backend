@@ -13,11 +13,63 @@ service EmployeeService {
   rpc UpdateEmployee        (UpdateEmployeeRequest)        returns (EmployeeResponse);
   rpc DeleteEmployee        (DeleteEmployeeRequest)        returns (DeleteEmployeeResponse);
   rpc ListAllEmployees      (ListAllEmployeesRequest)      returns (ListAllEmployeesResponse);
+  rpc RequestLoginOtp (RequestLoginOtpRequest) returns (RequestLoginOtpResponse);
+  rpc VerifyLoginOtp  (VerifyLoginOtpRequest)  returns (AuthResponse);
+  rpc RefreshTokens   (RefreshTokensRequest)   returns (AuthResponse);
+  rpc VerifyToken     (VerifyTokenRequest)     returns (VerifyTokenResponse);
+
 }
+  
 
 /* ──────────────────────────────
    🧩 Employee Object (core)
 ──────────────────────────────── */
+
+message VerifyLoginOtpRequest {
+    string email = 1;   // OR phone (fill one)
+    string phone = 2;
+    string otp = 3;
+}
+
+message RefreshTokensRequest {
+    string refresh_token = 1;
+}
+
+message AuthResponse {
+    string access_token = 1;
+    string refresh_token = 2;
+    string token_type = 3; // "Bearer"
+    string expires_in = 4; // seconds for access token
+    Employee employee = 5;
+    string success = 6;
+}
+message RequestLoginOtpRequest {
+  // one of: email or phone (if phone provided, OTP is still emailed to the admin's email)
+  string email = 1;
+  string phone = 2;
+  string purpose = 3; // e.g. "login" (optional)
+}
+
+message RequestLoginOtpResponse {
+  string message = 1; // "OTP sent to registered email"
+  string success = 2;
+}
+
+message VerifyTokenRequest {
+  string token = 1; // Access or Refresh token (JWT)
+}
+
+message VerifyTokenResponse {
+  string sub = 1;        // Subject (admin id)
+  string email = 2;      // Admin email
+  string scope = 3;      // Token scope
+  string typ = 4;        // Token type (access / refresh)
+  string iat = 5;        // Issued at
+  string exp = 6;        // Expiry timestamp
+  string success = 7;    // true/false
+  string message = 8;    // Status message
+  string user = 9;      // Token scope
+}
 
 message Employee {
   string id                = 1;
