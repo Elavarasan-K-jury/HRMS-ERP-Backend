@@ -1,7 +1,9 @@
 // src/grpc/attendance_log.client.js
 import { loadProto, grpc } from '@jury-hrms/proto';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const attendanceLogProto = loadProto('attendance_log'); 
+const attendanceLogProto = loadProto('attendance_log');
 // 👆 change string if your proto name is different
 
 const ATTENDANCE_LOG_SERVICE_ADDR =

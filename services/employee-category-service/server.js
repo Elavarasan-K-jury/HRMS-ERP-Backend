@@ -1,7 +1,9 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const PORT = Number(process.env.EMP_CAT_SERVICE_PORT || 50052);
+const PORT = Number(process.env.EMP_CAT_SERVICE_PORT || 5052);
 const employeeCategoryProto = loadProto('employee_category');
 
 const impl = {

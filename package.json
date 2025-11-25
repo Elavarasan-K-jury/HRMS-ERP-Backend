@@ -20,7 +20,7 @@
     "dev:emp-onboard-feature": "nodemon services/emp-onboarding-feature-service/server.js",
     "dev:emp-onboard-progress": "nodemon services/emp-onboarding-progress-service/server.js",
     "dev:atte": "nodemon services/attendance-service/server.js",
-    "dev:atte-log": "nodemon services/attendance-log-service/server.js",
+    "dev:atte-log": "nodemon services/attendance-logs-service/server.js",
     "dev:attendance-regularisation": "nodemon services/attendance-regularisation-service/server.js",
     "dev:shift": "nodemon services/shift-service/server.js",
     "dev:shift-assignment": "nodemon services/shift-assignment-service/server.js",
@@ -47,7 +47,7 @@
     "start:emp-onboard-feature": "node services/emp-onboarding-feature-service/server.js",
     "start:emp-onboard-progress": "node services/emp-onboarding-progress-service/server.js",
     "start:atte": "node services/attendance-service/server.js",
-    "start:atte-log": "node services/attendance-log-service/server.js",
+    "start:atte-log": "node services/attendance-logs-service/server.js",
     "start:attendance-regularisation": "node services/attendance-regularisation-service/server.js",
     "start:shift": "node services/shift-service/server.js",
     "start:shift-assignment": "node services/shift-assignment-service/server.js",
@@ -68,7 +68,8 @@
     "prisma:push": "prisma db push --schema=packages/db/prisma/schema.prisma",
     "prisma:studio": "prisma studio --schema=packages/db/prisma/schema.prisma",
     "format": "prettier --write .",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "killall": "pkill -9 node || true && pkill -9 nodemon || true"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

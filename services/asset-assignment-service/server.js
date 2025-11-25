@@ -1,8 +1,10 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
 
-const PORT = Number(process.env.ASSET_ASSIGN_SERVICE_PORT || 50067);
+const PORT = Number(process.env.ASSET_ASSIGN_SERVICE_PORT || 5067);
 const assetAssignmentProto = loadProto('asset_assignment');
 
 const impl = {

@@ -1,4 +1,6 @@
 import { loadProto, grpc } from '@jury-hrms/proto';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const shiftPolicyProto = loadProto('shift_policy');
 const SHIFT_POLICY_SERVICE_ADDR =

@@ -1,7 +1,9 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const PORT = Number(process.env.EMP_ONBOARDING_STEP_SERVICE_PORT || 50058);
+const PORT = Number(process.env.EMP_ONBOARDING_STEP_SERVICE_PORT || 5058);
 const onboardingStepProto = loadProto('emp_onboarding_step');
 
 const impl = {

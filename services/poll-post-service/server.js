@@ -1,5 +1,7 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma } from '@jury-hrms/db/client.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const PORT = process.env.POST_POLL_SERVICE_PORT || 50069;
 const postPollProto = loadProto('poll_post');
@@ -1098,7 +1100,7 @@ const impl = {
                 include: { employee: true }
             });
 
-            const saved = saves.length > 0;   
+            const saved = saves.length > 0;
 
             const mappedSaves = saves.map(s => ({
                 id: s.id,
@@ -1324,7 +1326,7 @@ function mapPostPoll(poll) {
             employee_id: l.employeeId,
             created_at: l.createdAt?.toISOString() || null,
             updated_at: l.updatedAt?.toISOString() || null,
-            deleted_at: l.deletedAt?.toISOString() || null, 
+            deleted_at: l.deletedAt?.toISOString() || null,
         })),
 
         comments: (poll.comments || []).map(c => ({

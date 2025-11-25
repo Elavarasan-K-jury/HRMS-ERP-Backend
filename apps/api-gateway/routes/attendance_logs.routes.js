@@ -1,6 +1,6 @@
 // api/routes/attendanceLogs.routes.js
 import { z, ZodError } from "zod";
-import { attendanceLogClient } from "../grpc/attendance_log.client";
+import { attendanceLogClient } from "../grpc/attendance_log.client.js";
 
 export default function registerAttendanceLogRoutes({ openapi }) {
   const listLogsQuerySchema = z.object({

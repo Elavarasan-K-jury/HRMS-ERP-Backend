@@ -1,7 +1,9 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma } from '@jury-hrms/db/client.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const PORT = Number(process.env.HOLIDAY_SERVICE_PORT || 50062);
+const PORT = Number(process.env.HOLIDAY_SERVICE_PORT || 5076);
 const holidayProto = loadProto('holiday');
 
 // --------------------
@@ -304,6 +306,6 @@ async function main() {
 
 main().catch(async (err) => {
   console.error('[holiday-service] Fatal error:', err);
-  try { await prisma.$disconnect(); } catch {}
+  try { await prisma.$disconnect(); } catch { }
   process.exit(1);
 });

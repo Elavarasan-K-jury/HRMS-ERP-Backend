@@ -1,7 +1,9 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma } from '@jury-hrms/db/client.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const PORT = Number(process.env.SHIFT_POLICY_SERVICE_PORT || 5065);
+const PORT = Number(process.env.SHIFT_POLICY_SERVICE_PORT || 5074);
 const shiftPolicyProto = loadProto('shift_policy');
 
 // Simple validator for "HH:mm" 24-hour time
