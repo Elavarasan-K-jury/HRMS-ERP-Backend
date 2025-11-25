@@ -5,7 +5,7 @@ const queueLimit = Number(process.env.REQUEST_QUEUE_LIMIT || 50);
 
 export const queue = new PQueue({
     concurrency,
-    timeout: 30000, // 30s max wait per request
+    // timeout: 30000, // 30s max wait per request
 });
 
 export function withQueue(handler) {

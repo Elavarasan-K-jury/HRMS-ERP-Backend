@@ -9,6 +9,7 @@ service EmployeeDepartmentService {
   rpc AssignDepartment       (AssignDepartmentRequest)       returns (EmployeeDepartmentResponse);
   rpc GetEmployeeDepartment  (GetEmployeeDepartmentRequest)  returns (EmployeeDepartmentResponse);
   rpc ListEmployeeDepartments(ListEmployeeDepartmentsRequest) returns (ListEmployeeDepartmentsResponse);
+  rpc ListEmployeeInDepartments(ListEmployeesInADepartmentRequest) returns (ListEmployeesInADepartmentResponse);
   rpc UpdateEmployeeDepartment(UpdateEmployeeDepartmentRequest) returns (EmployeeDepartmentResponse);
   rpc RemoveEmployeeDepartment(RemoveEmployeeDepartmentRequest) returns (RemoveEmployeeDepartmentResponse);
 }
@@ -16,11 +17,51 @@ service EmployeeDepartmentService {
 // ─────────────────────────────────────────────────────────────────────────────
 //  Request Messages
 // ─────────────────────────────────────────────────────────────────────────────
+message Department {
+  string id                         = 1;
+  string organization_id            = 2;
+  string name                       = 3;
+  string code                       = 4;
+  string department_head_id         = 5;
+  string department_head_start_date = 6;
+  string description                = 7;
+  string note                       = 8;
+  string created_at                 = 9;
+  string updated_at                 = 10;
+  string deleted_at                 = 11;
+}
+
+message Employee {
+  string id             = 1;
+  string full_name      = 2;
+  string email          = 3;
+  string phone          = 4;
+  string designation_id = 5;
+  string gender         = 6;
+  string date_of_birth  = 7;
+  string created_at     = 8;
+  string updated_at     = 9;
+}
+message EmployeeV2 {
+  string id             = 1;
+  string full_name      = 2;
+  string email          = 3;
+  string phone          = 4;
+  string designation_id = 5;
+  string gender         = 6;
+  string date_of_birth  = 7;
+  string created_at     = 8;
+  string updated_at     = 9;
+  Employee reporting    = 10;
+}
+
+
 message AssignDepartmentRequest {
-  string department_id = 1;
-  string employee_id   = 2;
-  string start_date    = 3;  // ISO date string
-  string end_date      = 4;  // optional
+  string department_id  = 1;
+  string employee_id    = 2;
+  string reporting_to   = 3;
+  string start_date     = 4;  // ISO date string
+  string end_date       = 5;  // optional
 }
 
 message GetEmployeeDepartmentRequest {
@@ -31,8 +72,9 @@ message UpdateEmployeeDepartmentRequest {
   string id            = 1;
   string department_id = 2;
   string employee_id   = 3;
-  string start_date    = 4;
-  string end_date      = 5;
+  string reporting_to  = 4;
+  string start_date    = 5;
+  string end_date      = 6;
 }
 
 message RemoveEmployeeDepartmentRequest {
@@ -56,12 +98,18 @@ message EmployeeDepartment {
   string id            = 1;
   string department_id = 2;
   string employee_id   = 3;
-  string start_date    = 4;  // ISO
-  string end_date      = 5;  // ISO or empty
+  string reporting_to  = 4;
+  string start_date    = 5;  // ISO
+  string end_date      = 6;  // ISO or empty
+  Department department = 7;
+  Employee employee     = 8;
+  Employee reporting    = 9;
 }
 
 message EmployeeDepartmentResponse {
   EmployeeDepartment employee_department = 1;
+  bool   success = 2;
+  string message = 3;
 }
 
 message ListEmployeeDepartmentsResponse {
@@ -70,9 +118,23 @@ message ListEmployeeDepartmentsResponse {
   int32  page           = 3;
   int32  limit          = 4;
   int32  total_pages    = 5;
+  bool   success        = 6;
+  string message        = 7;
 }
 
 message RemoveEmployeeDepartmentResponse {
   bool   success = 1;
   string message = 2;
+}
+
+
+message ListEmployeesInADepartmentRequest {
+  string department_id = 1;
+}
+
+message ListEmployeesInADepartmentResponse {
+  repeated EmployeeV2 employees = 1;
+  Employee department_head = 2;
+  bool   success        = 3;
+  string message        = 4;
 }

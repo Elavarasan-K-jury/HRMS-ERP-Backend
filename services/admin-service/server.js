@@ -1,5 +1,5 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
-import { prisma } from '@jury-hrms/db/client.js';
+import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
 import { sendOtpEmail } from '@jury-hrms/mailer';
 import { signAccessToken, signRefreshToken, verifyToken, ACCESS_EXPIRES_IN } from '@jury-hrms/auth/jwt.js';
 import { success } from 'zod';
@@ -23,6 +23,8 @@ function toApiAdmin(a) {
 }
 
 function genOtp() {
+    const env = process.env.ENVIRONMENT || 'DEVELOPMENT';
+    if (env === 'DEVELOPMENT') return '123456';
     return String(Math.floor(100000 + Math.random() * 900000)); // 6-digit
 }
 
@@ -36,8 +38,8 @@ function normPhone(phone) {
 async function findAdminByEmailOrPhone({ email, phone }) {
     const e = normEmail(email);
     const p = normPhone(phone);
-    if (e) return prisma.admins.findFirst({ where: { email: e, deletedAt: null } });
-    if (p) return prisma.admins.findFirst({ where: { phone: p, deletedAt: null } });
+    if (e) return await prisma.admins.findFirst({ where: { email: e, deletedAt: null } });
+    if (p) return await prisma.admins.findFirst({ where: { phone: p, deletedAt: null } });
     return null;
 }
 
@@ -51,6 +53,7 @@ const impl = {
             const { email, phone, purpose = 'login' } = call.request;
 
             const admin = await findAdminByEmailOrPhone({ email, phone });
+            console.log('server.js @ Line 56:', admin);
             if (!admin) return cb({ code: grpc.status.NOT_FOUND, message: 'Admin not found' });
 
             const otp = genOtp();
@@ -67,7 +70,7 @@ const impl = {
             });
 
             // Always send OTP to the admin's email
-            await sendOtpEmail(admin.email, otp, OTP_TTL_MS / 60000);
+            // sendOtpEmail(admin.email, otp, OTP_TTL_MS / 60000);
 
             cb(null, { message: 'OTP sent to registered email', success: true });
         } catch (e) {
@@ -369,6 +372,7 @@ const impl = {
 /* ----------------------- graceful main() ----------------------- */
 
 async function main() {
+    await checkDbConnection('-service');
     const server = new grpc.Server();
 
     // ✅ Bind the right service!

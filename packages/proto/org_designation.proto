@@ -9,6 +9,7 @@ service OrgDesignationService {
   rpc CreateDesignation (CreateDesignationRequest) returns (DesignationResponse);
   rpc GetDesignation    (GetDesignationRequest)    returns (DesignationResponse);
   rpc ListDesignations  (ListDesignationsRequest)  returns (ListDesignationsResponse);
+  rpc ListAllDesignations  (ListAllDesignationsRequest)  returns (ListAllDesignationsResponse);
   rpc UpdateDesignation (UpdateDesignationRequest) returns (DesignationResponse);
   rpc DeleteDesignation (DeleteDesignationRequest) returns (DeleteDesignationResponse);
 }
@@ -51,10 +52,23 @@ message ListDesignationsRequest {
   string sort_by         = 6;
   string sort_order      = 7;
 }
+message ListAllDesignationsRequest {
+  string organization_id = 1;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Response Messages
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ------------------------------
+// Base Designation Message
+// ------------------------------
+message DesignationOnly {
+  string id              = 1;
+  string name            = 2;
+  string level           = 3;
+}
+
 message Designation {
   string id              = 1;
   string organization_id = 2;
@@ -65,6 +79,69 @@ message Designation {
   string created_at      = 7;
   string updated_at      = 8;
   string deleted_at      = 9;
+
+  // New nested fields
+  Organization organization = 10;
+  Department department = 11;
+  repeated Employee employees = 12;
+  int32 employee_count = 13;
+}
+
+
+// ------------------------------
+// Organization Message
+// ------------------------------
+message Organization {
+  string id                     = 1;
+  string name                   = 2;
+  string domain                 = 3;
+  string gst_number             = 4;
+  string email                  = 5;
+  string contact_person_name    = 6;
+  string contact_person_number  = 7;
+  string note                   = 8;
+  string industry               = 9;
+  int32 size                    = 10;
+  string address                = 11;
+  string created_at             = 12;
+  string updated_at             = 13;
+}
+
+// ------------------------------
+// Department Message
+// ------------------------------
+message Department {
+  string id                      = 1;
+  string organization_id          = 2;
+  string name                     = 3;
+  string code                     = 4;
+  string department_head_id       = 5;
+  string department_head_start_date = 6;
+  string description              = 7;
+  string note                     = 8;
+  string created_at               = 9;
+  string updated_at               = 10;
+}
+
+// ------------------------------
+// Employee Message
+// ------------------------------
+message Employee {
+  string id              = 1;
+  string organization_id = 2;
+  string category_id     = 3;
+  string designation_id  = 4;
+  string first_name      = 5;
+  string last_name       = 6;
+  string full_name       = 7;
+  string email           = 8;
+  string phone           = 9;
+  string alt_phone       = 10;
+  string gender          = 11;
+  string date_of_birth   = 12;
+  string created_at      = 13;
+  string updated_at      = 14;
+  string deleted_at      = 15;
 }
 
 message DesignationResponse {
@@ -73,14 +150,22 @@ message DesignationResponse {
   bool        success     = 3;
 }
 
+// ------------------------------
+// Response for list call
+// ------------------------------
 message ListDesignationsResponse {
   repeated Designation designations = 1;
-  int32  total             = 2;
-  int32  page              = 3;
-  int32  limit             = 4;
-  int32  total_pages       = 5;
-  string success           = 6;
-  string message           = 7;
+  int32 total                       = 2;
+  int32 page                        = 3;
+  int32 limit                       = 4;
+  int32 total_pages                 = 5;
+  bool success                      = 6;
+  string message                    = 7;
+}
+message ListAllDesignationsResponse {
+  repeated DesignationOnly designations = 1;
+  bool success                      = 2;
+  string message                    = 3;
 }
 
 message DeleteDesignationResponse {

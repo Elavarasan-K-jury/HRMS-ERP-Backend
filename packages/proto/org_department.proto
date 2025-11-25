@@ -6,6 +6,7 @@ service OrgDepartmentService {
   rpc CreateDepartment (CreateDepartmentRequest) returns (DepartmentResponse);
   rpc GetDepartment    (GetDepartmentRequest)    returns (DepartmentResponse);
   rpc ListDepartments  (ListDepartmentsRequest)  returns (ListDepartmentsResponse);
+  rpc ListDepartmentEmployees (ListDepartmentsEmployeeRequest)  returns (ListDepartmentsEmployeeResponse);
   rpc UpdateDepartment (UpdateDepartmentRequest) returns (DepartmentResponse);
   rpc DeleteDepartment (DeleteDepartmentRequest) returns (DeleteDepartmentResponse);
 }
@@ -42,11 +43,40 @@ message DeleteDepartmentRequest {
 message ListDepartmentsRequest {
   string organization_id = 1;
   // Optional: add pagination/search later
-  // int32 page = 2;
-  // int32 limit = 3;
-  // string search = 4;
+  int32 page = 2;
+  int32 limit = 3;
+  string search = 4;
+  string sort_by = 5;
+  string sort_order = 6;
+}
+message ListDepartmentsEmployeeRequest {
+  string organization_id = 1;
+  string department_id = 2;
 }
 
+message DepartmentEmployee {
+  string id              = 1;
+  string full_name       = 2;
+  string email           = 3;
+  string phone           = 4;
+
+  string designation_id  = 5;
+  string gender          = 6;
+  string date_of_birth   = 7;
+
+  string created_at      = 8;
+  string updated_at      = 9;
+
+  DepartmentEmployee reporting = 10; // nullable
+  bool isHead          = 11;
+}
+
+
+message ListDepartmentsEmployeeResponse {
+  repeated DepartmentEmployee employees = 1;
+  bool success = 2;
+  string message = 3;
+}
 
 message Department {
   string id                         = 1;
@@ -54,14 +84,47 @@ message Department {
   string name                       = 3;
   string code                       = 4;
   string department_head_id         = 5;
-  string department_head_start_date = 6;  // ISO string
+  string department_head_start_date = 6;
   string description                = 7;
   string note                       = 8;
-  string created_at                 = 9;  // ISO string
-  string updated_at                 = 10; // ISO string
-  string deleted_at                 = 11; // empty if null
-  string organization               = 12;
+  string created_at                 = 9;
+  string updated_at                 = 10;
+  string deleted_at                 = 11;
+
+  optional Organization organization         = 12;
+  optional DepartmentHead department_head    = 13;
+  int32 employee_count              = 14;
+  string organization_name          = 15;
 }
+
+message Organization {
+  string id                     = 1;
+  string name                   = 2;
+  string domain                 = 3;
+  string gst_number             = 4;
+  string email                  = 5;
+  string contact_person_name    = 6;
+  string contact_person_number  = 7;
+  string note                   = 8;
+  string industry               = 9;
+  int32 size                    = 10;
+  string created_at             = 11;
+  string updated_at             = 12;
+}
+
+message DepartmentHead {
+  string id             = 1;
+  string full_name      = 2;
+  string email          = 3;
+  string phone          = 4;
+  string designation_id = 5;
+  string gender         = 6;
+  string date_of_birth  = 7;
+  string created_at     = 8;
+  string updated_at     = 9;
+}
+
+
 
 message DepartmentResponse {
   Department department = 1;

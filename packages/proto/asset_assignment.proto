@@ -1,0 +1,111 @@
+syntax = "proto3";
+
+package asset_assignment;
+
+// -----------------------------
+// Service
+// -----------------------------
+service AssetAssignmentService {
+  rpc CreateAssetAssignment (CreateAssetAssignmentRequest) returns (AssetAssignmentResponse);
+  rpc GetAssetAssignment    (GetAssetAssignmentRequest)    returns (AssetAssignmentResponse);
+  rpc ListAssetAssignments  (ListAssetAssignmentsRequest)  returns (ListAssetAssignmentsResponse);
+  rpc UpdateAssetAssignment (UpdateAssetAssignmentRequest) returns (AssetAssignmentResponse);
+  rpc DeleteAssetAssignment (DeleteAssetAssignmentRequest) returns (DeleteAssetAssignmentResponse);
+}
+
+// -----------------------------
+// Requests
+// -----------------------------
+
+// Create
+message CreateAssetAssignmentRequest {
+  string organization_id   = 1;
+  string asset_id          = 2;
+  string employee_id       = 3;
+  string assigned_date     = 4; // ISO string
+  string return_date       = 5; // ISO string
+  string condition_assign  = 6; // JSON string
+  string status            = 7; // Active / Returned / Damaged
+  string notes             = 8;
+}
+
+// Get
+message GetAssetAssignmentRequest {
+  string id = 1;
+}
+
+// Update
+message UpdateAssetAssignmentRequest {
+  string id                = 1;
+  string organization_id   = 2;
+  string asset_id          = 3;
+  string employee_id       = 4;
+  string assigned_date     = 5;
+  string return_date       = 6;
+  string condition_assign  = 7;
+  string status            = 8;
+  string notes             = 9;
+}
+
+// Delete
+message DeleteAssetAssignmentRequest {
+  string id = 1;
+}
+
+// List
+message ListAssetAssignmentsRequest {
+  string organization_id = 1;
+  string employee_id     = 2;
+  string asset_id        = 3;
+  string status          = 4;
+
+  // Pagination + Sorting
+  int32 page      = 5;
+  int32 limit     = 6;
+  string search   = 7;
+  string sort_by  = 8;
+  string sort_order = 9;
+}
+
+// -----------------------------
+// Responses
+// -----------------------------
+
+message AssetAssignment {
+  string id                = 1;
+  string organization_id   = 2;
+  string asset_id          = 3;
+  string employee_id       = 4;
+  string assigned_date     = 5;
+  string return_date       = 6;
+  string condition_assign  = 7; // JSON string
+  string status            = 8;
+  string notes             = 9;
+  string created_at        = 10;
+  string updated_at        = 11;
+  string deleted_at        = 12;
+}
+
+// Single Object Response
+message AssetAssignmentResponse {
+  AssetAssignment assetAssignment = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// List Response with Pagination
+message ListAssetAssignmentsResponse {
+  repeated AssetAssignment assignments = 1;
+  int32 total         = 2;
+  int32 page          = 3;
+  int32 limit         = 4;
+  int32 total_pages   = 5;
+  bool success        = 6;
+  string message      = 7;
+}
+
+// Delete Response
+message DeleteAssetAssignmentResponse {
+  bool success = 1;
+  string message = 2;
+}

@@ -4,10 +4,10 @@
     "type": "module",
     "main": "server.js",
     "dependencies": {
-        "@jury-hrms/db": "workspace:*",
-        "@jury-hrms/proto": "workspace:*",
-        "@jury-hrms/auth": "workspace:*",
-        "@jury-hrms/mailer": "workspace:*",
+        "@jury-hrms/db": "*",
+        "@jury-hrms/proto": "*",
+        "@jury-hrms/auth": "*",
+        "@jury-hrms/mailer": "*",
         "@prisma/client": "latest"
     }
 }

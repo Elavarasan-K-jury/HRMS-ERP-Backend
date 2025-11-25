@@ -1,4 +1,4 @@
-import { z, ZodError } from 'zod';
+import { number, z, ZodError } from 'zod';
 import { employeeClient } from '../grpc/employee-category.client.js';
 
 export default function registerEmployeeCategoryRoutes(app) {
@@ -11,7 +11,6 @@ export default function registerEmployeeCategoryRoutes(app) {
         id_prefix: z.string().optional(),
         is_permanent: z.boolean({ required_error: 'is_permanent is required' }),
         benefits_applicable: z.boolean({ required_error: 'benefits_applicable is required' }),
-        onboarding_workflow: z.string().optional(),
         is_active: z.boolean().default(true),
         training_required: z.boolean().default(true),
         training_months: z.number().int().min(0).default(6),
@@ -65,7 +64,7 @@ export default function registerEmployeeCategoryRoutes(app) {
                 const response = await new Promise((resolve, reject) => {
                     employeeClient.CreateEmployeeCategory(payload, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.category);
+                        resolve(resp);
                     });
                 });
 
@@ -89,7 +88,7 @@ export default function registerEmployeeCategoryRoutes(app) {
     app.openapi(
         {
             method: 'get',
-            path: '/employee-categories/{id}',
+            path: '/employee-categorie/{id}',
             tags: ['Employee Categories'],
             summary: 'Get an employee category by ID',
             request: {
@@ -118,7 +117,7 @@ export default function registerEmployeeCategoryRoutes(app) {
                 const response = await new Promise((resolve, reject) => {
                     employeeClient.GetEmployeeCategory({ id }, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.category);
+                        resolve(resp);
                     });
                 });
 
@@ -135,12 +134,81 @@ export default function registerEmployeeCategoryRoutes(app) {
     app.openapi(
         {
             method: 'get',
+            path: '/employee-categories/all',
+            tags: ['Employee Categories'],
+            summary: 'List all employee categories for an organization',
+            request: {
+                query: z.object({
+                    organization_id: z.string({ required_error: 'Organization ID is required' }),
+                })
+            },
+            responses: {
+                200: {
+                    description: 'List of employee categories',
+                    content: {
+                        'application/json': {
+                            schema: z.array(
+                                z.object({
+                                    id: z.string(),
+                                    name: z.string(),
+                                    code: z.string().optional(),
+                                    organization_id: z.string()
+                                })
+                            )
+                        }
+                    }
+                }
+            }
+        },
+
+
+        // 🟡 List All Employee Categories
+        async (c) => {
+            try {
+                const {
+                    organization_id,
+                } = c.req.query();
+
+                const parsed = {
+                    organization_id,
+                };
+
+                const response = await new Promise((resolve, reject) => {
+                    employeeClient.ListEmployeeAllCategories(parsed, (err, resp) => {
+                        if (err) return reject(err);
+                        resolve(resp);
+                    });
+                });
+
+                return c.json(response);
+            } catch (error) {
+                if (error instanceof ZodError) {
+                    return c.json({
+                        error: 'Validation failed',
+                        details: error.errors.map(e => ({
+                            field: e.path.join('.'),
+                            message: e.message
+                        }))
+                    }, 400);
+                }
+                return c.json({ error: error.message }, 500);
+            }
+        }
+    );
+    app.openapi(
+        {
+            method: 'get',
             path: '/employee-categories',
             tags: ['Employee Categories'],
             summary: 'List all employee categories for an organization',
             request: {
                 query: z.object({
-                    organization_id: z.string({ required_error: 'Organization ID is required' })
+                    organization_id: z.string({ required_error: 'Organization ID is required' }),
+                    page: z.coerce.number().default(1),
+                    limit: z.coerce.number().default(10),
+                    search: z.string().optional(),
+                    sort_by: z.string().optional(),
+                    sort_order: z.string().optional()
                 })
             },
             responses: {
@@ -163,15 +231,28 @@ export default function registerEmployeeCategoryRoutes(app) {
         },
         async (c) => {
             try {
-                const query = c.req.query();
-                const parsed = z.object({
-                    organization_id: z.string()
-                }).parse(query);
+                const {
+                    organization_id,
+                    page,
+                    limit,
+                    search,
+                    sort_by,
+                    sort_order
+                } = c.req.query();
+
+                const parsed = {
+                    organization_id,
+                    page,
+                    limit,
+                    search,
+                    sort_by,
+                    sort_order
+                };
 
                 const response = await new Promise((resolve, reject) => {
                     employeeClient.ListEmployeeCategories(parsed, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.categories);
+                        resolve(resp);
                     });
                 });
 
@@ -257,7 +338,7 @@ export default function registerEmployeeCategoryRoutes(app) {
                 const response = await new Promise((resolve, reject) => {
                     employeeClient.UpdateEmployeeCategory(payload, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.category);
+                        resolve(resp);
                     });
                 });
 

@@ -4,8 +4,8 @@
     "type": "module",
     "main": "server.js",
     "dependencies": {
-        "@jury-hrms/db": "workspace:*",
-        "@jury-hrms/proto": "workspace:*",
+        "@jury-hrms/db": "*",
+        "@jury-hrms/proto": "*",
         "@prisma/client": "latest"
     }
 }

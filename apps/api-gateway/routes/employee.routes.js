@@ -8,7 +8,7 @@ export default function registerEmployeeRoutes(app) {
         categoryId: z.string({ required_error: 'Category ID is required' }),
         designationId: z.string().optional(),               // ← NEW
         firstName: z.string().min(2, 'First name must have at least 2 characters').optional(),
-        lastName: z.string().min(2, 'Last name must have at least 2 characters').optional(),
+        lastName: z.string().min(1, 'Last name must have at least 1 characters').optional(),
         fullName: z.string().optional(),
         email: z.string().email('Invalid email format').optional(),
         phone: z.string().regex(/^[0-9]{10}$/, 'Phone number must be 10 digits'),
@@ -93,7 +93,7 @@ export default function registerEmployeeRoutes(app) {
                 const response = await new Promise((resolve, reject) => {
                     employeeClient.CreateEmployee(grpcPayload, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.employee);
+                        resolve(resp);
                     });
                 });
 
@@ -117,7 +117,7 @@ export default function registerEmployeeRoutes(app) {
     app.openapi(
         {
             method: 'get',
-            path: '/employees/{id}',
+            path: '/employee/{id}',
             tags: ['Employee'],
             summary: 'Fetch employee by ID',
             request: {
@@ -160,7 +160,7 @@ export default function registerEmployeeRoutes(app) {
                 const response = await new Promise((resolve, reject) => {
                     employeeClient.GetEmployee({ id }, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.employee);
+                        resolve(resp);
                     });
                 });
 
@@ -179,17 +179,13 @@ export default function registerEmployeeRoutes(app) {
     app.openapi(
         {
             method: 'get',
-            path: '/employees',
+            path: '/employees/all',
             tags: ['Employee'],
-            summary: 'List employees with pagination, search, and sorting',
+            summary: 'List employees for single organization',
             request: {
                 query: z.object({
                     organization_id: z.string().optional(),
-                    category_id: z.string().optional(),
-                    designation_id: z.string().optional(),   // ← NEW filter
-                    search: z.string().optional(),
-                    sort_by: z.string().optional().default('created_at'),
-                    sort_order: z.enum(['asc', 'desc']).optional().default('desc'),
+                    department_id: z.string().optional(),
                 }),
             },
             responses: {
@@ -229,7 +225,82 @@ export default function registerEmployeeRoutes(app) {
         async (c) => {
             try {
                 const query = c.req.valid('query');
+                const response = await new Promise((resolve, reject) => {
+                    employeeClient.ListAllEmployees(
+                        {
+                            organization_id: query.organization_id,
+                            department_id: query.department_id
+                        },
+                        (err, resp) => {
+                            if (err) return reject(err);
+                            resolve(resp);
+                        }
+                    );
+                });
 
+                return c.json(response, 200);
+            } catch (error) {
+                return c.json({ error: error.message }, 500);
+            }
+        }
+    );
+
+
+    app.openapi(
+        {
+            method: 'get',
+            path: '/employees',
+            tags: ['Employee'],
+            summary: 'List employees with pagination, search, and sorting',
+            request: {
+                query: z.object({
+                    organization_id: z.string().optional(),
+                    category_id: z.string().optional(),
+                    designation_id: z.string().optional(),   // ← NEW filter
+                    search: z.string().optional(),
+                    sort_by: z.string().optional().default('created_at'),
+                    sort_order: z.enum(['asc', 'desc']).optional().default('desc'),
+                    limit: z.coerce.number().optional().default(10),
+                    page: z.coerce.number().optional().default(1),
+                }),
+            },
+            responses: {
+                200: {
+                    description: 'Paginated list of employees',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                employees: z.array(
+                                    z.object({
+                                        id: z.string(),
+                                        organization_id: z.string(),
+                                        category_id: z.string(),
+                                        designation_id: z.string().optional(),
+                                        first_name: z.string().optional(),
+                                        last_name: z.string().optional(),
+                                        full_name: z.string(),
+                                        email: z.string().optional(),
+                                        phone: z.string(),
+                                        alt_phone: z.string().optional(),
+                                        gender: z.number(),
+                                        date_of_birth: z.string(),
+                                        created_at: z.string(),
+                                        updated_at: z.string(),
+                                    })
+                                ),
+                                total: z.number(),
+                                page: z.number(),
+                                limit: z.number(),
+                                total_pages: z.number(),
+                            })
+                        }
+                    }
+                }
+            }
+        },
+        async (c) => {
+            try {
+                const query = c.req.valid('query');
                 const response = await new Promise((resolve, reject) => {
                     employeeClient.ListEmployees(
                         {
@@ -298,14 +369,14 @@ export default function registerEmployeeRoutes(app) {
                     email: parsed.email,
                     phone: parsed.phone,
                     alt_phone: parsed.altPhone,
-                    gender: parsed.gender ? mapGenderClient(parsed.gender) : undefined,
+                    gender: parsed.gender,
                     date_of_birth: parsed.dateOfBirth,
                 };
 
                 const response = await new Promise((resolve, reject) => {
                     employeeClient.UpdateEmployee(grpcPayload, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.employee);
+                        resolve(resp);
                     });
                 });
 

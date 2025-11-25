@@ -1,0 +1,11 @@
+{
+    "name": "@jury-hrms/assets-service",
+    "version": "0.1.0",
+    "type": "module",
+    "main": "server.js",
+    "dependencies": {
+        "@jury-hrms/db": "*",
+        "@jury-hrms/proto": "*",
+        "@prisma/client": "latest"
+    }
+}

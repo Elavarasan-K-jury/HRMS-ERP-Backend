@@ -8,7 +8,90 @@ service OrganizationService {
   rpc ListOrganizations  (ListOrganizationsRequest)  returns (ListOrganizationsResponse);
   rpc UpdateOrganization (UpdateOrganizationRequest) returns (OrganizationResponse);
   rpc DeleteOrganization (DeleteOrganizationRequest) returns (DeleteOrganizationResponse);
+  rpc OrganizationHierarchy (OrganizationHierarchyRequest) returns (OrganizationHierarchyResponse);
+  rpc DepartmentHierarchy (DepartmentHierarchyRequest) returns (DepartmentHierarchyResponse);
 }
+// ===============================
+//   REQUEST
+// ===============================
+message OrganizationHierarchyRequest {
+  string organization_id = 1;
+}
+
+// ===============================
+//   INTERNAL STRUCTS
+// ===============================
+message OrgHierarchyDesignation {
+  string id = 1;
+  string name = 2;
+  string department_id = 3;
+  string description = 4;
+}
+
+message OrgHierarchyEmployee {
+  string id = 1;
+  string full_name = 2;
+  string email = 3;
+  string phone = 4;
+  string employee_code = 5;
+  string designation = 6;
+  string department = 7;
+  string category = 8;
+}
+
+message OrgLevelBlock {
+  string level = 1;     // internal level value
+  string label = 2;     // user-friendly label
+
+  int32 designation_count = 3;
+  int32 employee_count = 4;
+
+  repeated OrgHierarchyDesignation designations = 5;
+  repeated OrgHierarchyEmployee employees = 6;
+}
+
+// ===============================
+//   RESPONSE
+// ===============================
+message OrganizationHierarchyResponse {
+  string organization_id = 1;
+  repeated OrgLevelBlock levels = 2;
+}
+
+// ===============================
+//   REQUEST
+// ===============================
+message DepartmentHierarchyRequest {
+  string organization_id = 1;
+  string department_id = 2;
+}
+
+// ===============================
+//   INTERNAL STRUCTS
+// ===============================
+
+message ReportingNode {
+  string id = 1;
+  string full_name = 2;
+  string email = 3;
+  string phone = 4;
+  string employee_code = 5;
+  string designation = 6;
+  string category = 7;
+
+  repeated ReportingNode reportees = 8; // recursive children
+}
+
+// ===============================
+//   RESPONSE
+// ===============================
+message DepartmentHierarchyResponse {
+  string organization_id = 1;
+  string department_id = 2;
+
+  ReportingNode hierarchy = 3; // root → reportees → tree
+}
+
 
 // =============================
 // 🔹 Create
@@ -23,7 +106,15 @@ message CreateOrganizationRequest {
   string note = 7;
   string industry = 8;
   int32  size = 9;
-  string address = 10; // store JSON as stringified JSON
+  string address = 10; // store JSON string
+
+  // ✅ new system config fields
+  int32 max_employees = 11;
+  int32 max_storage_in_gb = 12;
+  int32 max_api_rate_per_minute = 13;
+  int32 max_payroll_runs_per_month = 14;
+  int32 max_leave_policies = 15;
+  int32 max_admin_accounts = 16;
 }
 
 // =============================
@@ -50,7 +141,15 @@ message Organization {
   string address = 11;
   string created_at = 12;
   string updated_at = 13;
-  string deleted_at = 14; // new field for soft deletion
+  string deleted_at = 14;
+
+  // ✅ new system config fields
+  int32 max_employees = 15;
+  int32 max_storage_in_gb = 16;
+  int32 max_api_rate_per_minute = 17;
+  int32 max_payroll_runs_per_month = 18;
+  int32 max_leave_policies = 19;
+  int32 max_admin_accounts = 20;
 }
 
 // =============================
@@ -58,6 +157,8 @@ message Organization {
 // =============================
 message OrganizationResponse {
   Organization organization = 1;
+  bool success = 2;
+  string message = 3;
 }
 
 // =============================
@@ -77,6 +178,8 @@ message ListOrganizationsResponse {
   int32 page = 3;
   int32 limit = 4;
   int32 total_pages = 5;
+  bool success = 6;
+  string message = 7;
 }
 
 // =============================
@@ -94,6 +197,14 @@ message UpdateOrganizationRequest {
   string industry = 9;
   int32  size = 10;
   string address = 11;
+
+  // ✅ new system config fields
+  int32 max_employees = 12;
+  int32 max_storage_in_gb = 13;
+  int32 max_api_rate_per_minute = 14;
+  int32 max_payroll_runs_per_month = 15;
+  int32 max_leave_policies = 16;
+  int32 max_admin_accounts = 17;
 }
 
 // =============================
@@ -104,5 +215,6 @@ message DeleteOrganizationRequest {
 }
 
 message DeleteOrganizationResponse {
-  string message = 1;
+  bool success = 1;
+  string message = 2;
 }

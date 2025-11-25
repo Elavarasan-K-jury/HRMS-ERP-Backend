@@ -7,6 +7,7 @@ service EmployeeCategoryService {
   rpc CreateEmployeeCategory (CreateEmployeeCategoryRequest) returns (EmployeeCategoryResponse);
   rpc GetEmployeeCategory    (GetEmployeeCategoryRequest)    returns (EmployeeCategoryResponse);
   rpc ListEmployeeCategories (ListEmployeeCategoriesRequest) returns (ListEmployeeCategoriesResponse);
+  rpc ListEmployeeAllCategories (ListAllEmployeesCategoriesRequest) returns (ListAllEmployeesCategoriesResponse);
   rpc UpdateEmployeeCategory (UpdateEmployeeCategoryRequest) returns (EmployeeCategoryResponse);
   rpc DeleteEmployeeCategory (DeleteEmployeeCategoryRequest) returns (DeleteEmployeeCategoryResponse);
 }
@@ -20,14 +21,13 @@ message CreateEmployeeCategoryRequest {
   string id_prefix             = 5;
   bool   is_permanent          = 6;
   bool   benefits_applicable   = 7;
-  string onboarding_workflow   = 8;
-  bool   is_active             = 9;
-  bool   training_required     = 10;
-  int32  training_months       = 11;
-  bool   probation_required    = 12;
-  int32  probation_months      = 13;
-  bool   notice_required       = 14;
-  int32  notice_months         = 15;
+  bool   is_active             = 8;
+  bool   training_required     = 9;
+  int32  training_months       = 10;
+  bool   probation_required    = 11;
+  int32  probation_months      = 12;
+  bool   notice_required       = 13;
+  int32  notice_months         = 14;
 }
 
 message GetEmployeeCategoryRequest {
@@ -43,14 +43,13 @@ message UpdateEmployeeCategoryRequest {
   string id_prefix             = 6;
   bool   is_permanent          = 7;
   bool   benefits_applicable   = 8;
-  string onboarding_workflow   = 9;
-  bool   is_active             = 10;
-  bool   training_required     = 11;
-  int32  training_months       = 12;
-  bool   probation_required    = 13;
-  int32  probation_months      = 14;
-  bool   notice_required       = 15;
-  int32  notice_months         = 16;
+  bool   is_active             = 9;
+  bool   training_required     = 10;
+  int32  training_months       = 11;
+  bool   probation_required    = 12;
+  int32  probation_months      = 13;
+  bool   notice_required       = 14;
+  int32  notice_months         = 15;
 }
 
 message DeleteEmployeeCategoryRequest {
@@ -82,17 +81,56 @@ message EmployeeCategory {
   string created_at            = 17;
   string updated_at            = 18;
   string deleted_at            = 19;
+  optional Organization organization         = 20;
+}
+
+message Organization {
+  string id                     = 1;
+  string name                   = 2;
+  string domain                 = 3;
+  string gst_number             = 4;
+  string email                  = 5;
+  string contact_person_name    = 6;
+  string contact_person_number  = 7;
+  string note                   = 8;
+  string industry               = 9;
+  int32 size                    = 10;
+  string created_at             = 11;
+  string updated_at             = 12;
 }
 
 
 message EmployeeCategoryResponse {
   EmployeeCategory category = 1;
+  string success = 2;
+  string message = 3;
 }
 
 message ListEmployeeCategoriesRequest {
   string organization_id = 1;
+  int32  page = 2;
+  int32  limit = 3;
+  string search = 4;
+  string sort_by = 5;
+  string sort_order = 6;
 }
 
 message ListEmployeeCategoriesResponse {
   repeated EmployeeCategory categories = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  string success = 6;
+  string message = 7;
+}
+
+message ListAllEmployeesCategoriesRequest {
+  string organization_id = 1;
+}
+
+message ListAllEmployeesCategoriesResponse {
+  repeated EmployeeCategory categories = 1;
+  string success = 2;
+  string message = 3;
 }

@@ -47,7 +47,7 @@ export default function registerEmployeeOnboardingStepRoutes(app) {
                 const response = await new Promise((resolve, reject) => {
                     onboardingStepClient.CreateEmployeeOnboardingStep(parsed, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.step);
+                        resolve(resp);
                     });
                 });
 
@@ -103,7 +103,7 @@ export default function registerEmployeeOnboardingStepRoutes(app) {
                 const response = await new Promise((resolve, reject) => {
                     onboardingStepClient.GetEmployeeOnboardingStep({ id }, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.step);
+                        resolve(resp);
                     });
                 });
 
@@ -153,7 +153,7 @@ export default function registerEmployeeOnboardingStepRoutes(app) {
                 const response = await new Promise((resolve, reject) => {
                     onboardingStepClient.ListEmployeeOnboardingSteps(parsed, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.steps);
+                        resolve(resp);
                     });
                 });
 
@@ -241,7 +241,7 @@ export default function registerEmployeeOnboardingStepRoutes(app) {
                 const response = await new Promise((resolve, reject) => {
                     onboardingStepClient.UpdateEmployeeOnboardingStep(payload, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.step);
+                        resolve(resp);
                     });
                 });
 

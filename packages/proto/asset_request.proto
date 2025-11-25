@@ -1,0 +1,124 @@
+syntax = "proto3";
+
+package asset_request;
+
+// =============================
+// 🔹 Service
+// =============================
+service AssetRequestService {
+  rpc CreateAssetRequest (CreateAssetRequest) returns (AssetRequestResponse);
+  rpc GetAssetRequest    (GetAssetRequest)    returns (AssetRequestResponse);
+  rpc ListAssetRequests  (ListAssetRequestsRequest) returns (ListAssetRequestsResponse);
+  rpc UpdateAssetRequest (UpdateAssetRequest) returns (AssetRequestResponse);
+  rpc DeleteAssetRequest (DeleteAssetRequest) returns (DeleteAssetRequestResponse);
+}
+
+// =============================
+// 🔹 Requests
+// =============================
+
+// Create
+message CreateAssetRequest {
+  string organization_id = 1;
+  string category_id     = 2;
+  string model_id        = 3;
+  string employee_id     = 4;
+  string reason          = 5;
+  int32  quantity        = 6;
+  string priority        = 7;
+  string status          = 8;
+  string approved_by     = 9; 
+  string approved_at     = 10; 
+  string rejection_reason = 11;
+}
+
+// Get
+message GetAssetRequest {
+  string id = 1;
+}
+
+// Update
+message UpdateAssetRequest {
+  string id              = 1;
+  string organization_id = 2;
+  string category_id     = 3;
+  string model_id        = 4;
+  string employee_id     = 5;
+  string reason          = 6;
+  int32  quantity        = 7;
+  string priority        = 8;
+  string status          = 9;
+  string approved_by     = 10;
+  string approved_at     = 11;
+  string rejection_reason = 12;
+}
+
+// Delete
+message DeleteAssetRequest {
+  string id = 1;
+}
+
+// =============================
+// 🔹 List Request (Pagination + Filters)
+// =============================
+message ListAssetRequestsRequest {
+  string organization_id = 1;
+  string employee_id     = 2;
+  string status          = 3; 
+  string search          = 4;
+  int32  page            = 5;
+  int32  limit           = 6;
+  string sort_by         = 7;
+  string sort_order      = 8;
+}
+
+// =============================
+// 🔹 Asset Request Object
+// =============================
+message AssetRequest {
+  string id              = 1;
+  string organization_id = 2;
+  string category_id     = 3;
+  string model_id        = 4;
+  string employee_id     = 5;
+  string approved_by     = 6;
+  string reason          = 7;
+  int32  quantity        = 8;
+  string priority        = 9;
+  string status          = 10;
+  string approved_at     = 11;
+  string rejection_reason = 12;
+  string created_at      = 13;
+  string updated_at      = 14;
+  string deleted_at      = 15;
+}
+
+// =============================
+// 🔹 Single Response Wrapper
+// =============================
+message AssetRequestResponse {
+  AssetRequest request = 1;
+  bool success         = 2;
+  string message       = 3;
+}
+
+// =============================
+// 🔹 List Response (Pagination)
+// =============================
+message ListAssetRequestsResponse {
+  repeated AssetRequest requests = 1;
+  int32 total                   = 2;
+  int32 page                    = 3;
+  int32 limit                   = 4;
+  int32 total_pages             = 5;
+  bool success                  = 6;
+  string message                = 7;
+}
+
+// =============================
+// 🔹 Delete Response
+// =============================
+message DeleteAssetRequestResponse {
+  bool success = 1;
+  string message = 2;
+}
