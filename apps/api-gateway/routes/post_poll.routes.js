@@ -1,6 +1,5 @@
 import { z, ZodError } from 'zod';
 import { postPollClient } from '../grpc/post_poll.client.js';
-import { tr } from 'zod/locales';
 
 export default function registerPostPollRoutes(app) {
 
@@ -26,7 +25,7 @@ export default function registerPostPollRoutes(app) {
             return true;
         },
         {
-            message: "A voting poll must have at least 2 options",
+            message: "A voting post must have at least 2 options",
             path: ["options"]
         }
     );
@@ -35,8 +34,8 @@ export default function registerPostPollRoutes(app) {
     app.openapi(
         {
             method: 'post',
-            path: '/post-polls',
-            tags: ['Post Polls'],
+            path: '/posts',
+            tags: ['Posts'],
             summary: 'Create a new post poll',
             request: {
                 body: {
@@ -195,8 +194,8 @@ export default function registerPostPollRoutes(app) {
     app.openapi(
         {
             method: 'get',
-            path: '/post-polls/{id}',
-            tags: ['Post Polls'],
+            path: '/posts/{id}',
+            tags: ['Posts'],
             summary: 'Get a post poll by ID',
             request: {
                 params: z.object({
@@ -287,8 +286,8 @@ export default function registerPostPollRoutes(app) {
     app.openapi(
         {
             method: 'get',
-            path: '/post-polls',
-            tags: ['Post Polls'],
+            path: '/posts',
+            tags: ['Posts'],
             summary: 'List all post polls',
             request: {
                 query: z.object({
@@ -395,8 +394,8 @@ export default function registerPostPollRoutes(app) {
     app.openapi(
         {
             method: 'put',
-            path: '/post-polls/{id}',
-            tags: ['Post Polls'],
+            path: '/posts/{id}',
+            tags: ['Posts'],
             summary: 'Update a post poll',
             request: {
                 params: z.object({
@@ -496,8 +495,8 @@ export default function registerPostPollRoutes(app) {
     app.openapi(
         {
             method: 'delete',
-            path: '/post-polls/{id}',
-            tags: ['Post Polls'],
+            path: '/posts/{id}',
+            tags: ['Posts'],
             summary: 'Delete a post poll',
             request: {
                 params: z.object({
@@ -563,8 +562,8 @@ export default function registerPostPollRoutes(app) {
     app.openapi(
         {
             method: "post",
-            path: "/post-polls/{id}/likes",
-            tags: ["Post Polls"],
+            path: "/posts/{id}/likes",
+            tags: ["Posts"],
             summary: "Toggle like/unlike for a post poll",
             request: {
                 params: z.object({
@@ -642,8 +641,8 @@ export default function registerPostPollRoutes(app) {
     app.openapi(
         {
             method: 'get',
-            path: '/post-polls/{id}/likes/details',
-            tags: ['Post Polls'],
+            path: '/posts/{id}/likes/details',
+            tags: ['Posts'],
             summary: 'Get complete like details for a post poll',
             request: {
                 params: z.object({
@@ -710,8 +709,8 @@ export default function registerPostPollRoutes(app) {
     app.openapi(
         {
             method: 'post',
-            path: '/post-polls/{id}/comments',
-            tags: ['Post Polls'],
+            path: '/posts/{id}/comments',
+            tags: ['Posts'],
             summary: 'Post a comment for a post poll',
             request: {
                 params: z.object({
@@ -801,8 +800,8 @@ export default function registerPostPollRoutes(app) {
     app.openapi(
         {
             method: 'get',
-            path: '/post-polls/{id}/comments',
-            tags: ['Post Polls'],
+            path: '/posts/{id}/comments',
+            tags: ['Posts'],
             summary: 'Get comments for a post poll',
             request: {
                 params: z.object({
@@ -868,8 +867,8 @@ export default function registerPostPollRoutes(app) {
     app.openapi(
         {
             method: 'delete',
-            path: '/post-polls/{id}/comments/{comment_id}',
-            tags: ['Post Polls'],
+            path: '/posts/{id}/comments/{comment_id}',
+            tags: ['Posts'],
             summary: 'Delete a comment for a post poll',
             request: {
                 params: z.object({
@@ -917,8 +916,8 @@ export default function registerPostPollRoutes(app) {
     app.openapi(
         {
             method: 'get',
-            path: '/post-polls/{id}/options',
-            tags: ['Post Polls'],
+            path: '/posts/{id}/options',
+            tags: ['Posts'],
             summary: 'Get options for a post poll',
             request: {
                 params: z.object({
@@ -975,8 +974,8 @@ export default function registerPostPollRoutes(app) {
     app.openapi(
         {
             method: 'delete',
-            path: '/post-polls/{id}/options/{option_id}',
-            tags: ['Post Polls'],
+            path: '/posts/{id}/options/{option_id}',
+            tags: ['Posts'],
             summary: 'Delete an option for a post poll',
             request: {
                 params: z.object({
@@ -1024,7 +1023,7 @@ export default function registerPostPollRoutes(app) {
         {
             method: 'post',
             path: '/post-polls/{id}/cast-vote',
-            tags: ['Post Polls'],
+            tags: ['Posts'],
             summary: 'Cast a vote for a post poll',
             request: {
                 params: z.object({
@@ -1100,8 +1099,8 @@ export default function registerPostPollRoutes(app) {
     app.openapi(
         {
             method: 'get',
-            path: '/post-polls/{id}/votes',
-            tags: ['Post Polls'],
+            path: '/posts/{id}/votes',
+            tags: ['Posts'],
             summary: 'Get votes for a post poll',
             request: {
                 params: z.object({
@@ -1157,8 +1156,8 @@ export default function registerPostPollRoutes(app) {
     app.openapi(
         {
             method: 'post',
-            path: '/post-polls/{id}/save',
-            tags: ['Post Polls'],
+            path: '/posts/{id}/save',
+            tags: ['Posts'],
             summary: 'Save or Unsave a post poll',
             request: {
                 params: z.object({
@@ -1244,8 +1243,8 @@ export default function registerPostPollRoutes(app) {
     app.openapi(
         {
             method: 'get',
-            path: '/post-polls/{id}/saved',
-            tags: ['Post Polls'],
+            path: '/posts/{id}/saved',
+            tags: ['Posts'],
             summary: 'Check if a post poll is saved by user',
             request: {
                 params: z.object({
@@ -1316,8 +1315,8 @@ export default function registerPostPollRoutes(app) {
     app.openapi(
         {
             method: 'post',
-            path: '/post-polls/{id}/share',
-            tags: ['Post Polls'],
+            path: '/posts/{id}/share',
+            tags: ['Posts'],
             summary: 'Share a post poll',
             request: {
                 params: z.object({
@@ -1399,8 +1398,8 @@ export default function registerPostPollRoutes(app) {
     app.openapi(
         {
             method: 'get',
-            path: '/post-polls/{id}/shares',
-            tags: ['Post Polls'],
+            path: '/posts/{id}/shares',
+            tags: ['Posts'],
             summary: 'Get shares of a post poll',
             request: {
                 params: z.object({
