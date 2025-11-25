@@ -57,7 +57,7 @@ message Employee {
 ──────────────────────────────── */
 
 message DepartmentAssignment {
-  string assignment_id  = 1;  // emp.departmentAssignments.id
+  string id  = 1;  // emp.departmentAssignments.id
   string department_id  = 2;  // direct ID
   string reporting_to   = 3;
 

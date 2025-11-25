@@ -68,7 +68,7 @@ const impl = {
                         departmentId: data.department_id
                     },
                 })
-                if (!reportingToInDept) {
+                if (!reportingToInDept && dept.departmentHeadId !== data.reporting_to) {
                     return callback({
                         code: grpc.status.NOT_FOUND,
                         message: 'Reporting to employee is not assigned to this department.',
@@ -301,12 +301,6 @@ const impl = {
         try {
             const data = call.request;
 
-            if (!/^[0-9a-fA-F]{24}$/.test(data.id))
-                return callback({
-                    code: grpc.status.INVALID_ARGUMENT,
-                    message: 'Invalid assignment id',
-                });
-
             const existing = await prisma.employeeDepartments.findUnique({
                 where: { id: data.id },
             });
@@ -320,6 +314,7 @@ const impl = {
             const updateData = {
                 departmentId: data.department_id || existing.departmentId,
                 employeeId: data.employee_id || existing.employeeId,
+                reportingTo: data.reporting_to || existing.reportingTo,
                 startDate: data.start_date ? new Date(data.start_date) : existing.startDate,
                 endDate: data.end_date ? new Date(data.end_date) : existing.endDate,
             };
@@ -327,10 +322,16 @@ const impl = {
             const updated = await prisma.employeeDepartments.update({
                 where: { id: data.id },
                 data: updateData,
+                include: {
+                    reporting: true,
+                    department: true,
+                    employee: true
+                }
             });
 
             callback(null, { employee_department: mapAssignment(updated) });
         } catch (e) {
+            console.log('server.js @ Line 329:', e);
             callback({
                 code: grpc.status.INTERNAL,
                 message: e.message,

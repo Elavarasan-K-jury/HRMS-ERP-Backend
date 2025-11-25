@@ -1,5 +1,7 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
+import { signAccessToken, signRefreshToken, verifyToken, ACCESS_EXPIRES_IN } from '@jury-hrms/auth/jwt.js';
+
 
 const PORT = Number(process.env.EMP_SERVICE_PORT || 50053);
 const employeeProto = loadProto('employee');
@@ -8,6 +10,37 @@ const employeeProto = loadProto('employee');
 /* 🧩 Implementation                                                  */
 /* ------------------------------------------------------------------ */
 
+function toApiEmployee(e) {
+    return {
+        id: e.id,
+        email: e.email,
+        phone: e.phone,
+        created_at: e.createdAt?.toISOString() || '',
+        updated_at: e.updatedAt?.toISOString() || '',
+        deleted_at: e.deletedAt?.toISOString() || '',
+    };
+}
+
+function genOtp() {
+    const env = process.env.ENVIRONMENT || 'DEVELOPMENT';
+    if (env === 'DEVELOPMENT') return '123456';
+    return String(Math.floor(100000 + Math.random() * 900000)); // 6-digit
+}
+
+function normEmail(email) {
+    return (email || '').trim().toLowerCase();
+}
+function normPhone(phone) {
+    return (phone || '').trim();
+}
+
+async function findEmployeeByEMailOrPhone({ email, phone }) {
+    const e = normEmail(email);
+    const p = normPhone(phone);
+    if (e) return await prisma.organizationEmployees.findFirst({ where: { email: e, deletedAt: null } });
+    if (p) return await prisma.organizationEmployees.findFirst({ where: { phone: p, deletedAt: null } });
+    return null;
+}
 const impl = {
     CreateEmployee: async (call, callback) => {
         try {
@@ -64,18 +97,25 @@ const impl = {
                 });
             }
 
-            const phoneExists = await prisma.organizationEmployees.findFirst({
+            const emailExists = await prisma.organizationEmployees.findFirst({
                 where: {
                     organizationId: data.organization_id,
-                    phone: data.phone,
+                    email: data.email,
                     deletedAt: null,
                 },
             });
 
-            if (phoneExists) {
+            if (emailExists) {
                 return callback({
                     code: grpc.status.ALREADY_EXISTS,
-                    message: 'Employee with phone already exists in organization.',
+                    message: 'Employee with this email already exists in organization.',
+                });
+            }
+
+            if (data.email == organizationExists.email) {
+                return callback({
+                    code: grpc.status.ALREADY_EXISTS,
+                    message: 'Employee with this email already exists in organization.',
                 });
             }
 
@@ -465,6 +505,170 @@ const impl = {
             });
         }
     },
+
+    RequestLoginOtp: async (call, cb) => {
+        try {
+            const { email, phone, purpose = 'login' } = call.request;
+
+            const employee = await findEmployeeByEMailOrPhone({ email, phone });
+            console.log('server.js @ Line 56:', employee);
+            if (!employee) return cb({ code: grpc.status.NOT_FOUND, message: 'Employee not found' });
+
+            const otp = genOtp();
+
+            await prisma.otps.create({
+                data: {
+                    employeeId: employee.id,
+                    otp,
+                    purpose,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    deletedAt: null,
+                },
+            });
+
+            // Always send OTP to the admin's email
+            // sendOtpEmail(admin.email, otp, OTP_TTL_MS / 60000);
+
+            cb(null, { message: 'OTP sent to registered email', success: true });
+        } catch (e) {
+            cb({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
+
+    VerifyToken: async (call, cb) => {
+        try {
+            const { token } = call.request;
+
+            if (!token) {
+                return cb({ code: grpc.status.INVALID_ARGUMENT, message: 'Token is required' });
+            }
+
+            const payload = await verifyToken(token).catch(() => null);
+            if (!payload) {
+                return cb({ code: grpc.status.PERMISSION_DENIED, message: 'Invalid or expired token' });
+            }
+
+            let user = null;
+            if (payload.scope == 'admin') {
+                user = await prisma.admins.findFirst({ where: { id: payload.sub, deletedAt: null, accessToken: token } });
+                if (!user) {
+                    return cb({ code: grpc.status.PERMISSION_DENIED, message: 'Invalid or expired token' });
+                }
+            }
+
+            cb(null, {
+                success: true,
+                message: 'Token verified successfully',
+                sub: payload.sub || '',
+                user: JSON.stringify({
+                    id: user?.id || '',
+                    email: user?.email || '',
+                    phone: user?.phone || '',
+                }) || '',
+                email: payload.email || '',
+                scope: payload.scope || '',
+                typ: payload.typ || 'access',
+                iat: payload.iat ? String(payload.iat) : '',
+                exp: payload.exp ? String(payload.exp) : '',
+            });
+        } catch (e) {
+            cb({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
+
+
+    VerifyLoginOtp: async (call, cb) => {
+        try {
+            const { email, phone, otp } = call.request;
+
+            const admin = await findEmployeeByEMailOrPhone({ email, phone });
+            if (!admin) return cb({ code: grpc.status.NOT_FOUND, message: 'Admin not found' });
+
+            // Get the latest (not soft-deleted) OTP
+            const record = await prisma.adminOtps.findFirst({
+                where: { adminId: admin.id, deletedAt: null },
+                orderBy: { createdAt: 'desc' },
+            });
+            if (!record) return cb({ code: grpc.status.INVALID_ARGUMENT, message: 'OTP not found' });
+
+            const age = Date.now() - new Date(record.createdAt).getTime();
+            if (age > OTP_TTL_MS) {
+                // mark expired/consumed to avoid re-use
+                await prisma.adminOtps.update({
+                    where: { id: record.id },
+                    data: { deletedAt: new Date(), updatedAt: new Date() },
+                });
+                return cb({ code: grpc.status.PERMISSION_DENIED, message: 'OTP expired' });
+            }
+
+            if (record.otp !== otp) {
+                return cb({ code: grpc.status.PERMISSION_DENIED, message: 'Invalid OTP' });
+            }
+
+            // consume OTP
+            await prisma.adminOtps.update({
+                where: { id: record.id },
+                data: { deletedAt: new Date(), updatedAt: new Date() },
+            });
+
+            const access_token = await signAccessToken({ sub: admin.id, email: admin.email, scope: 'admin' });
+            const refresh_token = await signRefreshToken({ sub: admin.id, typ: 'refresh' });
+
+            await prisma.admins.update({
+                where: { id: admin.id },
+                data: { accessToken: access_token, refreshToken: refresh_token, updatedAt: new Date() },
+            });
+
+            cb(null, {
+                success: true,
+                message: 'OTP verified successfully',
+                access_token,
+                refresh_token,
+                token_type: 'Bearer',
+                expires_in: String(ACCESS_EXPIRES_IN),
+                admin: toApiAdmin(admin),
+            });
+        } catch (e) {
+            cb({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
+
+    RefreshTokens: async (call, cb) => {
+        try {
+            const { refresh_token } = call.request;
+            const payload = await verifyToken(refresh_token).catch(() => null);
+            if (!payload || payload.typ !== 'refresh') {
+                return cb({ code: grpc.status.PERMISSION_DENIED, message: 'Invalid refresh token' });
+            }
+
+            const admin = await prisma.admins.findFirst({ where: { id: payload.sub, deletedAt: null } });
+            if (!admin || admin.refreshToken !== refresh_token) {
+                return cb({ code: grpc.status.PERMISSION_DENIED, message: 'Refresh token mismatch' });
+            }
+
+            // rotate tokens
+            const newAccess = await signAccessToken({ sub: admin.id, email: admin.email, scope: 'admin' });
+            const newRefresh = await signRefreshToken({ sub: admin.id, typ: 'refresh' });
+
+            await prisma.admins.update({
+                where: { id: admin.id },
+                data: { accessToken: newAccess, refreshToken: newRefresh, updatedAt: new Date() },
+            });
+
+            cb(null, {
+                success: true,
+                message: 'Tokens refreshed successfully',
+                access_token: newAccess,
+                refresh_token: newRefresh,
+                token_type: 'Bearer',
+                expires_in: String(ACCESS_EXPIRES_IN),
+                admin: toApiAdmin(admin),
+            });
+        } catch (e) {
+            cb({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
 };
 
 function formatDate(date) {
@@ -609,7 +813,7 @@ function mapEmployee(emp) {
         departments: emp?.departmentAssignments?.length
             ? emp.departmentAssignments.map(a => ({
                 // Assignment-level fields
-                assignment_id: a?.id ?? '',
+                id: a?.id ?? '',
                 department_id: a?.departmentId ?? '',
                 reporting_to: a?.reportingTo ?? null,
                 start_date: a?.startDate ? formatDate(a.startDate) : null,

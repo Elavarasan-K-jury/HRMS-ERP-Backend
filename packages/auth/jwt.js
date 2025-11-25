@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from 'jose';
 
 const ENC = new TextEncoder();
 const JWT_SECRET = (process.env.JWT_SECRET || 'dev-secret');
-const JWT_ACCESS_EXPIRES_IN = Number(process.env.JWT_ACCESS_EXPIRES_IN || 900);   // 15m
+const JWT_ACCESS_EXPIRES_IN = Number(process.env.JWT_ACCESS_EXPIRES_IN || 10000);   // 15m
 const JWT_REFRESH_EXPIRES_IN = Number(process.env.JWT_REFRESH_EXPIRES_IN || 604800); // 7d
 
 export async function signAccessToken(payload) {
