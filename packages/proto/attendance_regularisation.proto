@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package regularisation;
+
+service RegularisationService {
+  rpc CreateRegularisation (CreateRegularisationRequest) returns (RegularisationResponse);
+  rpc ApproveRegularisation (ApproveRegularisationRequest) returns (RegularisationResponse);
+  rpc RejectRegularisation (RejectRegularisationRequest) returns (RegularisationResponse);
+  rpc GetRegularisation (GetRegularisationRequest) returns (RegularisationResponse);
+  rpc ListRegularisations (ListRegularisationRequest) returns (ListRegularisationResponse);
+}
+
+message CreateRegularisationRequest {
+  string attendance_id = 1;
+  string employee_id = 2;
+  string organization_id = 3;
+  string reason = 4;
+  string correction_check_in = 5;  // ISO DateTime
+  string correction_check_out = 6; // ISO DateTime
+  string notes = 7;
+}
+
+message ApproveRegularisationRequest {
+  string regularisation_id = 1;
+  string approver_id = 2;
+  string remarks = 3;
+}
+
+message RejectRegularisationRequest {
+  string regularisation_id = 1;
+  string approver_id = 2;
+  string remarks = 3;
+}
+
+message GetRegularisationRequest {
+  string regularisation_id = 1;
+}
+
+message ListRegularisationRequest {
+  string employee_id = 1;
+  string organization_id = 2;
+  string status = 3; // optional filter
+}
+
+message RegularisationObject {
+  string id = 1;
+  string attendance_id = 2;
+  string employee_id = 3;
+  string organization_id = 4;
+  string reason = 5;
+  string status = 6;
+  string correction_check_in = 7;
+  string correction_check_out = 8;
+  string remarks = 9;
+  string requested_at = 10;
+  string approved_at = 11;
+}
+
+message RegularisationResponse {
+  RegularisationObject regularisation = 1;
+}
+
+message ListRegularisationResponse {
+  repeated RegularisationObject regularisations = 1;
+}

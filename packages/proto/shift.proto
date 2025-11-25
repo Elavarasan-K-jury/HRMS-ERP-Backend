@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package shift;
+
+service ShiftService {
+  rpc CreateShift (CreateShiftRequest) returns (ShiftResponse);
+  rpc GetShift    (GetShiftRequest)    returns (ShiftResponse);
+  rpc ListShifts  (ListShiftsRequest)  returns (ListShiftsResponse);
+  rpc UpdateShift (UpdateShiftRequest) returns (ShiftResponse);
+  rpc DeleteShift (DeleteShiftRequest) returns (DeleteShiftResponse);
+}
+
+// --------------------
+// Messages
+// --------------------
+
+message CreateShiftRequest {
+  string organization_id = 1;
+  string name            = 2;
+  string start_time      = 3; // ISO string
+  string end_time        = 4; // ISO string
+  int32  break_minutes   = 5;
+  map<string, bool> applicable_days = 6; // e.g., {"monday": true, "tuesday": true, ...}
+  repeated string weekly_off = 7;
+}
+
+message GetShiftRequest {
+  string id = 1;
+}
+
+message UpdateShiftRequest {
+  string id              = 1;
+  string organization_id = 2;
+  string name            = 3;
+  string start_time      = 4;
+  string end_time        = 5;
+  int32  break_minutes   = 6;
+  map<string, bool> applicable_days = 7;
+  repeated string weekly_off = 8;
+}
+
+message DeleteShiftRequest {
+  string id = 1;
+}
+
+message DeleteShiftResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message Shift {
+  string id               = 1;
+  string organization_id  = 2;
+  string name             = 3;
+  string start_time       = 4;
+  string end_time         = 5;
+  int32  break_minutes    = 6;
+  map<string, bool> applicable_days = 7;
+  repeated string weekly_off = 8;
+  string created_at       = 9;
+  string updated_at       = 10;
+  string deleted_at       = 11;
+}
+
+message ShiftResponse {
+  Shift shift = 1;
+}
+
+message ListShiftsRequest {
+  string organization_id = 1;
+}
+
+message ListShiftsResponse {
+  repeated Shift shifts = 1;
+}

@@ -1,4 +1,20 @@
-// server.js (Node.js version, no Bun)
+console.log("🔍 EMP_CAT_SERVICE_ADDR =", process.env.EMP_CAT_SERVICE_ADDR);
+console.log("🔍 ORG_SERVICE_ADDR =", process.env.ORG_SERVICE_ADDR);
+console.log("🔍 EMP_SERVICE_ADDR =", process.env.EMP_SERVICE_ADDR);
+console.log("🔍 ADMIN_SERVICE_ADDR =", process.env.ADMIN_SERVICE_ADDR);
+console.log("🔍 ORG_DEPT_SERVICE_ADDR =", process.env.ORG_DEPT_SERVICE_ADDR);
+console.log("🔍 EMP_DEPT_SERVICE_ADDR =", process.env.EMP_DEPT_SERVICE_ADDR)
+console.log("🔍 ORG_DESG_SERVICE_ADDR =", process.env.ORG_DESG_SERVICE_ADDR);
+console.log("🔍 EMP_ONBOARDING_FLOW_SERVICE_ADDR =", process.env.EMP_ONBOARDING_FLOW_SERVICE_ADDR);
+console.log("🔍 EMP_ONBOARDING_STEP_SERVICE_ADDR =", process.env.EMP_ONBOARDING_STEP_SERVICE_ADDR);
+console.log("🔍 EMP_ONBOARDING_FEATURE_SERVICE_ADDR =", process.env.EMP_ONBOARDING_FEATURE_SERVICE_ADDR);
+console.log("🔍 SHIFT_SERVICE =", process.env.SHIFT_SERVICE_ADDR);
+console.log("🔍 SHIFT_ASSIGNMENT_SERVICE =", process.env.SHIFT_ASSIGNMENT_SERVICE_ADDR);
+console.log("🔍 SHIFT_POLICY_SERVICE =", process.env.SHIFT_POLICY_SERVICE_ADDR);
+console.log("🔍 ATTENDANCE_SERVICE =", process.env.ATTENDANCE_SERVICE_ADDR);
+console.log("🔍 ATTENDANCE_LOG_SERVICE =", process.env.ATTENDANCE_LOG_SERVICE_ADDR);
+cobsole.log("🔍 APPROVAL_SERVICE =", process.env.APPROVAL_SERVICE_ADDR);
+
 
 /* ------------------------------------------------------------------ */
 /* 🌱 Environment Setup                                                */
@@ -69,6 +85,12 @@ import registerEmployeeOnboardingFlowRoutes from './routes/emp_onboard_flow.rout
 import registerEmployeeOnboardingStepRoutes from './routes/emp_onboard_step.routes.js';
 import registerEmployeeOnboardingFeatureRoutes from './routes/emp_onboard_feature.routes.js';
 import registerEmployeeOnboardingProgressRoutes from './routes/emp_onboard_progress.routes.js';
+import registerShiftRoutes from './routes/shift.routes.js';
+import registerShiftAssignmentRoutes from './routes/shift-assignment.routes.js';
+import registerShiftPolicyRoutes from './routes/shiftPolicy.routes.js';
+import registerAttendanceRoutes from './routes/attendance.routes.js';
+import registerAttendanceLogRoutes from './routes/attendanceLogs.routes.js';
+import registerApprovalRoutes from './routes/approval.routes.js';
 import registerAssetCategoryRoutes from './routes/asset_category.routes.js';
 import registerAssetModelRoutes from './routes/asset_model.routes.js';
 import registerAssetRoutes from './routes/assets.routes.js';
@@ -151,9 +173,114 @@ app.get('/swagger', swaggerUI({ url: '/doc' }));
 /* 🚀 Server Start (Node.js, no Bun/HMR)                               */
 /* ------------------------------------------------------------------ */
 
-const isMain =
-    process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename);
 
+// ---- Register Routes ---- //
+registerOrganizationRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerEmployeeCategoryRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerEmployeeRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerAdminRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerOrgDepartmentRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerorgDesignationRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerEmployeeDepartmentRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerEmployeeOnboardingFlowRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerEmployeeOnboardingStepRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerEmployeeOnboardingFeatureRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerEmployeeOnboardingProgressRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerShiftRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerShiftAssignmentRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerShiftPolicyRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerAttendanceRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerAttendanceLogRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+registerApprovalRoutes({
+    openapi: (def, handler) => {
+        // wrap each route handler in queue
+        app.openapi(def, withQueue(handler));
+    },
+});
+
+// ---- Start Server (HMR-safe) ---- //
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename);
+ 
 if (isMain) {
     const PORT = Number(process.env.GATEWAY_PORT || 3030);
 

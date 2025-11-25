@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+package shift_policy;
+
+// =====================================
+// Shift Policy Service
+// =====================================
+//
+// A Shift Policy controls:
+// - auto assignment of shifts
+// - grace minutes before/after shift times
+// - night shift window
+// - whether shifts are rotational, and rotation period
+//
+// This is metadata; actual attendance logic uses this config.
+
+service ShiftPolicyService {
+  rpc CreateShiftPolicy (CreateShiftPolicyRequest) returns (ShiftPolicyResponse);
+  rpc GetShiftPolicy    (GetShiftPolicyRequest)    returns (ShiftPolicyResponse);
+  rpc ListShiftPolicies (ListShiftPoliciesRequest) returns (ListShiftPoliciesResponse);
+  rpc UpdateShiftPolicy (UpdateShiftPolicyRequest) returns (ShiftPolicyResponse);
+  rpc DeleteShiftPolicy (DeleteShiftPolicyRequest) returns (DeleteShiftPolicyResponse);
+}
+
+// =====================================
+// Messages
+// =====================================
+
+message CreateShiftPolicyRequest {
+  string organization_id    = 1;
+  string name               = 2;  // e.g. "Default Shift Policy"
+
+  bool   auto_assign        = 3;  // If true, this is the policy used to auto-assign shifts
+  int32  grace_before_start = 4;  // Minutes earlier than shift start that are allowed
+  int32  grace_after_end    = 5;  // Minutes after shift end that are allowed
+
+  string night_shift_start  = 6;  // "22:00" (HH:mm, 24h)
+  string night_shift_end    = 7;  // "06:00"
+
+  bool   rotational         = 8;  // If true, shifts rotate periodically
+  int32  rotation_period    = 9;  // In days (required when rotational = true)
+
+  bool   is_active          = 10; // Soft enable/disable without deleting
+}
+
+message GetShiftPolicyRequest {
+  string id = 1;
+}
+
+message UpdateShiftPolicyRequest {
+  string id                 = 1;
+  string organization_id    = 2;
+  string name               = 3;
+  bool   auto_assign        = 4;
+  int32  grace_before_start = 5;
+  int32  grace_after_end    = 6;
+  string night_shift_start  = 7;
+  string night_shift_end    = 8;
+  bool   rotational         = 9;
+  int32  rotation_period    = 10;
+  bool   is_active          = 11;
+}
+
+message DeleteShiftPolicyRequest {
+  string id = 1;
+}
+
+message DeleteShiftPolicyResponse {
+  bool   success = 1;
+  string message = 2;
+}
+
+message ShiftPolicy {
+  string id                 = 1;
+  string organization_id    = 2;
+  string name               = 3;
+  bool   auto_assign        = 4;
+  int32  grace_before_start = 5;
+  int32  grace_after_end    = 6;
+  string night_shift_start  = 7;
+  string night_shift_end    = 8;
+  bool   rotational         = 9;
+  int32  rotation_period    = 10;
+  bool   is_active          = 11;
+  string created_at         = 12;
+  string updated_at         = 13;
+  string deleted_at         = 14;
+}
+
+message ShiftPolicyResponse {
+  ShiftPolicy policy = 1;
+}
+
+message ListShiftPoliciesRequest {
+  string organization_id = 1;
+  bool   only_active     = 2; // if true, return only active + not deleted
+}
+
+message ListShiftPoliciesResponse {
+  repeated ShiftPolicy policies = 1;
+}
