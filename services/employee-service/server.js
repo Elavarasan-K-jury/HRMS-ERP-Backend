@@ -503,7 +503,7 @@ const impl = {
             const { email, phone, purpose = 'login' } = call.request;
 
             const employee = await findEmployeeByEMailOrPhone({ email, phone });
-            console.log('server.js @ Line 56:', employee);
+
             if (!employee) return cb({ code: grpc.status.NOT_FOUND, message: 'Employee not found' });
 
             const otp = genOtp();
@@ -569,9 +569,7 @@ const impl = {
                 success: true,
                 message: 'Token verified successfully',
                 sub: payload.sub || '',
-                user: JSON.stringify({
-                    ...mapEmployee(user),
-                }),
+                user: mapEmployee(user),
                 email: payload.email || '',
                 scope: payload.scope || '',
                 typ: payload.typ || 'access',

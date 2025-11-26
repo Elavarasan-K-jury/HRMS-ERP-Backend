@@ -62,6 +62,8 @@ import { ipWhitelist } from './middlewares/ip_whitelist.js';
 import { rateLimiter } from './middlewares/rate_limiter.js';
 import { withQueue } from './middlewares/request_queue.js';
 import { requestLogger } from './middlewares/req_logged.js';
+import { withServiceMetrics } from './middlewares/service_metrics.js';
+
 
 import registerOrganizationRoutes from './routes/organization.routes.js';
 import registerEmployeeCategoryRoutes from './routes/employee_category.routes.js';
@@ -88,6 +90,7 @@ import registerAssetAssignmentRoutes from './routes/asset_assignment.routes.js';
 import registerAssetConditionRoutes from './routes/asset_condition.routes.js';
 import registerHierarchyRoutes from './routes/hierarchy.routes.js';
 import registerPostPollRoutes from './routes/post_poll.routes.js';
+import registerHealthRoutes from './routes/health.routes.js';
 
 /* ------------------------------------------------------------------ */
 /* 🏗️  App Setup                                                       */
@@ -121,33 +124,37 @@ app.get('/', (c) => c.text('🚀 Jury-HRMS API Gateway is running!'));
 /* 🔗 Route Registration (same usage as before)                        */
 /* ------------------------------------------------------------------ */
 
-const openapiWithQueue = (def, handler) => app.openapi(def, withQueue(handler));
+const wrapService = (serviceName) => (def, handler) =>
+    app.openapi(def, withQueue(withServiceMetrics(serviceName, handler)));
 
-registerOrganizationRoutes({ openapi: openapiWithQueue });
-registerHierarchyRoutes({ openapi: openapiWithQueue });
-registerEmployeeCategoryRoutes({ openapi: openapiWithQueue });
-registerEmployeeRoutes({ openapi: openapiWithQueue });
-registerAdminRoutes({ openapi: openapiWithQueue });
-registerOrgDepartmentRoutes({ openapi: openapiWithQueue });
-registerOrgDesignationRoutes({ openapi: openapiWithQueue });
-registerEmployeeDepartmentRoutes({ openapi: openapiWithQueue });
-registerEmployeeOnboardingFlowRoutes({ openapi: openapiWithQueue });
-registerEmployeeOnboardingStepRoutes({ openapi: openapiWithQueue });
-registerEmployeeOnboardingFeatureRoutes({ openapi: openapiWithQueue });
-registerEmployeeOnboardingProgressRoutes({ openapi: openapiWithQueue });
-registerAssetCategoryRoutes({ openapi: openapiWithQueue });
-registerAssetModelRoutes({ openapi: openapiWithQueue });
-registerAssetRoutes({ openapi: openapiWithQueue });
-registerAssetRequestRoutes({ openapi: openapiWithQueue });
-registerAssetAssignmentRoutes({ openapi: openapiWithQueue });
-registerAssetConditionRoutes({ openapi: openapiWithQueue });
-registerPostPollRoutes({ openapi: openapiWithQueue });
-registerShiftRoutes({ openapi: openapiWithQueue });
-registerShiftAssignmentRoutes({ openapi: openapiWithQueue });
-registerShiftPolicyRoutes({ openapi: openapiWithQueue });
-registerAttendanceRoutes({ openapi: openapiWithQueue });
-registerAttendanceLogRoutes({ openapi: openapiWithQueue });
-registerApprovalRoutes({ openapi: openapiWithQueue });
+const wrapSystem = (def, handler) => app.openapi(def, handler);
+
+registerOrganizationRoutes({ openapi: wrapService('organization') });
+registerHierarchyRoutes({ openapi: wrapService('hierarchy') });
+registerEmployeeCategoryRoutes({ openapi: wrapService('employee_category') });
+registerEmployeeRoutes({ openapi: wrapService('employee') });
+registerAdminRoutes({ openapi: wrapService('admin') });
+registerOrgDepartmentRoutes({ openapi: wrapService('org_department') });
+registerOrgDesignationRoutes({ openapi: wrapService('org_designation') });
+registerEmployeeDepartmentRoutes({ openapi: wrapService('emp_department') });
+registerEmployeeOnboardingFlowRoutes({ openapi: wrapService('emp_onboard_flow') });
+registerEmployeeOnboardingStepRoutes({ openapi: wrapService('emp_onboard_step') });
+registerEmployeeOnboardingFeatureRoutes({ openapi: wrapService('emp_onboard_feature') });
+registerEmployeeOnboardingProgressRoutes({ openapi: wrapService('emp_onboard_progress') });
+registerAssetCategoryRoutes({ openapi: wrapService('asset_category') });
+registerAssetModelRoutes({ openapi: wrapService('asset_model') });
+registerAssetRoutes({ openapi: wrapService('asset') });
+registerAssetRequestRoutes({ openapi: wrapService('asset_request') });
+registerAssetAssignmentRoutes({ openapi: wrapService('asset_assignment') });
+registerAssetConditionRoutes({ openapi: wrapService('asset_condition') });
+registerPostPollRoutes({ openapi: wrapService('post_poll') });
+registerShiftRoutes({ openapi: wrapService('shift') });
+registerShiftAssignmentRoutes({ openapi: wrapService('shift_assignment') });
+registerShiftPolicyRoutes({ openapi: wrapService('shift_policy') });
+registerAttendanceRoutes({ openapi: wrapService('attendance') });
+registerAttendanceLogRoutes({ openapi: wrapService('attendance_logs') });
+registerApprovalRoutes({ openapi: wrapService('approval') });
+registerHealthRoutes({ openapi: wrapSystem });
 
 /* ------------------------------------------------------------------ */
 /* 📜 OpenAPI / Swagger                                                */

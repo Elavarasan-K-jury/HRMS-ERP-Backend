@@ -19,14 +19,14 @@ export default function registerAttendanceRoutes({ openapi }) {
   const checkOutSchema = checkInSchema; // same fields
 
   const recomputeSchema = z
-  .object({
-    employee_id: z.string(),
-    date: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be yyyy-mm-dd')
-      .optional(),
-  })
-  .strict();
+    .object({
+      employee_id: z.string(),
+      date: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be yyyy-mm-dd')
+        .optional(),
+    })
+    .strict();
 
   const attendanceObjectSchema = z.object({
     id: z.string(),
@@ -167,7 +167,7 @@ export default function registerAttendanceRoutes({ openapi }) {
         const resp = await new Promise((resolve, reject) => {
           attendanceClient.CheckIn(body, (err, res) => {
             if (err) return reject(err);
-            resolve(res.attendance);
+            resolve(res);
           });
         });
 
@@ -229,7 +229,7 @@ export default function registerAttendanceRoutes({ openapi }) {
         const resp = await new Promise((resolve, reject) => {
           attendanceClient.CheckOut(body, (err, res) => {
             if (err) return reject(err);
-            resolve(res.attendance);
+            resolve(res);
           });
         });
 
@@ -291,7 +291,7 @@ export default function registerAttendanceRoutes({ openapi }) {
         const resp = await new Promise((resolve, reject) => {
           attendanceClient.RecomputeAttendance(body, (err, res) => {
             if (err) return reject(err);
-            resolve(res.attendance);
+            resolve(res);
           });
         });
 
@@ -406,7 +406,7 @@ export default function registerAttendanceRoutes({ openapi }) {
         const resp = await new Promise((resolve, reject) => {
           attendanceClient.CreateAttendancePolicy(body, (err, res) => {
             if (err) return reject(err);
-            resolve(res.policy);
+            resolve(res);
           });
         });
 
@@ -475,7 +475,7 @@ export default function registerAttendanceRoutes({ openapi }) {
             { policy_id: id, data: body },
             (err, res) => {
               if (err) return reject(err);
-              resolve(res.policy);
+              resolve(res);
             },
           );
         });
@@ -589,7 +589,7 @@ export default function registerAttendanceRoutes({ openapi }) {
         const resp = await new Promise((resolve, reject) => {
           attendanceClient.CreateNetworkPolicy(body, (err, res) => {
             if (err) return reject(err);
-            resolve(res.policy);
+            resolve(res);
           });
         });
 
@@ -658,7 +658,7 @@ export default function registerAttendanceRoutes({ openapi }) {
             { policy_id: id, data: body },
             (err, res) => {
               if (err) return reject(err);
-              resolve(res.policy);
+              resolve(res);
             },
           );
         });
@@ -772,7 +772,7 @@ export default function registerAttendanceRoutes({ openapi }) {
         const resp = await new Promise((resolve, reject) => {
           attendanceClient.CreateGeoFence(body, (err, res) => {
             if (err) return reject(err);
-            resolve(res.geofence);
+            resolve(res);
           });
         });
 
@@ -839,7 +839,7 @@ export default function registerAttendanceRoutes({ openapi }) {
             { geofence_id: id, data: body },
             (err, res) => {
               if (err) return reject(err);
-              resolve(res.geofence);
+              resolve(res);
             },
           );
         });

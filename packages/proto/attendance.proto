@@ -72,9 +72,65 @@ message AttendanceObject {
   int32 late_arrival_minutes = 9;
   string status = 10; // PRESENT | ABSENT | HALF_DAY | HOLIDAY | LATE | PENDING
 }
+message AttendanceListItem {
+  string id = 1;
+  string organization_id = 2;
+  string employee_id = 3;
+  string date = 4;
+  string check_in = 5;
+  string check_out = 6;
+
+  double gross_hours = 7;
+  double effective_hours = 8;
+
+  int32 late_arrival_minutes = 9;
+  string status = 10; // PRESENT | ABSENT | HALF_DAY | HOLIDAY | LATE | PENDING
+
+  repeated AttendanceLogs logs = 11;
+
+  Employee employee = 12;
+  Organization organization = 13;
+}
+
+message Employee {
+  string id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string email = 4;
+  string phone = 5;
+}
+
+message Organization {
+  string id = 1;
+  string name = 2;
+  string domain = 3;
+  string email = 4;
+  string contact_person_name = 5;
+  string contact_person_number = 6;
+  string industry = 7;
+}
+
+message geoFence {
+  double latitude = 1;
+  double longitude = 2;
+}
+
+message AttendanceLogs {
+  string id = 1;
+  string attendanceId = 2;
+  string type = 3;
+  string ipAddress = 4;
+  geoFence geoLocation = 5;
+  string source = 6;
+  string createdAt = 7;
+  string updatedAt = 8;
+  string deletedAt = 9;
+}
 
 message AttendanceResponse {
   AttendanceObject attendance = 1;
+  string message = 2;
+  bool success = 3;
 }
 
 message ListAttendanceRequest {
@@ -83,7 +139,9 @@ message ListAttendanceRequest {
 }
 
 message ListAttendanceResponse {
-  repeated AttendanceObject attendance = 1;
+  repeated AttendanceListItem attendance = 1;
+  string message = 2;
+  bool success = 3;
 }
 
 /* ============================================================

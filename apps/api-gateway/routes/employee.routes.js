@@ -522,7 +522,7 @@ export default function registerEmployeeRoutes(app) {
                 ...response,
                 success: true,
                 message: 'Token verified successfully',
-                user: response.user ? JSON.parse(response.user) : null
+                user: response.user
             }, 200);
         } catch (error) {
             return c.json({ error: error.message }, error.code === 5 ? 404 : 500);

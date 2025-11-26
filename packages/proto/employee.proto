@@ -68,7 +68,7 @@ message VerifyTokenResponse {
   string exp = 6;        // Expiry timestamp
   string success = 7;    // true/false
   string message = 8;    // Status message
-  string user = 9;      // Token scope
+  Employee user = 9;      // Token scope
 }
 
 message Employee {

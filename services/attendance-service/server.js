@@ -21,6 +21,11 @@ function startOfDay(date) {
   d.setHours(0, 0, 0, 0);
   return d;
 }
+function endOfDay(date) {
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
 
 /* Haversine distance in meters */
 function distanceInMeters(lat1, lon1, lat2, lon2) {
@@ -43,117 +48,137 @@ function distanceInMeters(lat1, lon1, lat2, lon2) {
 =========================== */
 
 async function getActiveAttendancePolicy(organizationId) {
-  const policy = await prisma.attendancePolicies.findFirst({
-    where: {
-      organizationId,
-      isActive: true,
-      deletedAt: null,
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  try {
+    const policy = await prisma.attendancePolicies.findFirst({
+      where: {
+        organizationId,
+        isActive: true,
+        deletedAt: null,
+      },
+      orderBy: { createdAt: "desc" },
+    });
 
-  if (!policy) {
-    // sensible defaults if none configured
-    return {
-      graceMinutes: 10,
-      halfDayMinutes: 240,
-      fullDayMinutes: 480,
-      allowGeoCheckIn: true,
-      allowOutsideGeo: true,
-      autoMarkAbsent: true,
-      checkInBufferMin: 15,
-      checkOutBufferMin: 15,
-      roundingStrategy: "none",
-      overtimeAllowed: false,
-      minOvertimeMinutes: 30,
-    };
+    if (!policy) {
+      // sensible defaults if none configured
+      return {
+        graceMinutes: 10,
+        halfDayMinutes: 240,
+        fullDayMinutes: 480,
+        allowGeoCheckIn: true,
+        allowOutsideGeo: true,
+        autoMarkAbsent: true,
+        checkInBufferMin: 15,
+        checkOutBufferMin: 15,
+        roundingStrategy: "none",
+        overtimeAllowed: false,
+        minOvertimeMinutes: 30,
+      };
+    }
+
+    return policy;
+  } catch (error) {
+    console.log(`getActiveAttendancePolicy(${organizationId})`, error);
   }
-
-  return policy;
 }
 
 async function getActiveNetworkPolicyForAttendance(organizationId) {
-  const policy = await prisma.networkPolicies.findFirst({
-    where: {
-      organizationId,
-      isActive: true,
-      deletedAt: null,
-      enforceOn: { in: ["ATTENDANCE", "BOTH"] },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  try {
+    const policy = await prisma.networkPolicies.findFirst({
+      where: {
+        organizationId,
+        isActive: true,
+        deletedAt: null,
+        enforceOn: { in: ["ATTENDANCE", "BOTH"] },
+      },
+      orderBy: { createdAt: "desc" },
+    });
 
-  return policy || null;
+    return policy || null;
+  } catch (error) {
+    console.log(`getActiveNetworkPolicyForAttendance(${organizationId})`, error);
+  }
 }
 
 async function getActiveGeoFences(organizationId) {
-  const fences = await prisma.geoFences.findMany({
-    where: {
-      organizationId,
-      isActive: true,
-      deletedAt: null,
-    },
-  });
-  return fences;
+  try {
+    const fences = await prisma.geoFences.findMany({
+      where: {
+        organizationId,
+        isActive: true,
+        deletedAt: null,
+      },
+    });
+    return fences;
+  } catch (error) {
+    console.log(`getActiveGeoFences(${organizationId})`, error);
+  }
 }
 
 /* network/IP enforcement */
 async function enforceNetworkPolicy({ organizationId, ipAddress }) {
-  const policy = await getActiveNetworkPolicyForAttendance(organizationId);
-  if (!policy) return; // nothing to enforce
+  try {
+    const policy = await getActiveNetworkPolicyForAttendance(organizationId);
+    if (!policy) return; // nothing to enforce
 
-  if (!ipAddress) {
-    throw {
-      code: grpc.status.PERMISSION_DENIED,
-      message: "IP address required by network policy",
-    };
-  }
+    if (!ipAddress) {
+      throw {
+        code: grpc.status.PERMISSION_DENIED,
+        message: "IP address required by network policy",
+      };
+    }
 
-  const allowed = policy.allowedIPs || [];
-  if (allowed.length && !allowed.includes(ipAddress)) {
-    throw {
-      code: grpc.status.PERMISSION_DENIED,
-      message: "IP address not allowed for attendance",
-    };
+    const allowed = policy.allowedIPs || [];
+    if (allowed.length && !allowed.includes(ipAddress)) {
+      throw {
+        code: grpc.status.PERMISSION_DENIED,
+        message: "IP address not allowed for attendance",
+      };
+    }
+  } catch (error) {
+    console.log(`enforceNetworkPolicy({ ${organizationId}, ${ipAddress} })`, e);
   }
 }
 
 /* geofence enforcement */
 async function enforceGeoFence({ organizationId, lat, lon }) {
-  const policy = await getActiveAttendancePolicy(organizationId);
-  if (!policy.allowGeoCheckIn) return; // no geo restriction
+  try {
+    const policy = await getActiveAttendancePolicy(organizationId);
+    if (!policy.allowGeoCheckIn) return; // no geo restriction
 
-  const fences = await getActiveGeoFences(organizationId);
-  if (!fences.length) {
-    if (policy.allowOutsideGeo) return;
-    throw {
-      code: grpc.status.PERMISSION_DENIED,
-      message: "No active geofence configured, and outside-geo not allowed",
-    };
-  }
-
-  if (lat == null || lon == null) {
-    if (policy.allowOutsideGeo) return;
-    throw {
-      code: grpc.status.PERMISSION_DENIED,
-      message: "Location required for attendance",
-    };
-  }
-
-  let inside = false;
-  for (const fence of fences) {
-    const d = distanceInMeters(lat, lon, fence.latitude, fence.longitude);
-    if (d <= fence.radiusMeters) {
-      inside = true;
-      break;
+    const fences = await getActiveGeoFences(organizationId);
+    if (!fences.length) {
+      if (policy.allowOutsideGeo) return;
+      throw {
+        code: grpc.status.PERMISSION_DENIED,
+        message: "No active geofence configured, and outside-geo not allowed",
+      };
     }
-  }
 
-  if (!inside && !policy.allowOutsideGeo) {
-    throw {
-      code: grpc.status.PERMISSION_DENIED,
-      message: "Outside allowed geofence for attendance",
-    };
+    if (lat == null || lon == null) {
+      if (policy.allowOutsideGeo) return;
+      throw {
+        code: grpc.status.PERMISSION_DENIED,
+        message: "Location required for attendance",
+      };
+    }
+
+    let inside = false;
+    for (const fence of fences) {
+      const d = distanceInMeters(lat, lon, fence.latitude, fence.longitude);
+      if (d <= fence.radiusMeters) {
+        inside = true;
+        break;
+      }
+    }
+
+    if (!inside && !policy.allowOutsideGeo) {
+      throw {
+        code: grpc.status.PERMISSION_DENIED,
+        message: "Outside allowed geofence for attendance",
+      };
+    }
+  } catch (error) {
+    console.log(`enforceGeoFence({ ${organizationId}, ${lat}, ${lon} })`, error);
   }
 }
 
@@ -162,86 +187,128 @@ async function enforceGeoFence({ organizationId, lat, lon }) {
 =========================== */
 
 async function getShiftForDate(employeeId, dateOnly) {
-  const assignment = await prisma.employeeShiftAssignment.findFirst({
-    where: {
-      employeeId,
-      deletedAt: null,
-      validFrom: { lte: dateOnly },
-      OR: [{ validTo: null }, { validTo: { gte: dateOnly } }],
-    },
-    include: { shift: true },
-  });
+  try {
+    const assignment = await prisma.employeeShiftAssignment.findFirst({
+      where: {
+        employeeId,
+        deletedAt: null,
+        validFrom: { lte: dateOnly },
+        OR: [{ validTo: null }, { validTo: { gte: dateOnly } }],
+      },
+      include: { shift: true },
+    });
 
-  return assignment?.shift || null;
+    return assignment?.shift || null;
+  } catch (error) {
+    console.log(`getShiftForDate(${employeeId}, ${dateOnly})`, error);
+  }
 }
 
 /* ===========================
    Compute attendance metrics
 =========================== */
 
-function computeAttendanceStatus({ attendance, shift, policy }) {
-  const result = { ...attendance };
+async function computeAttendanceStatus({ attendance, shift, policy }) {
+  try {
+    const result = { ...attendance };
 
-  const checkIn = attendance.checkIn;
-  const checkOut = attendance.checkOut;
+    const checkIn = new Date(attendance.checkIn);
+    const checkOut = attendance.checkOut ? new Date(attendance.checkOut) : new Date();
 
-  let grossMinutes = 0;
-  if (checkIn && checkOut) {
-    grossMinutes = Math.max(
-      0,
-      Math.round((checkOut.getTime() - checkIn.getTime()) / 60000)
-    );
-  }
-
-  let effectiveMinutes = grossMinutes;
-  // subtract break from shift if available
-  if (shift?.breakMinutes) {
-    effectiveMinutes = Math.max(0, effectiveMinutes - shift.breakMinutes);
-  }
-
-  const grace = policy.graceMinutes ?? 10;
-  let lateMinutes = 0;
-
-  if (shift && checkIn) {
-    const shiftStart = new Date(attendance.date);
-    shiftStart.setHours(
-      shift.startTime.getHours(),
-      shift.startTime.getMinutes(),
-      0,
-      0
-    );
-
-    const diff = Math.round((checkIn - shiftStart) / 60000);
-    if (diff > grace) {
-      lateMinutes = diff;
+    let grossMinutes = 0;
+    if (checkIn && checkOut) {
+      grossMinutes = Math.max(
+        0,
+        ((checkOut.getTime() - checkIn.getTime()) / 60000)
+      );
     }
-  }
 
-  let status = attendance.status || "PENDING";
+    let effectiveMinutes = 0;
+    let checkInTime = null;
+    const attendanceLogs = await prisma.attendanceLogs.findMany({
+      where: {
+        attendanceId: attendance.id,
+      },
+      orderBy: { createdAt: "asc" },
+    })
+    for (const log of attendanceLogs) {
+      if (log.type == 'CHECK_IN') {
+        checkInTime = log.createdAt;
+      } else {
+        effectiveMinutes += ((log.createdAt - checkInTime) / 60000);
+      }
+    }
+    const grace = policy.graceMinutes ?? 10;
+    let lateMinutes = 0;
 
-  if (attendance.isHoliday) {
-    status = "HOLIDAY";
-  } else if (!checkIn && !checkOut) {
-    // leave auto-absent marking to cron / scheduler; here keep PENDING
-    status = "PENDING";
-  } else {
-    if (effectiveMinutes >= (policy.fullDayMinutes ?? 480)) {
-      status = "PRESENT";
-    } else if (effectiveMinutes >= (policy.halfDayMinutes ?? 240)) {
-      status = "HALF_DAY";
-    } else if (lateMinutes > 0) {
-      status = "LATE";
+    if (shift && checkIn) {
+      const shiftStart = new Date(attendance.date);
+      shiftStart.setHours(
+        shift.startTime.getHours(),
+        shift.startTime.getMinutes(),
+        0,
+        0
+      );
+
+      const diff = Math.round((checkIn - shiftStart) / 60000);
+      if (diff > grace) {
+        lateMinutes = diff;
+      }
+    }
+
+    let status = attendance.status || "PENDING";
+
+    if (attendance.isHoliday) {
+      status = "HOLIDAY";
+    } else if (!checkIn && !checkOut) {
+      // leave auto-absent marking to cron / scheduler; here keep PENDING
+      status = "PENDING";
     } else {
-      status = "ABSENT";
+      if (effectiveMinutes >= (policy.fullDayMinutes ?? 480)) {
+        status = "PRESENT";
+      } else if (effectiveMinutes >= (policy.halfDayMinutes ?? 240)) {
+        status = "HALF_DAY";
+      } else if (lateMinutes > 0) {
+        status = "LATE";
+      } else {
+        status = "ABSENT";
+      }
     }
+
+    result.grossHours = grossMinutes / 60;
+    result.effectiveHours = effectiveMinutes / 60;
+    result.lateArrivalMinutes = lateMinutes;
+    result.status = status;
+
+    return result;
+  } catch (error) {
+    console.log(
+      `computeAttendanceStatus({ ${JSON.stringify(attendance)}, ${JSON.stringify(
+        shift
+      )}, ${JSON.stringify(policy)} })`,
+      error
+    );
   }
+}
 
-  result.grossHours = grossMinutes / 60;
-  result.effectiveHours = effectiveMinutes / 60;
-  result.lateArrivalMinutes = lateMinutes;
-  result.status = status;
-
-  return result;
+function formatDateTime(date) {
+  if (!date) return '';
+  return new Date(date).toLocaleString('en-IN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+function formatDate(date) {
+  if (!date) return '';
+  return new Date(date).toLocaleString('en-IN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
 }
 
 /* ===========================
@@ -253,13 +320,35 @@ function mapAttendanceToProto(att) {
     id: att.id,
     organization_id: att.organizationId,
     employee_id: att.employeeId,
-    date: att.date ? att.date.toISOString().split("T")[0] : "",
-    check_in: att.checkIn ? att.checkIn.toISOString() : "",
-    check_out: att.checkOut ? att.checkOut.toISOString() : "",
+    date: att.date ? formatDate(att.date) : "",
+    check_in: att.checkIn ? formatDateTime(att.checkIn) : "",
+    check_out: att.checkOut ? formatDateTime(att.checkOut) : "",
     gross_hours: att.grossHours ?? 0,
     effective_hours: att.effectiveHours ?? 0,
     late_arrival_minutes: att.lateArrivalMinutes ?? 0,
     status: att.status ?? "PENDING",
+    logs: att.logs && att.logs.map(e => ({
+      ...e,
+      createdAt: e.createdAt ? formatDateTime(e.createdAt) : '',
+      updatedAt: e.updatedAt ? formatDateTime(e.updatedAt) : '',
+      deletedAt: e.deletedAt ? formatDateTime(e.deletedAt) : '',
+    })),
+    employee: att.employee && {
+      id: att.employee.id,
+      first_name: att.employee.firstName,
+      last_name: att.employee.lastName,
+      email: att.employee.email,
+      phone: att.employee.phone,
+    },
+    organization: att.employee && {
+      id: att.organization.id,
+      name: att.organization.name,
+      domain: att.organization.domain,
+      email: att.organization.email,
+      contactPersonName: att.organization.contactPersonName,
+      contactPersonNumber: att.organization.contactPersonNumber,
+      industry: att.organization.industry,
+    }
   };
 }
 
@@ -283,7 +372,7 @@ const impl = {
         });
       }
 
-      const employee = await prisma.organizationEmployees.findUnique({
+      const employee = await prisma.organizationEmployees.findFirst({
         where: { id: employee_id },
       });
 
@@ -331,6 +420,7 @@ const impl = {
               latitude != null && longitude != null
                 ? { latitude, longitude }
                 : null,
+            deletedAt: null
           },
         });
       } else {
@@ -344,8 +434,21 @@ const impl = {
                 latitude != null && longitude != null
                   ? { latitude, longitude }
                   : attendance.location,
+              deletedAt: null
             },
           });
+        } else {
+          attendance = await prisma.attendance.update({
+            where: { id: attendance.id },
+            data: {
+              checkOut: null,
+              location:
+                latitude != null && longitude != null
+                  ? { latitude, longitude }
+                  : attendance.location,
+              deletedAt: null
+            },
+          })
         }
       }
 
@@ -383,7 +486,11 @@ const impl = {
         },
       });
 
-      return callback(null, { attendance: mapAttendanceToProto(updated) });
+      return callback(null, {
+        attendance: mapAttendanceToProto(updated),
+        success: true,
+        message: "Successfully checked-in",
+      });
     } catch (e) {
       console.error("[CheckIn Error]", e);
       if (e.code && e.message) return callback(e);
@@ -456,6 +563,7 @@ const impl = {
               latitude != null && longitude != null
                 ? { latitude, longitude }
                 : null,
+            deletedAt: null
           },
         });
       } else {
@@ -467,6 +575,7 @@ const impl = {
               latitude != null && longitude != null
                 ? { latitude, longitude }
                 : attendance.location,
+            deletedAt: null
           },
         });
       }
@@ -503,7 +612,11 @@ const impl = {
         },
       });
 
-      return callback(null, { attendance: mapAttendanceToProto(updated) });
+      return callback(null, {
+        attendance: mapAttendanceToProto(updated),
+        success: true,
+        message: "Successfully checked out",
+      });
     } catch (e) {
       console.error("[CheckOut Error]", e);
       if (e.code && e.message) return callback(e);
@@ -565,11 +678,12 @@ const impl = {
       const policy = await getActiveAttendancePolicy(employee.organizationId);
       const shift = await getShiftForDate(employee_id, d);
 
-      const computed = computeAttendanceStatus({
+      const computed = await computeAttendanceStatus({
         attendance,
         shift,
         policy,
       });
+
 
       const updated = await prisma.attendance.update({
         where: { id: attendance.id },
@@ -581,7 +695,11 @@ const impl = {
         },
       });
 
-      return callback(null, { attendance: mapAttendanceToProto(updated) });
+      return callback(null, {
+        attendance: mapAttendanceToProto(updated),
+        success: true,
+        message: "Attendance re-computed successfully",
+      });
     } catch (e) {
       console.error("[RecomputeAttendance Error]", e);
       if (e.code && e.message) return callback(e);
@@ -625,11 +743,18 @@ const impl = {
           date: { gte: from, lt: to },
           deletedAt: null,
         },
-        orderBy: { date: "asc" },
+        include: {
+          logs: true,
+          employee: true,
+          organization: true,
+        },
+        orderBy: { date: "desc" },
       });
 
       return callback(null, {
         attendance: records.map(mapAttendanceToProto),
+        success: true,
+        message: "Successfully listed attendance.",
       });
     } catch (e) {
       console.error("[ListAttendance Error]", e);
