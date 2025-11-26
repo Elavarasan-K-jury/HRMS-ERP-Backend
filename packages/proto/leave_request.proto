@@ -1,0 +1,163 @@
+syntax = "proto3";
+
+package leave_request;
+
+// ==========================================================
+//                SERVICE DEFINITION
+// ==========================================================
+service LeaveRequestService {
+  rpc ApplyLeave            (ApplyLeaveRequest)        returns (LeaveRequestResponse);
+  rpc CancelLeave           (CancelLeaveRequest)       returns (LeaveRequestResponse);
+  rpc ApproveLeave          (ApproveLeaveRequest)      returns (LeaveRequestResponse);
+  rpc RejectLeave           (RejectLeaveRequest)       returns (LeaveRequestResponse);
+
+  rpc GetLeaveRequest       (GetLeaveRequestRequest)   returns (LeaveRequestResponse);
+  rpc ListLeaveRequests     (ListLeaveRequestsRequest) returns (ListLeaveRequestsResponse);
+
+  rpc GetLeaveBalance       (LeaveBalanceRequest)      returns (LeaveBalanceResponse);
+  rpc GetLeaveCalendar      (LeaveCalendarRequest)     returns (LeaveCalendarResponse);
+}
+
+// ==========================================================
+//                 MAIN OBJECT
+// ==========================================================
+message LeaveRequest {
+  string id               = 1;
+
+  string employee_id      = 2;
+  string organization_id  = 3;
+  string leave_type_id    = 4;
+
+  string start_date       = 5;
+  string end_date         = 6;
+
+  float  total_days       = 7;
+  bool   is_half_day      = 8;
+  string half_day_type    = 9;  // FIRST_HALF | SECOND_HALF
+
+  string reason           = 10;
+  string documents        = 11;
+
+  string status           = 12; // PENDING | APPROVED | REJECTED | CANCELLED
+
+  string cancellation_reason = 13;
+  string cancelled_at        = 14;
+  string cancelled_by        = 15;
+
+  int32  approval_level       = 16;
+  string approval_instance_id = 17;
+
+  string approved_at     = 18;
+  string rejected_at     = 19;
+  string rejection_reason = 20;
+
+  string created_at       = 21;
+  string updated_at       = 22;
+  string deleted_at       = 23;
+}
+
+// ==========================================================
+//                    APPLY REQUEST
+// ==========================================================
+message ApplyLeaveRequest {
+  string employee_id      = 1;
+  string organization_id  = 2;
+  string leave_type_id    = 3;
+
+  string start_date       = 4;
+  string end_date         = 5;
+
+  bool   is_half_day      = 6;
+  string half_day_type    = 7;
+
+  string reason           = 8;
+  string documents        = 9;
+}
+
+// ==========================================================
+//                    CANCEL REQUEST
+// ==========================================================
+message CancelLeaveRequest {
+  string request_id = 1;
+  string employee_id = 2;
+  string reason = 3;
+}
+
+// ==========================================================
+//                    APPROVE / REJECT
+// ==========================================================
+message ApproveLeaveRequest {
+  string request_id = 1;
+  string approver_id = 2;
+}
+
+message RejectLeaveRequest {
+  string request_id = 1;
+  string approver_id = 2;
+  string reason = 3;
+}
+
+// ==========================================================
+//                    GET / LIST
+// ==========================================================
+message GetLeaveRequestRequest {
+  string id = 1;
+}
+
+message ListLeaveRequestsRequest {
+  string employee_id      = 1;
+  string organization_id  = 2;
+}
+
+message ListLeaveRequestsResponse {
+  repeated LeaveRequest leave_requests = 1;
+}
+
+// ==========================================================
+//                    LEAVE BALANCE
+// ==========================================================
+message LeaveBalanceRequest {
+  string employee_id     = 1;
+  string organization_id = 2;
+}
+
+message LeaveBalance {
+  string leave_type_id   = 1;
+  string leave_type_name = 2;
+
+  float accrued   = 3;
+  float used      = 4;
+  float available = 5;
+}
+
+message LeaveBalanceResponse {
+  repeated LeaveBalance balances = 1;
+}
+
+// ==========================================================
+//                    LEAVE CALENDAR
+// ==========================================================
+message LeaveCalendarRequest {
+  string employee_id     = 1;
+  string organization_id = 2;
+  string month           = 3; // YYYY-MM
+}
+
+message LeaveCalendarEntry {
+  string date            = 1;
+  string status          = 2; // LEAVE | SANDWICH | HOLIDAY | WEEK_OFF | NONE
+  string leave_type_name = 3;
+}
+
+message LeaveCalendarResponse {
+  repeated LeaveCalendarEntry calendar = 1;
+}
+
+// ==========================================================
+//                    RESPONSE WRAPPER
+// ==========================================================
+message LeaveRequestResponse {
+  LeaveRequest leave_request = 1;
+  string success = 2;
+  string message = 3;
+}

@@ -1,311 +1,266 @@
+// holiday-service/server.js
 import { grpc, loadProto } from '@jury-hrms/proto';
-import { prisma } from '@jury-hrms/db/client.js';
+import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const PORT = Number(process.env.HOLIDAY_SERVICE_PORT || 5076);
+/* ---------------------------------------------
+   CONFIG
+--------------------------------------------- */
+const PORT = process.env.HOLIDAY_SERVICE_PORT || 5079;
 const holidayProto = loadProto('holiday');
 
-// --------------------
-// Helpers
-// --------------------
-const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+/* ---------------------------------------------
+   HELPERS
+--------------------------------------------- */
+function toApiHoliday(h) {
+    if (!h) return null;
 
-function parseAndNormalizeDateOnly(isoString) {
-  // Accepts 'YYYY-MM-DD' or full ISO, normalizes to UTC date-only
-  const d = new Date(isoString);
-  if (Number.isNaN(d.getTime())) return null;
-  // Normalize to UTC start of day
-  const utc = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
-  return utc;
-}
+    return {
+        id: h.id,
+        organization_id: h.organizationId,
+        policy_id: h.policyId || '',
+        date: h.date?.toISOString().split('T')[0],
+        name: h.name,
+        region: h.region || '',
+        type: h.type || 'PUBLIC',
 
-function toYYYYMMDD(date) {
-  if (!date) return '';
-  const y = date.getUTCFullYear();
-  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const d = String(date.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-// Optional: Enforce region against active HolidayPolicies if present
-async function assertRegionAllowedByPolicy(orgId, region) {
-  if (!region) return; // no region filter to enforce
-  const activePolicies = await prisma.holidayPolicies.findMany({
-    where: { organizationId: orgId, isActive: true, deletedAt: null },
-    select: { region: true },
-  });
-  if (activePolicies.length === 0) return; // nothing to enforce
-
-  const allowed = activePolicies.some((p) => p.region === region);
-  if (!allowed) {
-    const list = activePolicies.map((p) => p.region).join(', ');
-    const msg = list
-      ? `Region "${region}" not allowed by active holiday policies. Allowed: ${list}`
-      : `Region "${region}" not allowed by active holiday policies.`;
-    const err = {
-      code: grpc.status.PERMISSION_DENIED,
-      message: msg,
+        created_at: h.createdAt?.toISOString() || '',
+        updated_at: h.updatedAt?.toISOString() || '',
     };
-    throw err;
-  }
 }
 
-async function ensureOrganization(orgId) {
-  if (!isValidObjectId(orgId)) {
-    const err = { code: grpc.status.INVALID_ARGUMENT, message: 'Invalid organization_id' };
-    throw err;
-  }
-  const org = await prisma.organizations.findUnique({ where: { id: orgId, deletedAt: null } });
-  if (!org) {
-    const err = { code: grpc.status.NOT_FOUND, message: 'Organization not found' };
-    throw err;
-  }
-  return org;
-}
-
-async function ensureHolidayExists(id) {
-  if (!isValidObjectId(id)) {
-    const err = { code: grpc.status.INVALID_ARGUMENT, message: 'Invalid holiday id' };
-    throw err;
-  }
-  const holiday = await prisma.holidays.findUnique({
-    where: { id },
-    include: { organization: true },
-  });
-  if (!holiday || holiday.deletedAt) {
-    const err = { code: grpc.status.NOT_FOUND, message: 'Holiday not found' };
-    throw err;
-  }
-  return holiday;
-}
-
-async function assertNoDuplicateHoliday({ organizationId, date, region, excludeId }) {
-  const dup = await prisma.holidays.findFirst({
-    where: {
-      organizationId,
-      date,
-      region: region || null,
-      deletedAt: null,
-      ...(excludeId ? { NOT: { id: excludeId } } : {}),
-    },
-    select: { id: true },
-  });
-  if (dup) {
-    const err = {
-      code: grpc.status.ALREADY_EXISTS,
-      message: 'Holiday already exists for this date and region',
-    };
-    throw err;
-  }
-}
-
-function mapHoliday(holiday) {
-  return {
-    id: holiday.id,
-    organization_id: holiday.organizationId,
-    organization_name: holiday.organization ? holiday.organization.name : '',
-    name: holiday.name,
-    date: holiday.date ? toYYYYMMDD(holiday.date) : '',
-    region: holiday.region ?? '',
-  };
-}
-
-// --------------------
-// gRPC Implementation
-// --------------------
+/* ============================================================
+   IMPLEMENTATION
+============================================================ */
 const impl = {
-  // Create
-  CreateHoliday: async (call, callback) => {
-    try {
-      const { organization_id, name, date, region } = call.request;
+    /* --------------------------------------------------------
+       CREATE
+    -------------------------------------------------------- */
+    CreateHoliday: async (call, cb) => {
+        try {
+            const { organization_id, policy_id, date, name, region, type } = call.request;
 
-      await ensureOrganization(organization_id);
+            const holiday = await prisma.holidays.create({
+                data: {
+                    organizationId: organization_id,
+                    policyId: policy_id || null,
+                    date: new Date(date),
+                    name,
+                    region,
+                    type: type || 'PUBLIC', // must match Prisma enum
+                },
+            });
 
-      const normalized = parseAndNormalizeDateOnly(date);
-      if (!normalized) {
-        return callback({
-          code: grpc.status.INVALID_ARGUMENT,
-          message: 'Invalid date format. Expect YYYY-MM-DD or ISO date.',
-        });
-      }
+            cb(null, {
+                holiday: toApiHoliday(holiday),
+                message: 'Holiday created',
+            });
+        } catch (e) {
+            cb({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
 
-      await assertRegionAllowedByPolicy(organization_id, region);
-      await assertNoDuplicateHoliday({ organizationId: organization_id, date: normalized, region });
+    /* --------------------------------------------------------
+       UPDATE
+    -------------------------------------------------------- */
+    UpdateHoliday: async (call, cb) => {
+        try {
+            const { holiday_id, policy_id, date, name, region, type } = call.request;
 
-      const holiday = await prisma.holidays.create({
-        data: {
-          organizationId: organization_id,
-          name,
-          date: normalized,
-          region: region || null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          deletedAt: null,
-        },
-        include: { organization: true },
-      });
+            const holiday = await prisma.holidays.update({
+                where: { id: holiday_id },
+                data: {
+                    policyId: policy_id ?? undefined,
+                    date: date ? new Date(date) : undefined,
+                    name: name ?? undefined,
+                    region: region ?? undefined,
+                    type: type ?? undefined,
+                },
+            });
 
-      return callback(null, { holiday: mapHoliday(holiday) });
-    } catch (e) {
-      console.error('[CreateHoliday Error]', e);
-      return callback(e.code ? e : { code: grpc.status.INTERNAL, message: e.message || 'Internal error' });
-    }
-  },
+            cb(null, {
+                holiday: toApiHoliday(holiday),
+                message: 'Updated',
+            });
+        } catch (e) {
+            if (e.code === 'P2025') {
+                return cb({ code: grpc.status.NOT_FOUND, message: 'Holiday not found' });
+            }
+            cb({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
 
-  // Get by ID
-  GetHoliday: async (call, callback) => {
-    try {
-      const { id } = call.request;
-      const holiday = await ensureHolidayExists(id);
-      return callback(null, { holiday: mapHoliday(holiday) });
-    } catch (e) {
-      console.error('[GetHoliday Error]', e);
-      return callback(e.code ? e : { code: grpc.status.INTERNAL, message: e.message || 'Internal error' });
-    }
-  },
+    /* --------------------------------------------------------
+       DELETE
+    -------------------------------------------------------- */
+    DeleteHoliday: async (call, cb) => {
+        try {
+            const { holiday_id } = call.request;
 
-  // List
-  ListHolidays: async (call, callback) => {
-    try {
-      const { organization_id, region } = call.request;
+            await prisma.holidays.delete({
+                where: { id: holiday_id },
+            });
 
-      if (!isValidObjectId(organization_id)) {
-        return callback({
-          code: grpc.status.INVALID_ARGUMENT,
-          message: 'Invalid organization_id',
-        });
-      }
+            cb(null, {
+                success: true,
+                message: 'Deleted successfully',
+            });
+        } catch (e) {
+            if (e.code === 'P2025') {
+                return cb({ code: grpc.status.NOT_FOUND, message: 'Holiday not found' });
+            }
+            cb({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
 
-      const whereClause = {
-        organizationId: organization_id,
-        deletedAt: null,
-        ...(region && region.trim() !== '' ? { region } : {}),
-      };
+    /* --------------------------------------------------------
+       GET SINGLE
+    -------------------------------------------------------- */
+    GetHoliday: async (call, cb) => {
+        try {
+            const { holiday_id } = call.request;
 
-      const holidays = await prisma.holidays.findMany({
-        where: whereClause,
-        include: { organization: true },
-        orderBy: [{ date: 'asc' }, { name: 'asc' }],
-      });
+            const holiday = await prisma.holidays.findUnique({
+                where: { id: holiday_id },
+            });
 
-      return callback(null, { holidays: holidays.map(mapHoliday) });
-    } catch (e) {
-      console.error('[ListHolidays Error]', e);
-      return callback({ code: grpc.status.INTERNAL, message: e.message || 'Internal error' });
-    }
-  },
+            if (!holiday) {
+                return cb(null, {
+                    holiday: null,
+                    message: 'Not found',
+                });
+            }
 
-  // Update
-  UpdateHoliday: async (call, callback) => {
-    try {
-      const { id, organization_id, name, date, region } = call.request;
+            cb(null, {
+                holiday: toApiHoliday(holiday),
+                message: 'Success',
+            });
+        } catch (e) {
+            cb({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
 
-      const existing = await ensureHolidayExists(id);
+    /* --------------------------------------------------------
+       LIST HOLIDAYS (with filters + total_count)
+    -------------------------------------------------------- */
+    ListHolidays: async (call, cb) => {
+        try {
+            const { organization_id, year, type, region, policy_id } = call.request;
 
-      if (!isValidObjectId(organization_id)) {
-        return callback({
-          code: grpc.status.INVALID_ARGUMENT,
-          message: 'Invalid organization_id',
-        });
-      }
-      await ensureOrganization(organization_id);
+            const where = {
+                organizationId: organization_id,
+                deletedAt: null,
+                ...(year
+                    ? {
+                          date: {
+                              gte: new Date(`${year}-01-01T00:00:00.000Z`),
+                              lte: new Date(`${year}-12-31T23:59:59.999Z`),
+                          },
+                      }
+                    : {}),
+                ...(type ? { type } : {}),
+                ...(region ? { region } : {}),
+                ...(policy_id ? { policyId: policy_id } : {}),
+            };
 
-      const normalized = parseAndNormalizeDateOnly(date);
-      if (!normalized) {
-        return callback({
-          code: grpc.status.INVALID_ARGUMENT,
-          message: 'Invalid date format. Expect YYYY-MM-DD or ISO date.',
-        });
-      }
+            const [rows, count] = await Promise.all([
+                prisma.holidays.findMany({
+                    where,
+                    orderBy: { date: 'asc' },
+                }),
+                prisma.holidays.count({ where }),
+            ]);
 
-      await assertRegionAllowedByPolicy(organization_id, region);
-      await assertNoDuplicateHoliday({
-        organizationId: organization_id,
-        date: normalized,
-        region,
-        excludeId: id,
-      });
+            cb(null, {
+                holidays: rows.map(toApiHoliday),
+                total_count: count,
+            });
+        } catch (e) {
+            cb({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
 
-      const updated = await prisma.holidays.update({
-        where: { id: existing.id },
-        data: {
-          organizationId: organization_id,
-          name,
-          date: normalized,
-          region: region || null,
-          updatedAt: new Date(),
-        },
-        include: { organization: true },
-      });
+    /* --------------------------------------------------------
+       HOLIDAY CALENDAR (MONTH VIEW, optional policy/region)
+    -------------------------------------------------------- */
+    GetHolidayCalendar: async (call, cb) => {
+        try {
+            const { organization_id, month, policy_id, region } = call.request;
 
-      return callback(null, { holiday: mapHoliday(updated) });
-    } catch (e) {
-      console.error('[UpdateHoliday Error]', e);
-      return callback(e.code ? e : { code: grpc.status.INTERNAL, message: e.message || 'Internal error' });
-    }
-  },
+            const [year, m] = month.split('-').map(Number);
+            const start = new Date(year, m - 1, 1);
+            const end = new Date(year, m, 0);
 
-  // Delete (soft delete)
-  DeleteHoliday: async (call, callback) => {
-    try {
-      const { id } = call.request;
-      const existing = await ensureHolidayExists(id);
+            const where = {
+                organizationId: organization_id,
+                date: { gte: start, lte: end },
+                deletedAt: null,
+                ...(policy_id ? { policyId: policy_id } : {}),
+                ...(region ? { region } : {}),
+            };
 
-      await prisma.holidays.update({
-        where: { id: existing.id },
-        data: { deletedAt: new Date(), updatedAt: new Date() },
-      });
+            const holidays = await prisma.holidays.findMany({
+                where,
+            });
 
-      return callback(null, { success: true, message: 'Holiday deleted successfully' });
-    } catch (e) {
-      console.error('[DeleteHoliday Error]', e);
-      return callback(e.code ? e : { code: grpc.status.INTERNAL, message: e.message || 'Internal error' });
-    }
-  },
+            const result = [];
+
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                const dateStr = d.toISOString().split('T')[0];
+
+                const hl = holidays.find(
+                    (h) => h.date.toISOString().split('T')[0] === dateStr
+                );
+
+                result.push({
+                    date: dateStr,
+                    is_holiday: !!hl,
+                    name: hl?.name || '',
+                    type: hl?.type || '',
+                });
+            }
+
+            cb(null, { days: result });
+        } catch (e) {
+            cb({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
 };
 
-// --------------------
-// Start + Graceful Shutdown
-// --------------------
+/* ============================================================
+   SERVER BOOTSTRAP
+============================================================ */
 async function main() {
-  const server = new grpc.Server();
-  server.addService(holidayProto.HolidayService.service, impl);
+    await checkDbConnection('holiday-service');
 
-  await new Promise((resolve, reject) => {
-    server.bindAsync(
-      `0.0.0.0:${PORT}`,
-      grpc.ServerCredentials.createInsecure(),
-      (err) => (err ? reject(err) : resolve())
-    );
-  });
+    const server = new grpc.Server();
+    server.addService(holidayProto.HolidayService.service, impl);
 
-  // server.start();
-  console.log(`[holiday-service] gRPC running on :${PORT}`);
-
-  const shutdown = (signal) => {
-    console.log(`[holiday-service] Received ${signal}, shutting down...`);
-    server.tryShutdown(async (err) => {
-      if (err) {
-        console.error('[holiday-service] tryShutdown error, forcing shutdown:', err);
-        server.forceShutdown();
-      }
-      try {
-        await prisma.$disconnect();
-      } catch (e) {
-        console.error('[holiday-service] Prisma disconnect error:', e);
-      } finally {
-        process.exit(0);
-      }
+    await new Promise((resolve, reject) => {
+        server.bindAsync(
+            `0.0.0.0:${PORT}`,
+            grpc.ServerCredentials.createInsecure(),
+            (err) => (err ? reject(err) : resolve())
+        );
     });
-  };
 
-  process.on('SIGINT', () => shutdown('SIGINT'));
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
+    console.log(`[holiday-service] gRPC running on :${PORT}`);
+
+    // graceful shutdown
+    const shutdown = async (signal) => {
+        console.log(`\n[holiday-service] ${signal} received, shutting down...`);
+        server.tryShutdown(async () => {
+            await prisma.$disconnect();
+            process.exit(0);
+        });
+    };
+
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
-main().catch(async (err) => {
-  console.error('[holiday-service] Fatal error:', err);
-  try { await prisma.$disconnect(); } catch { }
-  process.exit(1);
+main().catch((e) => {
+    console.error('[holiday-service] Fatal:', e);
+    process.exit(1);
 });

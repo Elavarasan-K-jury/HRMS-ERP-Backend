@@ -11,19 +11,27 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * @returns {object} Loaded gRPC package definition
  */
 export function loadProto(name) {
-    const PROTO_PATH = path.join(__dirname, `${name}.proto`);
+    try {
+        const PROTO_PATH = path.join(__dirname, `${name}.proto`);
+        
+        console.log(PROTO_PATH);
+    
+        const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
+            keepCase: true, // 👈 This disables automatic camelCase conversion
+            longs: String,
+            enums: String,
+            defaults: true,
+            arrays: true
+        });
+        
+        console.log(packageDefinition);
 
-    const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
-        keepCase: true, // 👈 This disables automatic camelCase conversion
-        longs: String,
-        enums: String,
-        defaults: true,
-        arrays: true
-    });
-
-    // The package name inside .proto should match what you access here
-    // e.g., package organization; → .organization
-    return grpc.loadPackageDefinition(packageDefinition)[name];
+        // The package name inside .proto should match what you access here
+        // e.g., package organization; → .organization
+        return grpc.loadPackageDefinition(packageDefinition)[name];
+    } catch (error) {
+        console.log(error);
+    }
 }
 
 export { grpc };

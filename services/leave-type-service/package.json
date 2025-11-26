@@ -1,0 +1,13 @@
+{
+    "name": "@jury-hrms/leave-type-service",
+    "version": "0.1.0",
+    "type": "module",
+    "main": "server.js",
+    "dependencies": {
+        "@jury-hrms/db": "*",
+        "@jury-hrms/proto": "*",
+        "@jury-hrms/auth": "*",
+        "@jury-hrms/mailer": "*",
+        "@prisma/client": "latest"
+    }
+}
