@@ -60,7 +60,6 @@ model Organizations {
   leaveTypes          LeaveTypes[]
   geoFences           GeoFences[]
   attendancePolicies  AttendancePolicies[]
-  leavePolicies       LeavePolicies[]
   shiftPolicies       ShiftPolicies[]
   holidayPolicies     HolidayPolicies[]
   networkpolicies     NetworkPolicies[]
@@ -329,18 +328,16 @@ model Attendance {
 }
 
 model AttendanceLogs {
-  id           String  @id @default(auto()) @map("_id") @db.ObjectId
-  attendanceId String  @map("attendance_id") @db.ObjectId
-  type         LogType @map("type")
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  attendanceId String     @map("attendance_id") @db.ObjectId
+  type         LogType    @map("type")
   ipAddress    String?
   geoLocation  Json?
-
-  source    String?
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-
-  attendance Attendance @relation(fields: [attendanceId], references: [id])
+  source       String?
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  deletedAt    DateTime?  @map("deleted_at")
+  attendance   Attendance @relation(fields: [attendanceId], references: [id])
 }
 
 model Shifts {
@@ -383,17 +380,15 @@ model AttendanceRegularisation {
 }
 
 model ApprovalFlows {
-  id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String        @map("organization_id") @db.ObjectId
-  entityType     String // LEAVE, REGULARISATION, etc.
-  organization   Organizations @relation(fields: [organizationId], references: [id])
-
+  id                String               @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId    String               @map("organization_id") @db.ObjectId
+  entityType        String // LEAVE, REGULARISATION, etc.
+  organization      Organizations        @relation(fields: [organizationId], references: [id])
   levels            ApprovalFlowLevels[]
   approvalInstances ApprovalInstance[]
-
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+  deletedAt         DateTime?            @map("deleted_at")
 }
 
 model ApprovalLogs {
@@ -459,17 +454,33 @@ model ApprovalFlowApprovers {
   level          ApprovalFlowLevels @relation(fields: [levelId], references: [id])
 }
 
+enum HolidayType {
+  PUBLIC // company-wide public holiday
+  RESTRICTED // optional / restricted holiday
+  OPTIONAL // if you want a separate flag from restricted
+  WEEK_OFF // e.g. company-wide off on a special day
+  COMPANY_EVENT // e.g. annual day, foundation day
+}
+
+
 model Holidays {
   id             String        @id @default(auto()) @map("_id") @db.ObjectId
   organizationId String        @db.ObjectId
+
+  policyId       String?       @map("policy_id") @db.ObjectId   // 👈 NEW
+  policy         HolidayPolicies? @relation(fields: [policyId], references: [id])
+
   date           DateTime
   name           String
   region         String?
+  type           HolidayType   @default(PUBLIC)
+
   organization   Organizations @relation(fields: [organizationId], references: [id])
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
   deletedAt      DateTime?     @map("deleted_at")
 }
+
 
 model EmployeeShiftAssignment {
   id         String                @id @default(auto()) @map("_id") @db.ObjectId
@@ -507,12 +518,39 @@ enum LeaveStatus {
 }
 
 model LeaveTypes {
-  id             String  @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String  @db.ObjectId
-  name           String // "Casual Leave"
-  code           String // "CL"
-  paid           Boolean @default(true)
-  maxPerYear     Int?    @map("max_per_year")
+  id             String @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String @map("organization_id") @db.ObjectId
+
+  name        String // "Casual Leave"
+  code        String // "CL"
+  description String?
+
+  paid       Boolean @default(true)
+  maxPerYear Int?    @map("max_per_year") // total allowed per year
+
+  allowHalfDay      Boolean @default(true) // half day allowed?
+  requiresDocument  Boolean @default(false) // require proof after N days
+  documentAfterDays Int?    @default(2) // e.g. medical certificate
+
+  carryForward      Boolean @default(true)
+  maxCarryForward   Int?    @default(12)
+  encashmentAllowed Boolean @default(false)
+  maxEncashPerYear  Int?    @default(0)
+
+  genderRestriction String? // "MALE" | "FEMALE" | "NONE"
+
+  probationAllowed Boolean @default(false)
+  minServiceMonths Int?    @default(3)
+
+  maxConsecutiveDays Int?    @default(7)
+  sandwichRule       Boolean @default(true)
+
+  accrualEnabled     Boolean @default(true)
+  accrualFrequency   String  @default("monthly") // daily | monthly | yearly
+  accrueAfterDays    Int?    @default(30)
+  monthlyAccrualRate Float?  @default(1.0) // KEKA: 1 CL / month
+
+  isActive Boolean @default(true)
 
   organization  Organizations   @relation(fields: [organizationId], references: [id])
   leaveRequests LeaveRequests[]
@@ -523,21 +561,37 @@ model LeaveTypes {
 }
 
 model LeaveRequests {
-  id                 String      @id @default(auto()) @map("_id") @db.ObjectId
-  employeeId         String      @map("employee_id") @db.ObjectId
-  organizationId     String      @map("organization_id") @db.ObjectId
-  leaveTypeId        String      @map("leave_type_id") @db.ObjectId
-  startDate          DateTime    @map("start_date")
-  endDate            DateTime    @map("end_date")
-  reason             String?
-  status             LeaveStatus @default(PENDING)
-  approvalInstanceId String?     @db.ObjectId
-  approvalLevel      Int?        @default(1)
+  id             String @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId     String @map("employee_id") @db.ObjectId
+  organizationId String @map("organization_id") @db.ObjectId
+  leaveTypeId    String @map("leave_type_id") @db.ObjectId
 
-  approvedAt   DateTime?
-  createdAt    DateTime              @default(now()) @map("created_at")
-  updatedAt    DateTime              @updatedAt @map("updated_at")
-  deletedAt    DateTime?             @map("deleted_at")
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+
+  totalDays   Float?   @map("total_days") // full + half days
+  isHalfDay   Boolean? @default(false)
+  halfDayType String?  @default("FIRST_HALF") // FIRST_HALF | SECOND_HALF
+
+  reason    String?
+  documents Json? // uploaded files
+  status    LeaveStatus @default(PENDING)
+
+  cancellationReason String?
+  cancelledAt        DateTime?
+  cancellationBy     String?   @db.ObjectId
+
+  approvalInstanceId String? @db.ObjectId
+  approvalLevel      Int?    @default(1)
+
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  rejectionReason String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
   organization Organizations         @relation(fields: [organizationId], references: [id])
   employee     OrganizationEmployees @relation(fields: [employeeId], references: [id])
   leaveType    LeaveTypes            @relation(fields: [leaveTypeId], references: [id])
@@ -559,24 +613,6 @@ model AttendancePolicies {
   overtimeAllowed    Boolean @default(false)
   minOvertimeMinutes Int?    @default(30)
   isActive           Boolean @default(true)
-
-  organization Organizations @relation(fields: [organizationId], references: [id])
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-  deletedAt    DateTime?     @map("deleted_at")
-}
-
-model LeavePolicies {
-  id                String  @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId    String  @map("organization_id") @db.ObjectId
-  name              String // "Default Leave Policy"
-  carryForward      Boolean @default(true)
-  maxCarryForward   Int?    @default(12)
-  encashmentAllowed Boolean @default(false)
-  sandwichRule      Boolean @default(true)
-  accrualFrequency  String? @default("monthly") // daily / monthly / yearly
-  accrueAfterDays   Int?    @default(30)
-  isActive          Boolean @default(true)
 
   organization Organizations @relation(fields: [organizationId], references: [id])
   createdAt    DateTime      @default(now()) @map("created_at")
@@ -606,15 +642,17 @@ model ShiftPolicies {
 model HolidayPolicies {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
   organizationId String   @map("organization_id") @db.ObjectId
-  name           String // "India North Region Policy"
+  name           String   // "India North Region Policy"
   region         String
   applicableTo   String[] // list of branch codes or dept IDs
   isActive       Boolean  @default(true)
 
-  organization Organizations @relation(fields: [organizationId], references: [id])
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-  deletedAt    DateTime?     @map("deleted_at")
+  organization   Organizations @relation(fields: [organizationId], references: [id])
+  holidays       Holidays[]    // 👈 NEW
+
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  deletedAt      DateTime?     @map("deleted_at")
 }
 
 model NetworkPolicies {

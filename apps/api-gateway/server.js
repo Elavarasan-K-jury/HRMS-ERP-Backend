@@ -49,6 +49,12 @@ log('🔍 ASSET_REQUEST_SERVICE_ADDR =', process.env.ASSET_REQ_SERVICE_ADDR);
 log('🔍 ASSET_ASSIGNMENT_SERVICE_ADDR =', process.env.ASSET_ASSIGN_SERVICE_ADDR);
 log('🔍 ASSET_CONDITION_SERVICE_ADDR =', process.env.ASSET_CON_SERVICE_ADDR);
 log('🔍 POST_POLL_SERVICE_ADDR =', process.env.POST_POLL_SERVICE_ADDR);
+log('🔍 LEAVE_TYPES_ADDR =', process.env.LEAVE_TYPE_SERVICE_ADDR);
+log('🔍 LEAVE_REQUESTS_ADDR =', process.env.LEAVE_REQUEST_SERVICE_ADDR);
+log('🔍 HOLIDAYS_ADDR =', process.env.HOLIDAY_SERVICE_ADDR);
+log('🔍 HOLIDAY_POLICY_ADDR =', process.env.HOLIDAY_POLICY_SERVICE_ADDR);
+log()
+log('---------------------------------------------------');
 
 /* ------------------------------------------------------------------ */
 /* 📦 Imports                                                          */
@@ -88,6 +94,10 @@ import registerAssetAssignmentRoutes from './routes/asset_assignment.routes.js';
 import registerAssetConditionRoutes from './routes/asset_condition.routes.js';
 import registerHierarchyRoutes from './routes/hierarchy.routes.js';
 import registerPostPollRoutes from './routes/post_poll.routes.js';
+import registerLeaveTypeRoutes from './routes/leaveType.routes.js';
+import registerLeaveRequestRoutes from './routes/leaveRequest.routes.js';
+import registerHolidayRoutes from './routes/holidays.routes.js';
+import registerHolidayPolicyRoutes from './routes/holidayPolicy.routes.js';
 
 /* ------------------------------------------------------------------ */
 /* 🏗️  App Setup                                                       */
@@ -142,6 +152,12 @@ registerAssetRequestRoutes({ openapi: openapiWithQueue });
 registerAssetAssignmentRoutes({ openapi: openapiWithQueue });
 registerAssetConditionRoutes({ openapi: openapiWithQueue });
 registerPostPollRoutes({ openapi: openapiWithQueue });
+registerLeaveTypeRoutes({ openapi: openapiWithQueue });
+registerLeaveRequestRoutes({ openapi: openapiWithQueue });
+registerHolidayRoutes({ openapi: openapiWithQueue });
+registerHolidayPolicyRoutes({ openapi: openapiWithQueue });
+
+
 
 /* ------------------------------------------------------------------ */
 /* 📜 OpenAPI / Swagger                                                */
@@ -266,6 +282,7 @@ registerApprovalRoutes({
         app.openapi(def, withQueue(handler));
     },
 });
+
 
 // ---- Start Server (HMR-safe) ---- //
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename);
