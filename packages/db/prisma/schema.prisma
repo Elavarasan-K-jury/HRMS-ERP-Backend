@@ -60,7 +60,6 @@ model Organizations {
   leaveTypes          LeaveTypes[]
   geoFences           GeoFences[]
   attendancePolicies  AttendancePolicies[]
-  leavePolicies       LeavePolicies[]
   shiftPolicies       ShiftPolicies[]
   holidayPolicies     HolidayPolicies[]
   networkpolicies     NetworkPolicies[]
@@ -78,16 +77,19 @@ model Organizations {
   whatsappNotification Boolean @default(false)
   pushNotification     Boolean @default(true)
 
-  maxEmployees           Int?               @default(20) @map("max_employees")
-  maxStorageInGB         Int?               @default(10) @map("max_storage_in_gb")
-  maxApiRatePerMin       Int?               @default(1000) @map("max_api_rate_per_minute")
-  maxPayrollRunsPerMonth Int?               @default(1) @map("max_payout_runs_per_month")
-  maxLeavePolicies       Int?               @default(5) @map("max_leave_policies")
-  maxAdminAccounts       Int?               @default(3) @map("max_admin_accounts")
-  assetCategories        AssetCategories[]
-  assetModels            AssetModels[]
-  assets                 Assets[]
-  assetAssignment        AssetAssignments[]
+  maxEmployees              Int?                  @default(20) @map("max_employees")
+  maxStorageInGB            Int?                  @default(10) @map("max_storage_in_gb")
+  maxApiRatePerMin          Int?                  @default(1000) @map("max_api_rate_per_minute")
+  maxPayrollRunsPerMonth    Int?                  @default(1) @map("max_payout_runs_per_month")
+  maxLeavePolicies          Int?                  @default(5) @map("max_leave_policies")
+  maxAdminAccounts          Int?                  @default(3) @map("max_admin_accounts")
+  assetCategories           AssetCategories[]
+  assetModels               AssetModels[]
+  assets                    Assets[]
+  assetAssignment           AssetAssignments[]
+  attendanceReports         AttendanceReports[]
+  salaryComponentDefinition ComponentDefinition[]
+  salaryTemplates           SalaryTemplate[]
 }
 
 model OrganizationDepartments {
@@ -108,21 +110,23 @@ model OrganizationDepartments {
   DepartmentEmployees     EmployeeDepartments[]
   organizationEmployees   OrganizationEmployees?     @relation(fields: [organizationEmployeesId], references: [id])
   organizationEmployeesId String?                    @db.ObjectId
+  attendanceReports       AttendanceReports[]
 }
 
 model OrganizationDesignations {
-  id             String                   @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String                   @map("organization_id") @db.ObjectId
-  departmentId   String?                  @map("department_id") @db.ObjectId
-  name           String
-  level          String?
-  description    String?
-  organization   Organizations            @relation(fields: [organizationId], references: [id])
-  department     OrganizationDepartments? @relation(fields: [departmentId], references: [id])
-  employees      OrganizationEmployees[]  @relation("DesignationEmployees")
-  createdAt      DateTime                 @map("created_at")
-  updatedAt      DateTime                 @map("updated_at")
-  deletedAt      DateTime?                @map("deleted_at")
+  id                String                   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId    String                   @map("organization_id") @db.ObjectId
+  departmentId      String?                  @map("department_id") @db.ObjectId
+  name              String
+  level             String?
+  description       String?
+  organization      Organizations            @relation(fields: [organizationId], references: [id])
+  department        OrganizationDepartments? @relation(fields: [departmentId], references: [id])
+  employees         OrganizationEmployees[]  @relation("DesignationEmployees")
+  createdAt         DateTime                 @map("created_at")
+  updatedAt         DateTime                 @map("updated_at")
+  deletedAt         DateTime?                @map("deleted_at")
+  attendanceReports AttendanceReports[]
 }
 
 model EmployeeCategories {
@@ -260,6 +264,10 @@ model OrganizationEmployees {
   deletedAt               DateTime?                 @map("deleted_at")
   organizationDepartments OrganizationDepartments[]
   assetConditions         AssetCondition[]
+  attendanceReports       AttendanceReports[]
+  salaryStructures        SalaryStructure[]
+  salaryRevisions         SalaryRevision[]
+  payslips                Payslip[]
 }
 
 model EmployeeDepartments {
@@ -328,19 +336,46 @@ model Attendance {
   workrequests    WorkdayRequests[]
 }
 
+enum ReportStatuses {
+  INITIATED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model AttendanceReports {
+  id             String                    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String                    @map("organization_id") @db.ObjectId
+  departmentId   String?                   @map("department_id") @db.ObjectId
+  designationId  String?                   @map("designation_id") @db.ObjectId
+  employeeId     String?                   @map("employee_id") @db.ObjectId
+  organization   Organizations             @relation(fields: [organizationId], references: [id])
+  employee       OrganizationEmployees?    @relation(fields: [employeeId], references: [id])
+  designation    OrganizationDesignations? @relation(fields: [designationId], references: [id])
+  department     OrganizationDepartments?  @relation(fields: [departmentId], references: [id])
+  startDate      DateTime?                 @map("start_date")
+  endDate        DateTime?                 @map("end_date")
+  pdfUrl         String?                   @map("pdf_url")
+  status         ReportStatuses            @default(INITIATED)
+  initiatedAt    DateTime?                 @map("initiated_at")
+  startedAt      DateTime?                 @map("started_at")
+  completedAt    DateTime?                 @map("completed_at")
+  failedAt       DateTime?                 @map("failed_at")
+  failingReason  String?
+  responseData   Json?                     @map("response_data")
+}
+
 model AttendanceLogs {
-  id           String  @id @default(auto()) @map("_id") @db.ObjectId
-  attendanceId String  @map("attendance_id") @db.ObjectId
-  type         LogType @map("type")
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  attendanceId String     @map("attendance_id") @db.ObjectId
+  type         LogType    @map("type")
   ipAddress    String?
   geoLocation  Json?
-
-  source    String?
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-
-  attendance Attendance @relation(fields: [attendanceId], references: [id])
+  source       String?
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  deletedAt    DateTime?  @map("deleted_at")
+  attendance   Attendance @relation(fields: [attendanceId], references: [id])
 }
 
 model Shifts {
@@ -383,17 +418,15 @@ model AttendanceRegularisation {
 }
 
 model ApprovalFlows {
-  id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String        @map("organization_id") @db.ObjectId
-  entityType     String // LEAVE, REGULARISATION, etc.
-  organization   Organizations @relation(fields: [organizationId], references: [id])
-
+  id                String               @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId    String               @map("organization_id") @db.ObjectId
+  entityType        String // LEAVE, REGULARISATION, etc.
+  organization      Organizations        @relation(fields: [organizationId], references: [id])
   levels            ApprovalFlowLevels[]
   approvalInstances ApprovalInstance[]
-
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+  deletedAt         DateTime?            @map("deleted_at")
 }
 
 model ApprovalLogs {
@@ -459,16 +492,30 @@ model ApprovalFlowApprovers {
   level          ApprovalFlowLevels @relation(fields: [levelId], references: [id])
 }
 
+enum HolidayType {
+  PUBLIC // company-wide public holiday
+  RESTRICTED // optional / restricted holiday
+  OPTIONAL // if you want a separate flag from restricted
+  WEEK_OFF // e.g. company-wide off on a special day
+  COMPANY_EVENT // e.g. annual day, foundation day
+}
+
 model Holidays {
-  id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String        @db.ObjectId
-  date           DateTime
-  name           String
-  region         String?
-  organization   Organizations @relation(fields: [organizationId], references: [id])
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
-  deletedAt      DateTime?     @map("deleted_at")
+  id             String @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String @db.ObjectId
+
+  policyId String?          @map("policy_id") @db.ObjectId // 👈 NEW
+  policy   HolidayPolicies? @relation(fields: [policyId], references: [id])
+
+  date   DateTime
+  name   String
+  region String?
+  type   HolidayType @default(PUBLIC)
+
+  organization Organizations @relation(fields: [organizationId], references: [id])
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  deletedAt    DateTime?     @map("deleted_at")
 }
 
 model EmployeeShiftAssignment {
@@ -507,12 +554,39 @@ enum LeaveStatus {
 }
 
 model LeaveTypes {
-  id             String  @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String  @db.ObjectId
-  name           String // "Casual Leave"
-  code           String // "CL"
-  paid           Boolean @default(true)
-  maxPerYear     Int?    @map("max_per_year")
+  id             String @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String @map("organization_id") @db.ObjectId
+
+  name        String // "Casual Leave"
+  code        String // "CL"
+  description String?
+
+  paid       Boolean @default(true)
+  maxPerYear Int?    @map("max_per_year") // total allowed per year
+
+  allowHalfDay      Boolean @default(true) // half day allowed?
+  requiresDocument  Boolean @default(false) // require proof after N days
+  documentAfterDays Int?    @default(2) // e.g. medical certificate
+
+  carryForward      Boolean @default(true)
+  maxCarryForward   Int?    @default(12)
+  encashmentAllowed Boolean @default(false)
+  maxEncashPerYear  Int?    @default(0)
+
+  genderRestriction String? // "MALE" | "FEMALE" | "NONE"
+
+  probationAllowed Boolean @default(false)
+  minServiceMonths Int?    @default(3)
+
+  maxConsecutiveDays Int?    @default(7)
+  sandwichRule       Boolean @default(true)
+
+  accrualEnabled     Boolean @default(true)
+  accrualFrequency   String  @default("monthly") // daily | monthly | yearly
+  accrueAfterDays    Int?    @default(30)
+  monthlyAccrualRate Float?  @default(1.0) // KEKA: 1 CL / month
+
+  isActive Boolean @default(true)
 
   organization  Organizations   @relation(fields: [organizationId], references: [id])
   leaveRequests LeaveRequests[]
@@ -523,21 +597,40 @@ model LeaveTypes {
 }
 
 model LeaveRequests {
-  id             String                @id @default(auto()) @map("_id") @db.ObjectId
-  employeeId     String                @map("employee_id") @db.ObjectId
-  organizationId String                @map("organization_id") @db.ObjectId
-  leaveTypeId    String                @map("leave_type_id") @db.ObjectId
-  startDate      DateTime              @map("start_date")
-  endDate        DateTime              @map("end_date")
-  reason         String?
-  status         LeaveStatus           @default(PENDING)
-  approvedAt     DateTime?
-  createdAt      DateTime              @default(now()) @map("created_at")
-  updatedAt      DateTime              @updatedAt @map("updated_at")
-  deletedAt      DateTime?             @map("deleted_at")
-  organization   Organizations         @relation(fields: [organizationId], references: [id])
-  employee       OrganizationEmployees @relation(fields: [employeeId], references: [id])
-  leaveType      LeaveTypes            @relation(fields: [leaveTypeId], references: [id])
+  id             String @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId     String @map("employee_id") @db.ObjectId
+  organizationId String @map("organization_id") @db.ObjectId
+  leaveTypeId    String @map("leave_type_id") @db.ObjectId
+
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+
+  totalDays   Float?   @map("total_days") // full + half days
+  isHalfDay   Boolean? @default(false)
+  halfDayType String?  @default("FIRST_HALF") // FIRST_HALF | SECOND_HALF
+
+  reason    String?
+  documents Json? // uploaded files
+  status    LeaveStatus @default(PENDING)
+
+  cancellationReason String?
+  cancelledAt        DateTime?
+  cancellationBy     String?   @db.ObjectId
+
+  approvalInstanceId String? @db.ObjectId
+  approvalLevel      Int?    @default(1)
+
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  rejectionReason String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  organization Organizations         @relation(fields: [organizationId], references: [id])
+  employee     OrganizationEmployees @relation(fields: [employeeId], references: [id])
+  leaveType    LeaveTypes            @relation(fields: [leaveTypeId], references: [id])
 }
 
 model AttendancePolicies {
@@ -556,24 +649,6 @@ model AttendancePolicies {
   overtimeAllowed    Boolean @default(false)
   minOvertimeMinutes Int?    @default(30)
   isActive           Boolean @default(true)
-
-  organization Organizations @relation(fields: [organizationId], references: [id])
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-  deletedAt    DateTime?     @map("deleted_at")
-}
-
-model LeavePolicies {
-  id                String  @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId    String  @map("organization_id") @db.ObjectId
-  name              String // "Default Leave Policy"
-  carryForward      Boolean @default(true)
-  maxCarryForward   Int?    @default(12)
-  encashmentAllowed Boolean @default(false)
-  sandwichRule      Boolean @default(true)
-  accrualFrequency  String? @default("monthly") // daily / monthly / yearly
-  accrueAfterDays   Int?    @default(30)
-  isActive          Boolean @default(true)
 
   organization Organizations @relation(fields: [organizationId], references: [id])
   createdAt    DateTime      @default(now()) @map("created_at")
@@ -609,9 +684,11 @@ model HolidayPolicies {
   isActive       Boolean  @default(true)
 
   organization Organizations @relation(fields: [organizationId], references: [id])
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-  deletedAt    DateTime?     @map("deleted_at")
+  holidays     Holidays[] // 👈 NEW
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
 }
 
 model NetworkPolicies {
@@ -884,4 +961,292 @@ model PostVotes {
   poll     Posts                 @relation(fields: [postId], references: [id])
   option   PostOptions           @relation(fields: [optionId], references: [id])
   employee OrganizationEmployees @relation(fields: [employeeId], references: [id])
+}
+
+// ============================================================================
+// 🧩 COMPONENT DEFINITION (Library/Master)
+// ============================================================================
+
+model ComponentDefinition {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  key      String // e.g., "basic", "hra", "pf_employee"
+  name     String // Display name: "Basic Salary"
+  type     String // earning, deduction, reimbursement, benefit, tax
+  category String @default("recurring") // recurring, adhoc, allowance, custom
+
+  // Formula & Configuration
+  defaultFormula String? // e.g., "gross * 0.5"
+  description    String?
+
+  // Behavior Flags
+  isTaxable      Boolean @default(true)
+  isVariable     Boolean @default(false)
+  isStatutory    Boolean @default(false)
+  includeInCTC   Boolean @default(true)
+  includeInGross Boolean @default(true)
+
+  // Display
+  displayOrder Int     @default(999)
+  isActive     Boolean @default(true)
+
+  // Metadata
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Foreign Keys
+  organizationId String        @map("organization_id") @db.ObjectId
+  organization   Organizations @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Relations
+  templateComponents  TemplateComponent[]
+  structureComponents StructureComponent[]
+}
+
+// ============================================================================
+// 📋 SALARY TEMPLATE (Reusable Structure)
+// ============================================================================
+
+model SalaryTemplate {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  name        String // e.g., "IT Department Template", "Senior Management"
+  description String?
+
+  // Applicability
+  departments  String[] // Array of departments this applies to
+  designations String[] // Array of designations
+
+  // Configuration
+  isDefault Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  // Metadata
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Foreign Keys
+  organizationId String        @map("organization_id") @db.ObjectId
+  organization   Organizations @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Relations
+  components TemplateComponent[]
+  structures SalaryStructure[]
+}
+
+model TemplateComponent {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  // Component Configuration (can override defaults)
+  formula String?
+  value   Float? // For fixed values
+
+  // Priority & Constraints
+  priority Int    @default(0) // Execution order
+  minValue Float?
+  maxValue Float?
+
+  // Metadata
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Conditions
+  condition String? // e.g., "basic > 50000"
+
+  // Foreign Keys
+  templateId String
+  template   SalaryTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  componentId String
+  component   ComponentDefinition @relation(fields: [componentId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================================
+// 💼 SALARY STRUCTURE (Employee-Specific)
+// ============================================================================
+
+model SalaryStructure {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  // Base Values
+  grossAnnual   Float // Annual CTC
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+
+  // Calculation Settings
+  deductFromInHand Boolean @default(false)
+
+  // Computed Totals (cached for performance)
+  totalEarnings   Float?
+  totalDeductions Float?
+  totalBenefits   Float?
+  inHandAnnual    Float?
+  inHandMonthly   Float?
+
+  // Status
+  status          String  @default("ACTIVE") // ACTIVE, INACTIVE, SUPERSEDED
+  isCurrentActive Boolean @default(true)
+
+  // Metadata
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Foreign Keys
+  employeeId String                @map("employee_id") @db.ObjectId
+  employee   OrganizationEmployees @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  templateId String?         @map("template_id") @db.ObjectId
+  template   SalaryTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  // Relations
+  components      StructureComponent[]
+  payslips        Payslip[]
+  revisionHistory SalaryRevision[]
+  revisions       SalaryRevision[]     @relation("currentStructure")
+}
+
+model StructureComponent {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  // Component Value
+  formula String?
+  value   Float? // Fixed value or computed result
+
+  // Annual & Monthly Breakdown
+  annualAmount  Float
+  monthlyAmount Float
+
+  // Override Flags
+  isOverridden Boolean @default(false)
+  overrideNote String?
+
+  // Metadata
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Foreign Keys
+  structureId String
+  structure   SalaryStructure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+
+  componentId String
+  component   ComponentDefinition @relation(fields: [componentId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================================
+// 📊 SALARY REVISION HISTORY
+// ============================================================================
+
+model SalaryRevision {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  // Revision Details
+  revisionType  String // INCREMENT, PROMOTION, ANNUAL_REVIEW, CORRECTION
+  revisionDate  DateTime
+  effectiveDate DateTime
+
+  // Changes
+  previousGross Float
+  newGross      Float
+  changePercent Float?
+  changeAmount  Float?
+
+  // Justification
+  reason       String?
+  approvedBy   String?
+  approvalDate DateTime?
+
+  // Metadata
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  structureId String?
+  structure   SalaryStructure? @relation(name: "currentStructure", fields: [structureId], references: [id], onDelete: SetNull)
+
+  // Foreign Keys
+  employeeId String
+  employee   OrganizationEmployees @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  oldStructureId String?
+  oldStructure   SalaryStructure? @relation(fields: [oldStructureId], references: [id], onDelete: SetNull)
+}
+
+// ============================================================================
+// 💰 PAYSLIP (Monthly Salary Slip)
+// ============================================================================
+
+model Payslip {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  // Period
+  month       Int // 1-12
+  year        Int
+  paymentDate DateTime?
+
+  // Salary Breakdown
+  grossPay        Float
+  totalEarnings   Float
+  totalDeductions Float
+  netPay          Float
+
+  // Additional Adjustments
+  arrears Float @default(0)
+  bonus   Float @default(0)
+  penalty Float @default(0)
+
+  // Working Days
+  totalWorkingDays  Int
+  actualWorkingDays Int
+  leaveDays         Int @default(0)
+  lopDays           Int @default(0) // Loss of Pay
+
+  // Status
+  status      String    @default("DRAFT") // DRAFT, GENERATED, APPROVED, PAID
+  generatedAt DateTime?
+  approvedAt  DateTime?
+  paidAt      DateTime?
+
+  // Payment
+  paymentMethod String? // BANK_TRANSFER, CHEQUE, CASH
+  paymentRef    String?
+
+  // Notes
+  remarks String?
+
+  // Metadata
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Foreign Keys
+  employeeId String
+  employee   OrganizationEmployees @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  structureId String
+  structure   SalaryStructure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+
+  // Relations
+  components PayslipComponent[]
+}
+
+model PayslipComponent {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  componentKey  String // From ComponentDefinition.key
+  componentName String // Display name
+  componentType String // earning, deduction, etc.
+
+  amount  Float
+  remarks String?
+
+  // Foreign Keys
+  payslipId String
+  payslip   Payslip @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 }

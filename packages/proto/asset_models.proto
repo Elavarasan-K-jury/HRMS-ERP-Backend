@@ -77,7 +77,47 @@ message AssetModel {
   string created_at      = 10;
   string updated_at      = 11;
   string deleted_at      = 12;
+  optional AssetCategory category = 13;
+  optional Organization organization = 14;
 }
+
+message Organization {
+  string id                     = 1;
+  string name                   = 2;
+  string domain                 = 3;
+  string gst_number             = 4;
+  string email                  = 5;
+  string contact_person_name    = 6;
+  string contact_person_number  = 7;
+  string note                   = 8;
+  string industry               = 9;
+  int32  size                   = 10;
+  string address                = 11;
+  string created_at             = 12;
+  string updated_at             = 13;
+  string deleted_at             = 14;
+
+  int32 max_employees             = 15;
+  int32 max_storage_in_gb         = 16;
+  int32 max_api_rate_per_minute   = 17;
+  int32 max_payroll_runs_per_month= 18;
+  int32 max_leave_policies        = 19;
+  int32 max_admin_accounts        = 20;
+}
+
+
+message AssetCategory {
+  string id              = 1;
+  string organization_id = 2;
+  string name            = 3;
+  string code            = 4;
+  string description     = 5;
+  bool   is_active       = 6;
+  string created_at      = 7;
+  string updated_at      = 8;
+  string deleted_at      = 9;
+}
+
 
 // =============================
 // 🔹 Single Response Wrapper

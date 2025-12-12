@@ -1,8 +1,11 @@
 import { getRedis, setJSON, getJSON } from '@jury-hrms/redis';
+import DotEnv from 'dotenv';
+DotEnv.config();
 
 // 🧩 Config
-const WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW || 60) * 1000; // 60s
-const LIMIT = Number(process.env.RATE_LIMIT_MAX || 100); // 100 requests
+const WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW || 60) * 1000;
+const LIMIT = Number(process.env.RATE_LIMIT_MAX || 100);
+const MAX_QUEUE = Number(process.env.REQUEST_QUEUE_LIMIT || 0);
 
 // 🟥 Redis client
 let redis;
@@ -16,12 +19,14 @@ try {
 // 🧠 In-memory fallback
 const memoryStore = new Map();
 
-// 🧱 Main Middleware
 export async function rateLimiter(c, next) {
-    // Skip Swagger/docs requests
-    if (c.req.path.startsWith('/swagger') || c.req.path.startsWith('/doc')) {
+    // Skip dev
+    if (process.env.ENVIRONMENT === 'DEVELOPMENT') {
         return next();
     }
+    // Skip docs
+    if (c.req.path.startsWith('/swagger') || c.req.path.startsWith('/doc'))
+        return next();
 
     const ip =
         c.req.header('x-forwarded-for') ||
@@ -35,51 +40,87 @@ export async function rateLimiter(c, next) {
     let record;
     let ttl = WINDOW_MS;
 
+    /* ----------------------------------------------------------------
+       REDIS HANDLING
+    ---------------------------------------------------------------- */
     if (redis) {
-        // --- Redis-based limiter using getJSON/setJSON ---
-        const data = await getJSON(key);
-        record = data || { count: 0, startTime: now };
+        let data = await getJSON(key);
 
-        if (now - record.startTime > WINDOW_MS) {
+        // Ensure numbers (important fix)
+        record = data
+            ? {
+                count: Number(data.count) || 0,
+                startTime: Number(data.startTime) || now,
+            }
+            : { count: 0, startTime: now };
+
+        const elapsed = now - record.startTime;
+
+        if (elapsed > WINDOW_MS) {
+            // reset sliding window
             record = { count: 1, startTime: now };
+            ttl = WINDOW_MS;
         } else {
             record.count++;
+            ttl = WINDOW_MS - elapsed;
         }
 
-        ttl = WINDOW_MS - (now - record.startTime);
-
-        // store JSON with TTL (in seconds)
         await setJSON(key, record, Math.ceil(ttl / 1000));
-    } else {
-        // --- Memory fallback ---
+    }
+
+    /* ----------------------------------------------------------------
+       MEMORY FALLBACK
+    ---------------------------------------------------------------- */
+    else {
         record = memoryStore.get(key) || { count: 0, startTime: now };
-        if (now - record.startTime > WINDOW_MS) {
+
+        const elapsed = now - record.startTime;
+
+        if (elapsed > WINDOW_MS) {
             record = { count: 1, startTime: now };
+            ttl = WINDOW_MS;
         } else {
             record.count++;
+            ttl = WINDOW_MS - elapsed;
         }
-        ttl = WINDOW_MS - (now - record.startTime);
+
         memoryStore.set(key, record);
     }
 
-    // 🚫 Exceeded limit
+    /* ----------------------------------------------------------------
+       OPTIONAL: REQUEST QUEUE CONTROL
+    ---------------------------------------------------------------- */
+    if (MAX_QUEUE > 0 && record.count > MAX_QUEUE) {
+        return c.json(
+            {
+                error: 'Server overloaded',
+                message: `Too many queued requests. Try again in ${Math.ceil(
+                    ttl / 1000
+                )} seconds.`,
+            },
+            503
+        );
+    }
+
+    /* ----------------------------------------------------------------
+       LIMIT CHECK
+    ---------------------------------------------------------------- */
     if (record.count > LIMIT) {
         return c.json(
             {
                 error: 'Rate limit exceeded',
-                message: `Try again in ${Math.ceil(ttl / 1000)} seconds.`,
+                message: `Try again in ${Math.ceil(ttl / 1000)} second(s).`,
             },
             429
         );
     }
 
-    // ✅ Allowed
     return next();
 }
 
-// 🧩 Cleanup on exit
+/* ----------------------------------------------------------------
+   Cleanup
+---------------------------------------------------------------- */
 process.on('exit', () => {
-    if (redis) {
-        redis.quit();
-    }
+    if (redis) redis.quit();
 });

@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+package leave_type;
+
+service LeaveTypeService {
+  rpc CreateLeaveType (CreateLeaveTypeRequest) returns (LeaveTypeResponse);
+  rpc UpdateLeaveType (UpdateLeaveTypeRequest) returns (LeaveTypeResponse);
+  rpc GetLeaveType    (GetLeaveTypeRequest)    returns (LeaveTypeResponse);
+  rpc ListLeaveTypes  (ListLeaveTypesRequest)  returns (ListLeaveTypesResponse);
+  rpc DeleteLeaveType (DeleteLeaveTypeRequest) returns (LeaveTypeResponse);
+}
+
+/* ===================== Leave Type ===================== */
+
+message LeaveType {
+  string id = 1;
+  string organization_id = 2;
+
+  string name = 3;
+  string code = 4;
+  string description = 5;
+
+  bool paid = 6;
+  int32 max_per_year = 7;
+
+  bool allow_half_day = 8;
+  bool requires_document = 9;
+  int32 document_after_days = 10;
+
+  bool carry_forward = 11;
+  int32 max_carry_forward = 12;
+
+  bool encashment_allowed = 13;
+  int32 max_encash_per_year = 14;
+
+  string gender_restriction = 15; // MALE | FEMALE | NONE
+
+  bool probation_allowed = 16;
+  int32 min_service_months = 17;
+
+  int32 max_consecutive_days = 18;
+  bool sandwich_rule = 19;
+
+  bool accrual_enabled = 20;
+  string accrual_frequency = 21; // daily | monthly | yearly
+  int32 accrue_after_days = 22;
+  float monthly_accrual_rate = 23;
+
+  bool is_active = 24;
+
+  string created_at = 25;
+  string updated_at = 26;
+  string deleted_at = 27;
+}
+
+message CreateLeaveTypeRequest {
+  string organization_id = 1;
+
+  string name = 2;
+  string code = 3;
+  string description = 4;
+
+  bool paid = 5;
+  int32 max_per_year = 6;
+
+  bool allow_half_day = 7;
+  bool requires_document = 8;
+  int32 document_after_days = 9;
+
+  bool carry_forward = 10;
+  int32 max_carry_forward = 11;
+
+  bool encashment_allowed = 12;
+  int32 max_encash_per_year = 13;
+
+  string gender_restriction = 14;
+
+  bool probation_allowed = 15;
+  int32 min_service_months = 16;
+
+  int32 max_consecutive_days = 17;
+  bool sandwich_rule = 18;
+
+  bool accrual_enabled = 19;
+  string accrual_frequency = 20;
+  int32 accrue_after_days = 21;
+  float monthly_accrual_rate = 22;
+}
+
+message UpdateLeaveTypeRequest {
+  string id = 1;
+  CreateLeaveTypeRequest data = 2;
+}
+
+message GetLeaveTypeRequest {
+  string id = 1;
+}
+
+message ListLeaveTypesRequest {
+  string organization_id = 1;
+}
+
+message ListLeaveTypesResponse {
+  repeated LeaveType leave_types = 1;
+}
+
+message DeleteLeaveTypeRequest {
+  string id = 1;
+}
+
+message LeaveTypeResponse {
+  LeaveType leave_type = 1;
+  string success = 2;
+  string message = 3;
+}

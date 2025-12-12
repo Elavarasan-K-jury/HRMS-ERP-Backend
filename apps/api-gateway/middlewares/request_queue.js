@@ -1,5 +1,6 @@
 import PQueue from 'p-queue';
-
+import DotEnv from 'dotenv';
+DotEnv.config();
 const concurrency = 10; // how many concurrent gRPC calls to allow
 const queueLimit = Number(process.env.REQUEST_QUEUE_LIMIT || 50);
 

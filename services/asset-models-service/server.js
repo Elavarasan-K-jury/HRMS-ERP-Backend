@@ -283,6 +283,47 @@ const impl = {
 // -----------------------------
 // Mapper Function
 // -----------------------------
+// -----------------------------
+function mapCategory(category) {
+    return {
+        id: category.id,
+        organization_id: category.organizationId,
+        name: category.name,
+        code: category.code ?? '',
+        description: category.description ?? '',
+        is_active: category.isActive,
+        created_at: category.createdAt?.toISOString() ?? '',
+        updated_at: category.updatedAt?.toISOString() ?? '',
+        deleted_at: category.deletedAt?.toISOString() ?? '',
+    };
+}
+function mapOrg(org) {
+    return {
+        id: org.id,
+        name: org.name,
+        domain: org.domain,
+        gst_number: org.GSTNumber ?? '',
+        email: org.email ?? '',
+        contact_person_name: org.contactPersonName ?? '',
+        contact_person_number: org.contactPersonNumber ?? '',
+        note: org.note ?? '',
+        industry: org.industry ?? '',
+        size: org.size ?? 0,
+        address: org.address ? JSON.stringify(org.address) : '',
+        created_at: org.createdAt?.toISOString() ?? '',
+        updated_at: org.updatedAt?.toISOString() ?? '',
+        deleted_at: org.deletedAt?.toISOString() ?? '',
+
+        // ✅ new fields
+        max_employees: org.maxEmployees ?? 20,
+        max_storage_in_gb: org.maxStorageInGB ?? 10,
+        max_api_rate_per_minute: org.maxApiRatePerMin ?? 1000,
+        max_payroll_runs_per_month: org.maxPayrollRunsPerMonth ?? 1,
+        max_leave_policies: org.maxLeavePolicies ?? 5,
+        max_admin_accounts: org.maxAdminAccounts ?? 3,
+    };
+}
+
 function mapModel(model) {
     return {
         id: model.id,
@@ -297,6 +338,8 @@ function mapModel(model) {
         created_at: model.createdAt?.toISOString() ?? '',
         updated_at: model.updatedAt?.toISOString() ?? '',
         deleted_at: model.deletedAt?.toISOString() ?? '',
+        organization: model.organization ? mapOrg(model.organization) : null,
+        category: model.assetCategories ? mapCategory(model.assetCategories) : null,
     };
 }
 

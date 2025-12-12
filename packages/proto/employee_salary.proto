@@ -1,0 +1,362 @@
+syntax = "proto3";
+
+package employee_salary;
+
+// ============================================================================
+// 📌 ENUMS
+// ============================================================================
+enum SalaryStatus {
+  STATUS_UNKNOWN = 0;
+  ACTIVE = 1;
+  INACTIVE = 2;
+  SUPERSEDED = 3;
+}
+
+enum ComponentType {
+  TYPE_UNKNOWN = 0;
+  EARNING = 1;
+  DEDUCTION = 2;
+  BENEFIT = 3;
+  REIMBURSEMENT = 4;
+  TAX = 5;
+}
+
+// ============================================================================
+// 📌 BASE DTOs
+// ============================================================================
+
+message ComponentDefinition {
+  string id = 1;
+  string key = 2;
+  string name = 3;
+  ComponentType type = 4;
+  string defaultFormula = 5;
+  bool isTaxable = 6;
+  bool includeInGross = 7;
+
+  string category = 8;
+  bool isVariable = 9;
+  bool isStatutory = 10;
+  bool includeInCTC = 11;
+  int32 displayOrder = 12;
+  bool isActive = 13;
+  string organizationId = 14;
+}
+
+message TemplateComponent {
+  string id = 1;
+  string componentId = 2;
+  string formula = 3;
+  double value = 4;
+  int32 priority = 5;
+  double minValue = 6;
+  double maxValue = 7;
+  string condition = 8;
+}
+
+message SalaryTemplate {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  repeated TemplateComponent components = 4;
+
+  repeated string departments = 5;
+  repeated string designations = 6;
+  bool isDefault = 7;
+  bool isActive = 8;
+  string organizationId = 9;
+}
+
+// ============================================================================
+// 📌 STRUCTURE COMPONENT DTO
+// ============================================================================
+
+message StructureComponent {
+  string id = 1;
+  string componentId = 2;
+  string componentKey = 3;
+  string formula = 4;
+  double value = 5;
+  double annualAmount = 6;
+  double monthlyAmount = 7;
+  bool isOverridden = 8;
+  string overrideNote = 9;
+
+  // 🔥 New: extra info you already send from calculateSalaryStructure
+  string componentName = 10;
+  ComponentType componentType = 11;
+}
+
+// ============================================================================
+// 📌 SALARY STRUCTURE DTO
+// ============================================================================
+
+message SalaryStructure {
+  string id = 1;
+  string employeeId = 2;
+  string templateId = 3;
+
+  double grossAnnual = 4;
+
+  double totalEarnings = 5;
+  double totalDeductions = 6;
+  double totalBenefits = 7;
+  double inHandAnnual = 8;
+  double inHandMonthly = 9;
+
+  SalaryStatus status = 10;
+
+  repeated StructureComponent components = 11;
+
+  string effectiveFrom = 12;
+  string effectiveTo = 13;
+  bool deductFromInHand = 14;
+  bool isCurrentActive = 15;
+}
+
+// ============================================================================
+// 📌 REVISION DTO
+// ============================================================================
+
+message SalaryRevStructure {
+  string id = 1;
+  string grossAnnual = 2;
+  string effectiveFrom = 3;
+  string effectiveTo = 4;
+  string status = 5;
+  string isCurrentActive = 6;
+}
+
+message SalaryRevision {
+  string id = 1;
+  string revisionType = 2;
+  string revisionDate = 3;
+  string effectiveDate = 4;
+  double previousGross = 5;
+  double newGross = 6;
+  double changeAmount = 7;
+  double changePercent = 8;
+  string reason = 9;
+  string approvedBy = 10;
+  string approvalDate = 11;
+  SalaryRevStructure structure = 12;
+}
+
+// ============================================================================
+// 📌 COMPONENT OVERRIDE DTO (for update + override APIs)
+// ============================================================================
+
+message ComponentOverride {
+  string componentId = 1;
+  double value = 2;
+  string formula = 3;
+  bool isOverridden = 4;
+  string overrideNote = 5;
+}
+
+// ============================================================================
+// 📌 REQUESTS & RESPONSES
+// ============================================================================
+
+// 1️⃣ Assign salary
+message AssignSalaryRequest {
+  string employeeId = 1;
+  string templateId = 2;
+  double grossAnnual = 3;
+  string effectiveFrom = 4;
+
+  // NEW FIELDS
+  string status = 5;
+  bool isCurrentActive = 6;
+  bool deductFromInHand = 7;
+}
+
+message AssignSalaryResponse {
+  bool success = 1;
+  string message = 2;
+  SalaryStructure structure = 3;
+}
+
+// 2️⃣ Update salary
+message UpdateSalaryRequest {
+  string structureId = 1;
+  double newGrossAnnual = 2;
+  string newTemplateId = 3;
+
+  string revisionType = 4;
+  string reason = 5;
+  string effectiveDate = 6;
+  string approvedBy = 7;
+  string approvalDate = 8;
+
+  // NEW FIELDS
+  string status = 9;
+  bool isCurrentActive = 10;
+  bool deductFromInHand = 11;
+
+  // 🔥 NEW: Component-level overrides
+  repeated ComponentOverride componentOverrides = 12;
+}
+
+message UpdateSalaryResponse {
+  bool success = 1;
+  string message = 2;
+  SalaryStructure structure = 3;
+
+  // Optional: basic revision summary (matches what you send now)
+  double changeAmount = 4;
+  double changePercent = 5;
+}
+
+// 3️⃣ Apply template
+message ApplyTemplateRequest {
+  string structureId = 1;
+  string templateId = 2;
+}
+
+message ApplyTemplateResponse {
+  bool success = 1;
+  string message = 2;
+  SalaryStructure structure = 3;
+}
+
+// 4️⃣ Recalculate
+message RecalculateRequest {
+  string structureId = 1;
+}
+
+message RecalculateResponse {
+  bool success = 1;
+  string message = 2;
+  SalaryStructure structure = 3;
+}
+
+// 5️⃣ Get structure by employee
+message GetStructureRequest {
+  string employeeId = 1;
+}
+message GetStructureByIDRequest {
+  string employeeId = 1;
+  string structureId = 2;
+}
+
+message GetStructureResponse {
+  bool success = 1;
+  string message = 2;
+  SalaryStructure structure = 3;
+}
+
+// 6️⃣ Get revision history
+message GetRevisionHistoryRequest {
+  string employeeId = 1;
+  int32 limit = 2;
+}
+
+message GetRevisionHistoryResponse {
+  bool success = 1;
+  string message = 2;
+  repeated SalaryRevision revisions = 3;
+}
+
+// 7️⃣ Override specific component
+message OverrideComponentRequest {
+  string structureId = 1;
+  string componentId = 2;
+  double value = 3;
+  string formula = 4;
+  string overrideNote = 5;
+}
+
+message OverrideComponentResponse {
+  bool success = 1;
+  string message = 2;
+  SalaryStructure structure = 3;
+}
+
+// 8️⃣ Bulk recalculate
+message BulkRecalculateRequest {
+  repeated string employeeIds = 1;
+}
+
+message BulkRecalculateItemResult {
+  string employeeId = 1;
+  string structureId = 2;
+  bool success = 3;
+  string error = 4;
+}
+
+message BulkRecalculateResponse {
+  bool success = 1;
+  string message = 2;
+  repeated BulkRecalculateItemResult results = 3;
+  int32 successCount = 4;
+  int32 errorCount = 5;
+}
+
+// 🔹 Component row used in preview only
+message PreviewStructureComponent {
+  string componentId = 1;
+  string componentKey = 2;
+  string componentName = 3;
+  string componentType = 4;  // e.g. "EARNING", "DEDUCTION"
+  string formula = 5;
+  double value = 6;          // only when source was a fixed value
+  double annualAmount = 7;
+  double monthlyAmount = 8;
+  bool isOverridden = 9;
+  string overrideNote = 10;
+}
+
+// 🔹 Preview-only salary structure (no ids, no status, just numbers + components)
+message PreviewSalaryStructure {
+  double grossAnnual = 1;
+
+  double totalEarnings = 2;
+  double totalDeductions = 3;
+  double totalBenefits = 4;
+  double inHandAnnual = 5;
+  double inHandMonthly = 6;
+
+  repeated PreviewStructureComponent components = 7;
+}
+
+// 🔹 Request stays the same
+message PreviewTemplateCalculationRequest {
+  string templateId = 1;
+  double grossAnnual = 2;
+}
+
+// 🔹 Response now uses PreviewSalaryStructure instead of full SalaryStructure
+message PreviewTemplateCalculationResponse {
+  bool success = 1;
+  string message = 2;
+  PreviewSalaryStructure structure = 3;
+}
+
+
+// ============================================================================
+// 📌 SERVICE
+// ============================================================================
+
+service SalaryEngineService {
+  rpc AssignSalary (AssignSalaryRequest) returns (AssignSalaryResponse);
+
+  rpc UpdateSalary (UpdateSalaryRequest) returns (UpdateSalaryResponse);
+
+  rpc ApplyTemplate (ApplyTemplateRequest) returns (ApplyTemplateResponse);
+
+  rpc Recalculate (RecalculateRequest) returns (RecalculateResponse);
+
+  rpc GetStructure (GetStructureRequest) returns (GetStructureResponse);
+
+  rpc GetStructureById (GetStructureByIDRequest) returns (GetStructureResponse);
+
+  // 🔥 New ones to match your funcs:
+  rpc GetRevisionHistory (GetRevisionHistoryRequest) returns (GetRevisionHistoryResponse);
+
+  rpc OverrideComponent (OverrideComponentRequest) returns (OverrideComponentResponse);
+
+  rpc BulkRecalculate (BulkRecalculateRequest) returns (BulkRecalculateResponse);
+
+  rpc PreviewTemplateCalculation (PreviewTemplateCalculationRequest) returns (PreviewTemplateCalculationResponse);
+}

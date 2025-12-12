@@ -1,0 +1,173 @@
+syntax = "proto3";
+
+package component_definition;
+
+// =========================================================
+// Common Response Messages
+// =========================================================
+message DefaultResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message PaginationMeta {
+  int32 page = 1;
+  int32 limit = 2;
+  int32 total = 3;
+  int32 total_pages = 4;
+}
+
+// =========================================================
+// ComponentDefinition Model
+// =========================================================
+message ComponentDefinition {
+  string id = 1;
+  string key = 2;              // "basic", "hra"
+  string name = 3;             // "Basic Salary"
+  string type = 4;             // earning, deduction, benefit, tax
+  string category = 5;         // statutory, standard, allowance, custom
+
+  string defaultFormula = 6;
+  string description = 7;
+
+  bool isTaxable = 8;
+  bool isVariable = 9;
+  bool isStatutory = 10;
+  bool includeInCTC = 11;
+  bool includeInGross = 12;
+
+  int32 displayOrder = 13;
+  bool isActive = 14;
+
+  string organizationId = 15;
+
+  string createdAt = 16;
+  string updatedAt = 17;
+}
+
+
+// =========================================================
+// FETCH — LIST WITH PAGINATION
+// =========================================================
+message FetchComponentDefinitionsRequest {
+  int32 page = 1;
+  int32 per_page = 2;
+  string search = 3;
+  string category = 4;
+  string sort_by = 5;        // key, name, displayOrder, type, etc.
+  string sort_order = 6;     // asc | desc
+  string organization_id = 7;
+}
+
+message categoryAndComponents {
+  string category_name = 1;
+  int32 components_count = 2;
+}
+
+message FetchComponentDefinitionsResponse {
+  bool success = 1;
+  string message = 2;
+
+  repeated ComponentDefinition data = 3;
+  repeated categoryAndComponents categories = 4;
+
+  int32 total = 5;
+  int32 page = 6;
+  int32 limit = 7;
+  int32 total_pages = 8;
+}
+
+
+// =========================================================
+// CREATE ComponentDefinition
+// =========================================================
+message CreateComponentDefinitionRequest {
+  string organization_id = 1;
+
+  string key = 2;
+  string name = 3;
+  string type = 4;
+  string category = 5;
+
+  string defaultFormula = 6;
+  string description = 7;
+
+  bool isTaxable = 8;
+  bool isVariable = 9;
+  bool isStatutory = 10;
+  bool includeInCTC = 11;
+  bool includeInGross = 12;
+
+  int32 displayOrder = 13;
+  bool isActive = 14;
+}
+
+message CreateComponentDefinitionResponse {
+  bool success = 1;
+  string message = 2;
+  ComponentDefinition data = 3;
+}
+
+
+// =========================================================
+// UPDATE ComponentDefinition
+// =========================================================
+message UpdateComponentDefinitionRequest {
+  string id = 1;
+  string organization_id = 2;
+
+  string key = 3;
+  string name = 4;
+  string type = 5;
+  string category = 6;
+
+  string defaultFormula = 7;
+  string description = 8;
+
+  bool isTaxable = 9;
+  bool isVariable = 10;
+  bool isStatutory = 11;
+  bool includeInCTC = 12;
+  bool includeInGross = 13;
+
+  int32 displayOrder = 14;
+  bool isActive = 15;
+}
+
+message UpdateComponentDefinitionResponse {
+  bool success = 1;
+  string message = 2;
+  ComponentDefinition data = 3;
+}
+
+
+// =========================================================
+// DELETE ComponentDefinition
+// =========================================================
+message DeleteComponentDefinitionRequest {
+  string id = 1;
+  string organization_id = 2;
+}
+
+message DeleteComponentDefinitionResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+
+// =========================================================
+// SERVICE — Component Definition CRUD
+// =========================================================
+service ComponentDefinitionService {
+  rpc FetchComponentDefinitions (FetchComponentDefinitionsRequest)
+      returns (FetchComponentDefinitionsResponse);
+
+  rpc CreateComponentDefinition (CreateComponentDefinitionRequest)
+      returns (CreateComponentDefinitionResponse);
+
+  rpc UpdateComponentDefinition (UpdateComponentDefinitionRequest)
+      returns (UpdateComponentDefinitionResponse);
+
+  rpc DeleteComponentDefinition (DeleteComponentDefinitionRequest)
+      returns (DeleteComponentDefinitionResponse);
+}

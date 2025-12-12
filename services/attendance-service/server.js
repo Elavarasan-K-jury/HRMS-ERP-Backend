@@ -1,5 +1,6 @@
 import { grpc, loadProto } from "@jury-hrms/proto";
 import { prisma } from "@jury-hrms/db/client.js";
+import { enqueueAttendanceReport } from "./attendanceReport.worker.js";
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -217,10 +218,7 @@ async function computeAttendanceStatus({ attendance, shift, policy }) {
 
     let grossMinutes = 0;
     if (checkIn && checkOut) {
-      grossMinutes = Math.max(
-        0,
-        ((checkOut.getTime() - checkIn.getTime()) / 60000)
-      );
+      grossMinutes = ((checkOut.getTime() - checkIn.getTime()) / 60000)
     }
 
     let effectiveMinutes = 0;
@@ -234,8 +232,9 @@ async function computeAttendanceStatus({ attendance, shift, policy }) {
     for (const log of attendanceLogs) {
       if (log.type == 'CHECK_IN') {
         checkInTime = log.createdAt;
-      } else {
+      } else if (log.type == 'CHECK_OUT' && checkInTime) {
         effectiveMinutes += ((log.createdAt - checkInTime) / 60000);
+        checkInTime = null;
       }
     }
     const grace = policy.graceMinutes ?? 10;
@@ -765,6 +764,368 @@ const impl = {
     }
   },
 
+  // ----------------------
+  // ListOrganizationAttendanceByMonth (day-wise for a month)
+  // ----------------------
+  ListOrganizationAttendanceByMonth: async (call, callback) => {
+    try {
+      const { organization_id, month } = call.request;
+
+      if (!organization_id || organization_id.length !== 24) {
+        return callback({
+          code: grpc.status.INVALID_ARGUMENT,
+          message: "Invalid organization_id",
+        });
+      }
+
+      if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+        return callback({
+          code: grpc.status.INVALID_ARGUMENT,
+          message: "Month must be YYYY-MM",
+        });
+      }
+
+      // Parse month
+      const [yearStr, monthStr] = month.split("-");
+      const year = Number(yearStr);
+      const m = Number(monthStr) - 1;
+
+      const from = new Date(Date.UTC(year, m, 1));
+      const to = new Date(Date.UTC(year, m + 1, 1));
+
+      // Fetch attendance for the entire org
+      const records = await prisma.attendance.findMany({
+        where: {
+          organizationId: organization_id,
+          date: { gte: from, lt: to },
+          deletedAt: null,
+        },
+        include: {
+          logs: true,
+          employee: true,
+          organization: true,
+        },
+        orderBy: { date: "asc" }
+      });
+
+      // Group by day
+      const dayMap = {};
+      for (const rec of records) {
+        const day = rec.date.toISOString().substring(0, 10);
+        if (!dayMap[day]) dayMap[day] = [];
+
+        dayMap[day].push(mapAttendanceToProto(rec));
+      }
+
+      const days = Object.keys(dayMap)
+        .sort((a, b) => new Date(b) - new Date(a))   // DESC
+        .map(date => ({
+          date,
+          attendance: dayMap[date],
+        }));
+
+      /* ------------------------------------------------------
+          📊 COMPUTE MONTHLY STATISTICS
+      ------------------------------------------------------ */
+
+      let checkIns = [];
+      let checkOuts = [];
+      let totalGross = 0;
+      let totalEffective = 0;
+      let totalRecords = 0;
+      let presentCount = 0;
+      let lateCount = 0;
+
+      const presentMap = {};
+      const lateMap = {};
+
+      for (const rec of records) {
+        totalRecords++;
+
+        if (rec.checkIn) checkIns.push(rec.checkIn);
+        if (rec.checkOut) checkOuts.push(rec.checkOut);
+
+        totalGross += rec.grossHours || 0;
+        totalEffective += rec.effectiveHours || 0;
+
+        if (rec.status === "PRESENT" || rec.status === "HALF_DAY") {
+          presentCount++;
+          presentMap[rec.employeeId] = (presentMap[rec.employeeId] || 0) + 1;
+        }
+
+        if (rec.lateArrivalMinutes > 0) {
+          lateCount++;
+          lateMap[rec.employeeId] = (lateMap[rec.employeeId] || 0) + 1;
+        }
+      }
+
+      function averageTime(dates) {
+        if (!dates.length) return "";
+
+        const avg = new Date(
+          dates.reduce((s, d) => s + d.getTime(), 0) / dates.length
+        );
+
+        return avg.toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        });
+      }
+
+      // Most late employee
+      let mostLateEmp = null;
+      if (Object.keys(lateMap).length > 0) {
+        mostLateEmp = Object.entries(lateMap).sort((a, b) => b[1] - a[1])[0][0];
+      }
+
+      // Best attendance employee
+      let bestEmp = null;
+      if (Object.keys(presentMap).length > 0) {
+        bestEmp = Object.entries(presentMap).sort((a, b) => b[1] - a[1])[0][0];
+      }
+
+      const stats = {
+        avg_check_in: averageTime(checkIns),
+        avg_check_out: averageTime(checkOuts),
+        avg_gross_hours: totalRecords ? (totalGross / totalRecords) : 0,
+        avg_effective_hours: totalRecords ? (totalEffective / totalRecords) : 0,
+        attendance_rate: totalRecords ? (presentCount / totalRecords) * 100 : 0,
+        total_late: lateCount,
+        most_late_employee: mostLateEmp,
+        best_attendance_employee: bestEmp,
+      };
+
+      return callback(null, {
+        days,
+        stats,
+        success: true,
+      });
+
+    } catch (e) {
+      console.error("[GetOrganizationMonthlyAttendance Error]", e);
+      callback({
+        code: grpc.status.INTERNAL,
+        message: e.message || "Internal server error",
+      });
+    }
+  },
+  // ----------------------
+  // Get Organization Attendance Report
+  // ----------------------
+  AttendanceReport: async (call, callback) => {
+    try {
+      console.log("➡️ AttendanceReport() request:", call.request);
+
+      const {
+        organization_id,
+        department_id,
+        designation_id,
+        employee_id,
+        start_date,
+        end_date,
+      } = call.request;
+
+      // -----------------------
+      // VALIDATE ORG ID
+      // -----------------------
+      if (!organization_id || organization_id.length !== 24) {
+        return callback({
+          code: grpc.status.INVALID_ARGUMENT,
+          message: "Invalid organization_id",
+        });
+      }
+
+      console.log("🟦 Creating attendance report entry...");
+
+      // -----------------------
+      // CREATE REPORT ENTRY
+      // ✔ FIELD NAMES MUST BE CAMELCASE (Prisma client)
+      // -----------------------
+      const report = await prisma.attendanceReports.create({
+        data: {
+          organizationId:
+            organization_id && organization_id !== "" ? organization_id : null,
+
+          departmentId:
+            department_id && department_id !== "" ? department_id : null,
+
+          designationId:
+            designation_id && designation_id !== "" ? designation_id : null,
+
+          employeeId:
+            employee_id && employee_id !== "" ? employee_id : null,
+
+          startDate:
+            start_date && start_date !== "" ? new Date(start_date) : null,
+
+          endDate:
+            end_date && end_date !== "" ? new Date(end_date) : null,
+
+          status: "INITIATED",
+          initiatedAt: new Date(),
+
+          // MUST always provide because it's JSON?
+          responseData: null,
+        },
+      });
+
+      console.log("🟩 Report entry created:", report.id);
+
+      // -----------------------
+      // ENQUEUE JOB
+      // -----------------------
+      console.log("📌 Sending report to worker queue...");
+      enqueueAttendanceReport(report.id);
+
+      // -----------------------
+      // RETURN RESPONSE
+      // -----------------------
+      return callback(null, {
+        success: true,
+        message: "Report generation started",
+        report_id: report.id,
+        status: "INITIATED",
+      });
+
+    } catch (error) {
+      console.error("❌ [AttendanceReport Error]", error);
+
+      return callback({
+        code: grpc.status.INTERNAL,
+        message: error.message || "Internal server error",
+      });
+    }
+  },
+
+  // ----------------------
+  // List Attendance Reports
+  // ----------------------
+  ListAttendanceReports: async (call, callback) => {
+    try {
+      const { organization_id, page = 1, limit = 10 } = call.request;
+
+      if (!organization_id || organization_id.length !== 24) {
+        return callback({
+          code: grpc.status.INVALID_ARGUMENT,
+          message: "Invalid organization_id"
+        });
+      }
+
+      const skip = (page - 1) * limit;
+
+      const [reports, total] = await Promise.all([
+        prisma.attendanceReports.findMany({
+          where: {
+            organizationId: organization_id,
+          },
+          orderBy: { initiatedAt: "desc" },
+          skip,
+          take: limit
+        }),
+
+        prisma.attendanceReports.count({
+          where: {
+            organizationId: organization_id,
+          }
+        })
+      ]);
+
+      const mapped = reports.map(r => ({
+        id: r.id,
+        organization_id: r.organizationId,
+        department_id: r.departmentId || "",
+        designation_id: r.designationId || "",
+        employee_id: r.employeeId || "",
+        status: r.status,
+        start_date: r.startDate ? r.startDate.toISOString() : "",
+        end_date: r.endDate ? r.endDate.toISOString() : "",
+        initiated_at: r.initiatedAt ? r.initiatedAt.toISOString() : "",
+        completed_at: r.completedAt ? r.completedAt.toISOString() : "",
+        failing_reason: r.failingReason || "",
+        pdf_url: r.pdfUrl || ""
+      }));
+
+      return callback(null, {
+        reports: mapped,
+        page,
+        limit,
+        total,
+        success: true
+      });
+
+    } catch (error) {
+      console.error("[ListAttendanceReports Error]", error);
+      callback({
+        code: grpc.status.INTERNAL,
+        message: error.message || "Internal server error"
+      });
+    }
+  },
+
+  // ----------------------
+  // Get Attendance Report Result
+  // ----------------------
+  GetAttendanceReportResult: async (call, callback) => {
+    try {
+      const { report_id } = call.request;
+
+      if (!report_id || report_id.length !== 24) {
+        return callback({
+          code: grpc.status.INVALID_ARGUMENT,
+          message: "Invalid report_id",
+        });
+      }
+
+      const report = await prisma.attendanceReports.findUnique({
+        where: { id: report_id }
+      });
+
+      if (!report) {
+        return callback({
+          code: grpc.status.NOT_FOUND,
+          message: "Report not found",
+        });
+      }
+
+      const mappedReport = {
+        id: report.id,
+        organization_id: report.organizationId || "",
+        department_id: report.departmentId || "",
+        designation_id: report.designationId || "",
+        employee_id: report.employeeId || "",
+
+        status: report.status,
+
+        start_date: report.startDate ? report.startDate.toISOString() : "",
+        end_date: report.endDate ? report.endDate.toISOString() : "",
+
+        initiated_at: report.initiatedAt ? report.initiatedAt.toISOString() : "",
+        started_at: report.startedAt ? report.startedAt.toISOString() : "",
+        completed_at: report.completedAt ? report.completedAt.toISOString() : "",
+        failed_at: report.failedAt ? report.failedAt.toISOString() : "",
+
+        failing_reason: report.failingReason || "",
+
+        responseData: JSON.stringify(report.responseData),
+        pdf_url: report.pdfUrl
+      };
+
+      return callback(null, {
+        report: mappedReport,
+        success: true,
+        message: "Report fetched successfully",
+      });
+
+    } catch (error) {
+      console.error("[GetAttendanceReportResult Error]", error);
+      return callback({
+        code: grpc.status.INTERNAL,
+        message: error.message || "Internal server error",
+      });
+    }
+  },
+
   /* ============================================================
      Attendance Policy CRUD
   ============================================================ */
@@ -828,6 +1189,8 @@ const impl = {
           overtime_allowed: policy.overtimeAllowed,
           min_overtime_minutes: policy.minOvertimeMinutes ?? 0,
         },
+        success: true,
+        message: "Successfully created policy.",
       });
     } catch (e) {
       console.error("[CreateAttendancePolicy Error]", e);
@@ -931,6 +1294,8 @@ const impl = {
           overtime_allowed: p.overtimeAllowed,
           min_overtime_minutes: p.minOvertimeMinutes ?? 0,
         })),
+        success: true,
+        message: "Policies fetched successfully",
       });
     } catch (e) {
       console.error("[ListAttendancePolicy Error]", e);

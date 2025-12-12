@@ -49,6 +49,12 @@ log('🔍 ASSET_REQUEST_SERVICE_ADDR =', process.env.ASSET_REQ_SERVICE_ADDR);
 log('🔍 ASSET_ASSIGNMENT_SERVICE_ADDR =', process.env.ASSET_ASSIGN_SERVICE_ADDR);
 log('🔍 ASSET_CONDITION_SERVICE_ADDR =', process.env.ASSET_CON_SERVICE_ADDR);
 log('🔍 POST_POLL_SERVICE_ADDR =', process.env.POST_POLL_SERVICE_ADDR);
+log('🔍 LEAVE_TYPES_ADDR =', process.env.LEAVE_TYPE_SERVICE_ADDR);
+log('🔍 LEAVE_REQUESTS_ADDR =', process.env.LEAVE_REQUEST_SERVICE_ADDR);
+log('🔍 HOLIDAYS_ADDR =', process.env.HOLIDAY_SERVICE_ADDR);
+log('🔍 HOLIDAY_POLICY_ADDR =', process.env.HOLIDAY_POLICY_SERVICE_ADDR);
+log()
+log('---------------------------------------------------');
 
 /* ------------------------------------------------------------------ */
 /* 📦 Imports                                                          */
@@ -57,6 +63,7 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import { swaggerUI } from '@hono/swagger-ui';
 import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
+import { serveStatic } from '@hono/node-server/serve-static';
 
 import { ipWhitelist } from './middlewares/ip_whitelist.js';
 import { rateLimiter } from './middlewares/rate_limiter.js';
@@ -91,6 +98,13 @@ import registerAssetConditionRoutes from './routes/asset_condition.routes.js';
 import registerHierarchyRoutes from './routes/hierarchy.routes.js';
 import registerPostPollRoutes from './routes/post_poll.routes.js';
 import registerHealthRoutes from './routes/health.routes.js';
+import registerLeaveTypeRoutes from './routes/leaveType.routes.js';
+import registerLeaveRequestRoutes from './routes/leaveRequest.routes.js';
+import registerHolidayRoutes from './routes/holidays.routes.js';
+import registerHolidayPolicyRoutes from './routes/holidayPolicy.routes.js';
+import registerSalaryRoutes from './routes/salary.routes.js';
+import registerSalaryComponentsRoutes from './routes/salary-components.routes.js';
+import registerSalaryTemplateRoutes from './routes/salary_template.routes.js';
 
 /* ------------------------------------------------------------------ */
 /* 🏗️  App Setup                                                       */
@@ -103,12 +117,41 @@ const app = new OpenAPIHono({
     },
 });
 
-// CORS
+function parseAllowedIPs() {
+    const raw = process.env.ALLOWED_IPS || "";
+    const ips = raw.split(",").map(ip => ip.trim());
+
+    return ips.map(ip => {
+        // Convert wildcard: "192.168.68.*"
+        if (ip.endsWith(".*")) {
+            const base = ip.replace(".*", "").replace(/\./g, "\\.");
+            return new RegExp(`^http:\\/\\/${base}\\.\\d+(?::\\d+)?$`);
+        }
+
+        // Exact IP (localhost, IPv4, IPv6)
+        return new RegExp(`^http:\\/\\/${ip.replace(/\./g, "\\.")}(?::\\d+)?$`);
+    });
+}
+
+const allowedOriginPatterns = parseAllowedIPs();
+
 app.use(
-    '*',
+    "*",
     cors({
-        origin: ['http://localhost:3030', 'http://127.0.0.1:3030', 'http://localhost:3040', 'http://127.0.0.1:3040'],
-        allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        origin: (origin) => {
+            if (!origin) return "*"; // allow curl / mobile apps
+
+            // Match any allowed IP range
+            for (const pattern of allowedOriginPatterns) {
+                if (pattern.test(origin)) {
+                    return origin;
+                }
+            }
+
+            console.warn("CORS BLOCKED:", origin);
+            return false;
+        },
+        allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     })
 );
 
@@ -119,6 +162,27 @@ app.use('*', rateLimiter); // ⏱️ Rate limiting
 
 // Health check
 app.get('/', (c) => c.text('🚀 Jury-HRMS API Gateway is running!'));
+
+
+/* ------------------------------------------------------------------ */
+/* 📁 STATIC FILE SERVER (LOCAL UPLOADS)                              */
+/* ------------------------------------------------------------------ */
+const uploadsPath = process.env.LOCAL_STORAGE_PATH
+    ? path.resolve(process.env.LOCAL_STORAGE_PATH)
+    : path.resolve(__dirname, '../../uploads'); // <-- correct path from api-gateway
+
+
+console.log("📂 Serving local files from:", uploadsPath);
+
+// Serve local files at /uploads/*
+app.use(
+    '/uploads/*',
+    serveStatic({
+        root: uploadsPath, // absolute path
+        rewriteRequestPath: (path) => path.replace('/uploads', ''),
+    })
+);
+
 
 /* ------------------------------------------------------------------ */
 /* 🔗 Route Registration (same usage as before)                        */
@@ -154,6 +218,13 @@ registerShiftPolicyRoutes({ openapi: wrapService('shift_policy') });
 registerAttendanceRoutes({ openapi: wrapService('attendance') });
 registerAttendanceLogRoutes({ openapi: wrapService('attendance_logs') });
 registerApprovalRoutes({ openapi: wrapService('approval') });
+registerLeaveTypeRoutes({ openapi: wrapService('leave_type') });
+registerLeaveRequestRoutes({ openapi: wrapService('leave_request') });
+registerHolidayRoutes({ openapi: wrapService('holidays') });
+registerHolidayPolicyRoutes({ openapi: wrapService('holiday_policy') });
+registerSalaryComponentsRoutes({ openapi: wrapService('salary_component') });
+registerSalaryTemplateRoutes({ openapi: wrapService('salary_template') });
+registerSalaryRoutes({ openapi: wrapService('salary') });
 registerHealthRoutes({ openapi: wrapSystem });
 
 /* ------------------------------------------------------------------ */
@@ -181,6 +252,7 @@ if (isMain) {
         serve({
             fetch: app.fetch,
             port: PORT,
+            hostname: '0.0.0.0',
         });
 
         console.log(`🚀 API Gateway running on :${PORT}`);

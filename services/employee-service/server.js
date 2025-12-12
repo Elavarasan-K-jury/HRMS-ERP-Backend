@@ -188,8 +188,6 @@ const impl = {
                 }
             });
 
-            console.dir(emp, { depth: null });
-
             if (!emp) {
                 return callback({
                     code: grpc.status.NOT_FOUND,

@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package holiday_policy;
+
+service HolidayPolicyService {
+  rpc CreateHolidayPolicy (CreateHolidayPolicyRequest) returns (HolidayPolicyResponse);
+  rpc UpdateHolidayPolicy (UpdateHolidayPolicyRequest) returns (HolidayPolicyResponse);
+  rpc DeleteHolidayPolicy (DeleteHolidayPolicyRequest) returns (DeleteHolidayPolicyResponse);
+
+  rpc GetHolidayPolicy    (GetHolidayPolicyRequest)    returns (HolidayPolicyResponse);
+  rpc ListHolidayPolicies (ListHolidayPoliciesRequest) returns (ListHolidayPoliciesResponse);
+}
+
+/* =============== Holiday Policy Object =============== */
+
+message HolidayPolicy {
+  string id              = 1;
+  string organization_id = 2;
+  string name            = 3;
+  string region          = 4;
+  repeated string applicable_to = 5;
+  bool   is_active       = 6;
+
+  string created_at      = 7;
+  string updated_at      = 8;
+}
+
+/* =============== CREATE / UPDATE =============== */
+
+message CreateHolidayPolicyRequest {
+  string organization_id = 1;
+  string name            = 2;
+  string region          = 3;
+  repeated string applicable_to = 4;
+}
+
+message UpdateHolidayPolicyRequest {
+  string policy_id       = 1;
+  string name            = 2;
+  string region          = 3;
+  repeated string applicable_to = 4;
+  bool   is_active       = 5;
+}
+
+/* =============== DELETE =============== */
+
+message DeleteHolidayPolicyRequest {
+  string policy_id = 1;
+}
+
+message DeleteHolidayPolicyResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+/* =============== GET / LIST =============== */
+
+message GetHolidayPolicyRequest {
+  string policy_id = 1;
+}
+
+message HolidayPolicyResponse {
+  HolidayPolicy policy = 1;
+  string message       = 2;
+}
+
+message ListHolidayPoliciesRequest {
+  string organization_id = 1;
+  string region          = 2;
+  bool   is_active_only  = 3;
+}
+
+message ListHolidayPoliciesResponse {
+  repeated HolidayPolicy policies   = 1;
+  int32                  total_count = 2;
+}

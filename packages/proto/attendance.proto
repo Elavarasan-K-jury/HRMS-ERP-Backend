@@ -12,7 +12,12 @@ service AttendanceService {
 
   // List attendance for a month (like Keka calendar)
   rpc ListAttendance (ListAttendanceRequest) returns (ListAttendanceResponse);
+  rpc ListOrganizationAttendanceByMonth(MonthlyOrgAttendanceRequest) returns (MonthlyOrgAttendanceResponse);
 
+  rpc AttendanceReport (AttendanceReportRequest) returns (AttendanceReportInitResponse);
+  rpc GetAttendanceReportResult (GetAttendanceReportResultRequest) returns (GetAttendanceReportResultResponse);
+
+  rpc ListAttendanceReports (ListAttendanceReportsRequest) returns (ListAttendanceReportsResponse);
   // Attendance Policies
   rpc CreateAttendancePolicy (AttendancePolicyRequest) returns (AttendancePolicyResponse);
   rpc UpdateAttendancePolicy (UpdateAttendancePolicyRequest) returns (AttendancePolicyResponse);
@@ -57,7 +62,13 @@ message RecomputeRequest {
 /* ============================================================
    ATTENDANCE OBJECT
 ============================================================ */
-
+message EmployeeObject {
+  string id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string email = 4;
+  string phone = 5;
+}
 message AttendanceObject {
   string id = 1;
   string organization_id = 2;
@@ -188,6 +199,8 @@ message AttendancePolicy {
 
 message AttendancePolicyResponse {
   AttendancePolicy policy = 1;
+  string message = 2;
+  bool success = 3;
 }
 
 message ListAttendancePolicyRequest {
@@ -196,6 +209,8 @@ message ListAttendancePolicyRequest {
 
 message ListAttendancePolicyResponse {
   repeated AttendancePolicy policies = 1;
+  string message = 2;
+  bool success = 3;
 }
 
 /* ============================================================
@@ -270,4 +285,108 @@ message ListGeoFenceRequest {
 
 message ListGeoFenceResponse {
   repeated GeoFence geofences = 1;
+}
+
+message MonthlyOrgAttendanceRequest {
+  string organization_id = 1;
+  string month = 2; // "YYYY-MM"
+}
+
+message MonthlyStats {
+  string avg_check_in = 1;
+  string avg_check_out = 2;
+  double avg_gross_hours = 3;
+  double avg_effective_hours = 4;
+
+  double attendance_rate = 5; // % value
+  int32 total_late = 6;
+
+  string most_late_employee = 7;       // employee_id
+  string best_attendance_employee = 8; // employee_id
+}
+
+message DayAttendance {
+  string date = 1;                      // formatted date, e.g. "27/11/2025"
+  string raw_date = 2;                  // ISO string if you want it
+  repeated AttendanceListItem attendance = 3; // ✅ correct
+}
+
+message MonthlyOrgAttendanceResponse {
+  repeated DayAttendance days = 1;
+  MonthlyStats stats = 4;
+  bool success = 2;
+  string message = 3;
+}
+
+message AttendanceReportRequest {
+  string organization_id = 1;
+  string department_id = 2;   // optional
+  string designation_id = 3;  // optional
+  string employee_id = 4;     // optional
+  string start_date = 5;      // optional
+  string end_date = 6;        // optional
+}
+
+// ----------------------------------------------------------
+// RESPONSE when report is INITIATED (returned immediately)
+// ----------------------------------------------------------
+message AttendanceReportInitResponse {
+  string report_id = 1;  // MongoDB ID of AttendanceReports table
+  string status = 2;     // INITIATED
+  string message = 3;    // "Report generation started"
+  bool success = 4;
+}
+
+// ----------------------------------------------------------
+// REQUEST to fetch processed report result from DB
+// ----------------------------------------------------------
+message GetAttendanceReportResultRequest {
+  string report_id = 1;
+}
+
+// ----------------------------------------------------------
+// Response with final report data or failure
+// ----------------------------------------------------------
+message GetAttendanceReportResultResponse {
+  ReportListItem report = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+
+message ListAttendanceReportsRequest {
+  string organization_id = 1;
+  uint32 page = 2;    // optional
+  uint32 limit = 3;   // optional
+}
+
+message ReportListItem {
+  string id = 1;
+  string organization_id = 2;
+  string department_id = 3;
+  string designation_id = 4;
+  string employee_id = 5;
+
+  string status = 6;
+  
+  string start_date = 7;
+  string end_date = 8;
+  
+  string initiated_at = 9;
+  string started_at = 10;
+  string completed_at = 11;
+  string failed_at = 12;
+  
+  string failing_reason = 13;
+  
+  string responseData = 14;
+  string pdf_url = 15;
+}
+
+message ListAttendanceReportsResponse {
+  repeated ReportListItem reports = 1;
+  uint32 page = 2;
+  uint32 limit = 3;
+  uint32 total = 4;
+  bool success = 5;
 }

@@ -3,67 +3,102 @@ syntax = "proto3";
 package holiday;
 
 service HolidayService {
-  rpc CreateHoliday (CreateHolidayRequest) returns (HolidayResponse);
-  rpc GetHoliday    (GetHolidayRequest)    returns (HolidayResponse);
-  rpc ListHolidays  (ListHolidaysRequest)  returns (ListHolidaysResponse);
-  rpc UpdateHoliday (UpdateHolidayRequest) returns (HolidayResponse);
-  rpc DeleteHoliday (DeleteHolidayRequest) returns (DeleteHolidayResponse);
+  rpc CreateHoliday       (CreateHolidayRequest)       returns (HolidayResponse);
+  rpc UpdateHoliday       (UpdateHolidayRequest)       returns (HolidayResponse);
+  rpc DeleteHoliday       (DeleteHolidayRequest)       returns (DeleteHolidayResponse);
+
+  rpc GetHoliday          (GetHolidayRequest)          returns (HolidayResponse);
+  rpc ListHolidays        (ListHolidaysRequest)        returns (ListHolidaysResponse);
+
+  rpc GetHolidayCalendar  (HolidayCalendarRequest)     returns (HolidayCalendarResponse);
 }
 
-// --------------------
-// Request Messages
-// --------------------
+/* =============== Holiday Object =============== */
+
+message Holiday {
+  string id              = 1;
+  string organization_id = 2;
+  string policy_id       = 3;
+  string date            = 4;  // YYYY-MM-DD
+  string name            = 5;
+  string region          = 6;
+  string type            = 7;  // PUBLIC | RESTRICTED | ...
+
+  string created_at      = 8;
+  string updated_at      = 9;
+}
+
+/* =============== CREATE / UPDATE =============== */
 
 message CreateHolidayRequest {
   string organization_id = 1;
-  string name            = 2;
-  string date            = 3; // ISO format date string
-  string region          = 4;
-}
-
-message GetHolidayRequest {
-  string id = 1;
+  string policy_id       = 2;
+  string date            = 3;
+  string name            = 4;
+  string region          = 5;
+  string type            = 6; // PUBLIC | RESTRICTED | OPTIONAL | WEEK_OFF | COMPANY_EVENT
 }
 
 message UpdateHolidayRequest {
-  string id              = 1;
-  string organization_id = 2;
-  string name            = 3;
-  string date            = 4;
+  string holiday_id      = 1;
+  string policy_id       = 2;
+  string date            = 3;
+  string name            = 4;
   string region          = 5;
+  string type            = 6;
 }
+
+/* =============== DELETE =============== */
 
 message DeleteHolidayRequest {
-  string id = 1;
+  string holiday_id = 1;
 }
-
-message ListHolidaysRequest {
-  string organization_id = 1;
-  string region          = 2; // optional filter
-}
-
-// --------------------
-// Response Messages
-// --------------------
 
 message DeleteHolidayResponse {
   bool success = 1;
   string message = 2;
 }
 
-message Holiday {
-  string id                = 1;
-  string organization_id   = 2;
-  string organization_name = 3;
-  string name              = 4;
-  string date              = 5;
-  string region            = 6;
+/* =============== GET / LIST =============== */
+
+message GetHolidayRequest {
+  string holiday_id = 1;
 }
 
 message HolidayResponse {
   Holiday holiday = 1;
+  string message  = 2;
+}
+
+message ListHolidaysRequest {
+  string organization_id = 1;
+  string year            = 2; // optional: YYYY
+  string type            = 3; // optional: PUBLIC | ...
+  string region          = 4; // optional
+  string policy_id       = 5; // optional
 }
 
 message ListHolidaysResponse {
-  repeated Holiday holidays = 1;
+  repeated Holiday holidays   = 1;
+  int32           total_count = 2;
+}
+
+/* =============== CALENDAR =============== */
+
+message HolidayCalendarRequest {
+  string organization_id = 1;
+  string month           = 2; // YYYY-MM
+  string policy_id       = 3; // optional
+  string region          = 4; // optional
+}
+
+message HolidayCalendarDay {
+  string date       = 1;
+  bool   is_holiday = 2;
+  string name       = 3;
+  string type       = 4;
+}
+
+message HolidayCalendarResponse {
+  repeated HolidayCalendarDay days = 1;
 }

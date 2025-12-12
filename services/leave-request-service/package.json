@@ -1,11 +1,10 @@
 {
-    "name": "@jury-hrms/attendance-service",
+    "name": "@jury-hrms/leave-request-service",
     "version": "0.1.0",
     "type": "module",
     "main": "server.js",
     "dependencies": {
         "@jury-hrms/db": "*",
-        "@jury-hrms/files": "*",
         "@jury-hrms/proto": "*",
         "@prisma/client": "latest"
     }

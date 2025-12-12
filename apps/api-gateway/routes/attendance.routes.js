@@ -10,8 +10,8 @@ export default function registerAttendanceRoutes({ openapi }) {
     .object({
       employee_id: z.string(),
       ip_address: z.string().optional(),
-      latitude: z.number().optional(),
-      longitude: z.number().optional(),
+      latitude: z.number().optional().nullable(),
+      longitude: z.number().optional().nullable(),
       source: z.string().optional(),
     })
     .strict();
@@ -27,6 +27,23 @@ export default function registerAttendanceRoutes({ openapi }) {
         .optional(),
     })
     .strict();
+
+  const orgAttendanceReportQuerySchema = z.object({
+    organization_id: z.string(),
+
+    // Optional filters
+    department_id: z.string().optional(),
+    designation_id: z.string().optional(),
+    employee_id: z.string().optional(),
+
+    start_date: z.string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "start_date must be YYYY-MM-DD")
+      .optional(),
+
+    end_date: z.string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "end_date must be YYYY-MM-DD")
+      .optional(),
+  });
 
   const attendanceObjectSchema = z.object({
     id: z.string(),
@@ -192,6 +209,74 @@ export default function registerAttendanceRoutes({ openapi }) {
         );
       }
     },
+  );
+
+  const orgMonthlyAttendanceQuerySchema = z.object({
+    organization_id: z.string(),
+    month: z.string().regex(/^\d{4}-\d{2}$/, "month must be YYYY-MM"),
+  });
+
+  /* ============================================================
+    Organization Day-wise Monthly Attendance
+ ============================================================ */
+
+  openapi(
+    {
+      method: 'get',
+      path: '/attendance/organization-monthly',
+      tags: ['Attendance'],
+      summary: 'Day-wise attendance of ALL employees in an organization for a month',
+      request: {
+        query: orgMonthlyAttendanceQuerySchema,
+      },
+      responses: {
+        200: {
+          description: 'Organizational attendance grouped by day',
+          content: {
+            'application/json': {
+              schema: z.object({
+                days: z.array(
+                  z.object({
+                    date: z.string(),
+                    raw_date: z.string(),
+                    attendance: z.array(attendanceObjectSchema),
+                  })
+                ),
+                success: z.boolean(),
+                message: z.string(),
+              }),
+            },
+          },
+        },
+        400: { description: 'Validation failed' },
+      },
+    },
+    async (c) => {
+      try {
+        const query = c.req.valid('query');
+
+        const resp = await new Promise((resolve, reject) => {
+          attendanceClient.ListOrganizationAttendanceByMonth(
+            {
+              organization_id: query.organization_id,
+              month: query.month,
+            },
+            (err, res) => {
+              if (err) return reject(err);
+              resolve(res);
+            }
+          );
+        });
+
+        return c.json(resp, 200);
+      } catch (error) {
+        console.error('[organization-monthly-attendance route]', error);
+        return c.json(
+          { error: error.message || 'Internal server error' },
+          500
+        );
+      }
+    }
   );
 
   // ------------------ Check-Out ------------------
@@ -367,6 +452,227 @@ export default function registerAttendanceRoutes({ openapi }) {
       }
     },
   );
+
+  /* ============================================================
+   Organization Attendance Report
+  ============================================================ */
+
+  openapi(
+    {
+      method: 'get',
+      path: '/attendance/report',
+      tags: ['Attendance'],
+      summary: 'Initiate attendance report generation (async)',
+      request: {
+        query: orgAttendanceReportQuerySchema,
+      },
+      responses: {
+        200: {
+          description: 'Report job started',
+          content: {
+            'application/json': {
+              schema: z.object({
+                report_id: z.string(),
+                status: z.string(),
+                success: z.boolean(),
+                message: z.string(),
+              }),
+            },
+          },
+        },
+        400: { description: 'Validation failed' },
+      },
+    },
+    async (c) => {
+      try {
+        const query = c.req.valid('query');
+
+        const payload = {
+          organization_id: query.organization_id,
+          department_id: query.department_id || "",
+          designation_id: query.designation_id || "",
+          employee_id: query.employee_id || "",
+          start_date: query.start_date || "",
+          end_date: query.end_date || "",
+        };
+
+        const resp = await new Promise((resolve, reject) => {
+          attendanceClient.AttendanceReport(payload, (err, res) => {
+            if (err) return reject(err);
+            resolve(res);
+          });
+        });
+
+        return c.json(resp, 200);
+
+      } catch (error) {
+        console.error('[attendance-report route]', error);
+        return c.json(
+          { error: error.message || 'Internal server error' },
+          500
+        );
+      }
+    }
+  );
+
+  const getReportResultSchema = z.object({
+    report_id: z.string().min(24).max(24),
+  });
+
+  openapi(
+    {
+      method: 'get',
+      path: '/attendance/report/result',
+      tags: ['Attendance'],
+      summary: 'Fetch the processed attendance report (after async generation)',
+      request: {
+        query: getReportResultSchema,
+      },
+      responses: {
+        200: {
+          description: 'Report result fetched',
+          content: {
+            'application/json': {
+              schema: z.object({
+                report: z.object({
+                  id: z.string(),
+                  organization_id: z.string(),
+                  department_id: z.string(),
+                  designation_id: z.string(),
+                  employee_id: z.string(),
+
+                  status: z.string(),
+
+                  start_date: z.string(),
+                  end_date: z.string(),
+
+                  initiated_at: z.string(),
+                  started_at: z.string(),
+                  completed_at: z.string(),
+                  failed_at: z.string(),
+
+                  failing_reason: z.string(),
+                }),
+                success: z.boolean(),
+                message: z.string(),
+              }),
+            },
+          },
+        },
+      },
+    },
+    async (c) => {
+      try {
+        const query = c.req.valid('query');
+
+        const resp = await new Promise((resolve, reject) => {
+          attendanceClient.GetAttendanceReportResult(
+            { report_id: query.report_id },
+            (err, res) => {
+              if (err) return reject(err);
+              resolve(res);
+            }
+          );
+        });
+
+        return c.json({
+          ...resp,
+          report: {
+            ...resp.report,
+            data: JSON.parse(resp.report.responseData).sort((a, b) => new Date(b.date) - new Date(a.date)),
+          }
+        }, 200);
+
+      } catch (error) {
+        console.error('[attendance-report-result route]', error);
+        return c.json(
+          { error: error.message || 'Internal server error' },
+          500
+        );
+      }
+    }
+  );
+  const listReportsSchema = z.object({
+    organization_id: z.string().min(24).max(24),
+    page: z.string().optional(),
+    limit: z.string().optional(),
+  });
+
+  openapi(
+    {
+      method: 'get',
+      path: '/attendance/report/list',
+      tags: ['Attendance'],
+      summary: 'List all attendance report requests with pagination',
+      request: {
+        query: listReportsSchema,
+      },
+      responses: {
+        200: {
+          description: 'Paginated list of reports',
+          content: {
+            'application/json': {
+              schema: z.object({
+                reports: z.array(
+                  z.object({
+                    id: z.string(),
+                    organization_id: z.string(),
+                    department_id: z.string(),
+                    designation_id: z.string(),
+                    employee_id: z.string(),
+
+                    status: z.string(),
+
+                    start_date: z.string(),
+                    end_date: z.string(),
+
+                    initiated_at: z.string(),
+                    started_at: z.string(),
+                    completed_at: z.string(),
+                    failed_at: z.string(),
+
+                    failing_reason: z.string(),
+                  })
+                ),
+                page: z.number(),
+                limit: z.number(),
+                total: z.number(),
+                success: z.boolean(),
+              }),
+            },
+          },
+        },
+      },
+    },
+    async (c) => {
+      try {
+        const query = c.req.valid('query');
+
+        const payload = {
+          organization_id: query.organization_id,
+          page: Number(query.page) || 1,
+          limit: Number(query.limit) || 10,
+        };
+
+        const resp = await new Promise((resolve, reject) => {
+          attendanceClient.ListAttendanceReports(payload, (err, res) => {
+            if (err) return reject(err);
+            resolve(res);
+          });
+        });
+
+        return c.json(resp, 200);
+
+      } catch (error) {
+        console.error('[attendance-report-list route]', error);
+        return c.json(
+          { error: error.message || 'Internal server error' },
+          500
+        );
+      }
+    }
+  );
+
 
   /* ============================================================
      Attendance Policy Routes
