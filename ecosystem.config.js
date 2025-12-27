@@ -1,20 +1,17 @@
-// ecosystem.config.js
 module.exports = {
     apps: [
         {
             name: "Jury-HRMS||Backend",
             script: "npm",
             args: "run start",
-            cwd: __dirname,              // runs from project root
-            instances: 1,                // set to "max" for cluster mode
-            exec_mode: "fork",           // or "cluster"
+            interpreter: "bash",
+            instances: 1,
             autorestart: true,
-            watch: false,                // set true only if you want auto-reload on file changes
-            max_memory_restart: "512M",
+            watch: false,
+            max_memory_restart: "300M",
             env: {
-                NODE_ENV: "production",
-                PORT: "3000",
-            },
-        },
-    ],
+                NODE_ENV: "production"
+            }
+        }
+    ]
 };
