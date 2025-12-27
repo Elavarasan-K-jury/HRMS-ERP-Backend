@@ -1,630 +1,241 @@
-// src/services/salary/salaryCalculationEngine.js
-import { PrismaClient } from "@prisma/client";
-import { create, all } from "mathjs";
+import { prisma } from "@jury-hrms/db/client.js";
+import { calculateSalary } from "./calculator.js";
 
-const prisma = new PrismaClient();
-
-// ============================================================
-// MATHJS SAFE SANDBOX
-// ============================================================
-const math = create(all, {});
-math.import(
-    {
-        import: () => { throw new Error("import() disabled"); },
-        createUnit: () => { throw new Error("createUnit() disabled"); },
-        evaluate: () => { throw new Error("evaluate() disabled"); }
-    },
-    { override: true }
-);
-
-// ============================================================
-// SAFE NUMBER HANDLER
-// ============================================================
-function toSafeNumber(val) {
-    try {
-        if (val === null || val === undefined) return 0;
-        if (typeof val === "number") return val;
-        if (typeof val === "bigint") return Number(val);
-        if (typeof val === "string") return Number(val);
-        if (typeof val === "object" && val.toNumber) return val.toNumber();
-        return Number(val);
-    } catch {
-        return 0;
-    }
+/* ============================================================
+   UTILS
+============================================================ */
+function pickRange(ranges, gross) {
+    const g = Number(gross);
+    return ranges.find(r => {
+        const low = Number(r.grossLow ?? 0);
+        const high = r.grossHigh == null ? Infinity : Number(r.grossHigh);
+        return g >= low && g <= high;
+    });
 }
 
-// ============================================================
-// SAFE DATE FORMATTER
-// ============================================================
-function safeDate(date) {
-    try {
-        if (!date) return "";
-        return date instanceof Date ? date.toISOString() : "";
-    } catch {
-        return "";
-    }
+/* ============================================================
+   LOAD FINANCE FLAGS
+============================================================ */
+async function loadFinanceConfig(organizationId) {
+    const finance = await prisma.orgaizationFinance.findFirst({
+        where: { organizationId, deletedAt: null },
+    });
+
+    return {
+        enablePf: finance?.enablePf ?? false,
+        enableEsi: finance?.enableEsi ?? false,
+        enablePtax: finance?.enablePtax ?? false,
+        pfFormula: finance?.pfFormula,
+        esiFormula: finance?.esiFormula,
+        ptaxFormula: finance?.ptaxFormula,
+    };
 }
 
-// ============================================================
-// SAFE FORMULA EVALUATION
-// ============================================================
-function evaluateFormula(formula, context) {
-    try {
-        if (!formula || !formula.trim()) return 0;
-
-        const node = math.parse(formula);
-        return toSafeNumber(node.evaluate(context));
-    } catch (err) {
-        console.error("❌ Formula Error:", { formula, context, err });
-        return 0;
-    }
+/* ============================================================
+   NORMALIZE TEMPLATE COMPONENTS
+============================================================ */
+function normalizeTemplateComponents(components) {
+    return components.map(tc => ({
+        componentId: tc.componentId,
+        componentKey: tc.component.key,
+        componentName: tc.component.name,
+        kind: tc.kind,
+        priority: tc.priority,
+        value: tc.value,
+        formula: tc.formula || tc.component.defaultFormula,
+        minValue: tc.minValue,
+        maxValue: tc.maxValue,
+        condition: tc.condition,
+    }));
 }
 
-// ============================================================
-// MAIN ENGINE - FIXED VERSION
-// ============================================================
+/* ============================================================
+   1️⃣ CALCULATE SALARY STRUCTURE (DB WRITE)
+============================================================ */
 export async function calculateSalaryStructure(structureId) {
-    try {
-        console.log("🚀 Starting calculation for structure:", structureId);
 
-        // 1️⃣ FETCH STRUCTURE WITH PROPER INCLUDES
-        const structure = await prisma.salaryStructure.findUnique({
-            where: { id: structureId.toString() },
-            include: {
-                template: {
-                    include: {
-                        components: {
-                            include: {
-                                component: true
-                            },
-                            orderBy: { priority: 'asc' }
-                        }
-                    }
-                },
-                components: {
-                    include: { component: true }
-                }
-            }
-        });
+    const structure = await prisma.salaryStructure.findUnique({
+        where: { id: structureId },
+        include: {
+            employee: true,
+            template: true,
+        },
+    });
 
-        if (!structure) {
-            throw new Error(`SalaryStructure with id ${structureId} not found`);
-        }
+    if (!structure) throw new Error("Salary structure not found");
 
-        console.log("📊 Found structure with template:", structure.templateId);
-        console.log("📦 Template has components:", structure.template?.components?.length || 0);
+    const grossAnnual = Number(structure.grossAnnual);
+    const grossMonthly = grossAnnual / 12;
 
-        // 2️⃣ VALIDATION - Template must exist and have components
-        if (!structure.template) {
-            throw new Error("Salary template not found for this structure");
-        }
+    /* ---------------- PICK RANGE ---------------- */
+    const ranges = await prisma.salaryTemplateRange.findMany({
+        where: {
+            templateId: structure.templateId,
+            deletedAt: null,
+        },
+        orderBy: { grossLow: "asc" },
+    });
 
-        // 🔥 FILTER OUT SOFT-DELETED & INACTIVE COMPONENTS (can't do in Prisma query)
-        const templateComponents = (structure.template.components || [])
-            .filter(tc => !tc.deletedAt && tc.component && tc.component.isActive && !tc.component.deletedAt);
+    const range = pickRange(ranges, grossAnnual);
+    if (!range) throw new Error("No matching salary range found");
 
-        if (templateComponents.length === 0) {
-            console.warn("⚠️ Template has no active components defined");
-        }
+    /* ---------------- LOAD RANGE COMPONENTS ---------------- */
+    const templateComponents = await prisma.templateComponent.findMany({
+        where: {
+            templateId: structure.templateId,
+            rangeId: range.id,
+            deletedAt: null,
+        },
+        include: { component: true },
+        orderBy: { priority: "asc" },
+    });
 
-        const existingComponents = (structure.components || [])
-            .filter(sc => !sc.deletedAt);
+    /* ---------------- LOAD FINANCE CONFIG ---------------- */
+    const finance = await loadFinanceConfig(structure.employee.organizationId);
 
-        // 3️⃣ INITIAL EVALUATION CONTEXT
-        const context = {
-            gross: toSafeNumber(structure.grossAnnual),
-            grossAnnual: toSafeNumber(structure.grossAnnual),
-            ctc: toSafeNumber(structure.grossAnnual)
-        };
+    /* ---------------- SPLIT COMPONENTS ---------------- */
+    const earnings = templateComponents.filter(c => c.kind === "EARNING");
+    const employeeDeductions = templateComponents.filter(c => c.kind === "EMPLOYEE");
+    const employerContribs = templateComponents.filter(c => c.kind === "EMPLOYER");
 
-        console.log("💰 Starting context:", context);
+    /* ---------------- CALCULATE GROSS (100%) ---------------- */
+    const earningResult = calculateSalary({
+        baseInput: { gross: grossMonthly },
+        components: normalizeTemplateComponents(earnings),
+    });
 
-        const processedComponentIds = new Set();
-        const resultRows = [];
+    const grossComputed = earningResult.totals.totalEarnings;
 
-        let totalEarnings = 0;
-        let totalDeductions = 0;
-        let totalBenefits = 0;
+    /* ---------------- APPLY FINANCE (OUTSIDE GROSS) ---------------- */
+    const deductionResult = finance.enablePf || finance.enableEsi || finance.enablePtax
+        ? calculateSalary({
+            baseInput: { gross: grossComputed },
+            components: normalizeTemplateComponents(employeeDeductions),
+        })
+        : { components: [], totals: { totalDeductions: 0 } };
 
-        // ============================================================
-        // PROCESS COMPONENT FUNCTION
-        // ============================================================
-        const processComponent = (componentDef, templateComp = null, existingSC = null) => {
-            // Validate component definition
-            if (!componentDef) {
-                console.warn("⚠️ Skipping: No component definition");
-                return;
-            }
+    const employerResult = finance.enablePf || finance.enableEsi
+        ? calculateSalary({
+            baseInput: { gross: grossComputed },
+            components: normalizeTemplateComponents(employerContribs),
+        })
+        : { components: [], totals: { totalEmployer: 0 } };
 
-            if (!componentDef.isActive) {
-                console.log(`⏭️ Skipping inactive component: ${componentDef.name}`);
-                return;
-            }
+    /* ---------------- FINAL TOTALS ---------------- */
+    const totalEarnings = earningResult.totals.totalEarnings;
+    const totalDeductions = deductionResult.totals.totalDeductions || 0;
+    const totalEmployer = employerResult.totals.totalEmployer || 0;
 
-            const componentId = componentDef.id.toString();
+    const inHandMonthly = totalEarnings - totalDeductions;
+    const ctcMonthly = totalEarnings + totalEmployer;
 
-            // Check if already processed
-            if (processedComponentIds.has(componentId)) {
-                console.log(`⏭️ Already processed: ${componentDef.name}`);
-                return;
-            }
+    /* ---------------- PERSIST STRUCTURE COMPONENTS ---------------- */
+    await prisma.structureComponent.deleteMany({
+        where: { structureId },
+    });
 
-            console.log(`\n🔧 Processing: ${componentDef.name} (${componentDef.key})`);
+    const allComponents = [
+        ...earningResult.components,
+        ...deductionResult.components,
+        ...employerResult.components,
+    ];
 
-            // 🔥 CHECK CONDITION (if defined in template)
-            if (templateComp?.condition) {
-                const conditionMet = !!evaluateFormula(templateComp.condition, context);
-                console.log(`  📝 Condition check: "${templateComp.condition}" = ${conditionMet}`);
-                if (!conditionMet) {
-                    console.log(`  ⏭️ Skipping: Condition not met`);
-                    return;
-                }
-            }
+    await prisma.structureComponent.createMany({
+        data: allComponents.map(c => ({
+            structureId,
+            componentId: c.componentId,
+            value: c.value,
+            formula: c.formula || null,
+            annualAmount: c.value * 12,
+            monthlyAmount: c.value,
+            isOverridden: false,
+        })),
+    });
 
-            // 🔥 DETERMINE OVERRIDE STATUS
-            const isOverridden = existingSC?.isOverridden ?? false;
-            const overrideNote = existingSC?.overrideNote ?? "";
-
-            // 🔥 PRIORITY: existingStructureComponent value > templateComponent value > formula
-            let finalValue = null;
-            let finalFormula = null;
-            let calculationSource = "default";
-
-            // First, check for fixed value (highest priority)
-            // 1️⃣ Highest priority — Structure override value
-            if (existingSC?.value !== null && existingSC?.value !== undefined) {
-                finalValue = toSafeNumber(existingSC.value);
-                calculationSource = "structure_value";
-            }
-
-            // 2️⃣ Template fixed value — ONLY when non-zero
-            else if (templateComp?.value !== null &&
-                templateComp?.value !== undefined &&
-                templateComp.value !== 0) {
-
-                finalValue = toSafeNumber(templateComp.value);
-                calculationSource = "template_value";
-            }
-
-            // 3️⃣ No fixed value → use formula always
-            else {
-                finalFormula = existingSC?.formula ||
-                    templateComp?.formula ||
-                    componentDef.defaultFormula ||
-                    null;
-
-                if (finalFormula) {
-                    finalValue = evaluateFormula(finalFormula, context);
-                    calculationSource = "formula";
-                } else {
-                    finalValue = 0;
-                    calculationSource = "zero_default";
-                }
-            }
-
-
-            console.log(`  💡 Calculation source: ${calculationSource}`);
-            console.log(`  🔢 Raw value: ${finalValue}`);
-
-            // 🔥 APPLY MIN/MAX CONSTRAINTS (from template)
-            if (templateComp) {
-                if (templateComp.minValue !== null && finalValue < templateComp.minValue) {
-                    console.log(`  ⬆️ Applied min value: ${templateComp.minValue}`);
-                    finalValue = templateComp.minValue;
-                }
-                if (templateComp.maxValue !== null && finalValue > templateComp.maxValue) {
-                    console.log(`  ⬇️ Applied max value: ${templateComp.maxValue}`);
-                    finalValue = templateComp.maxValue;
-                }
-            }
-
-            const annual = toSafeNumber(finalValue);
-            const monthly = toSafeNumber((annual / 12).toFixed(2));
-
-            console.log(`  💵 Final amounts - Annual: ${annual}, Monthly: ${monthly}`);
-
-            // 🔥 UPDATE CONTEXT for dependent calculations
-            if (componentDef.key) {
-                context[componentDef.key] = annual;
-                console.log(`  📌 Set context[${componentDef.key}] = ${annual}`);
-            }
-
-            // 🔥 CATEGORIZE INTO BUCKETS
-            const componentType = (componentDef.type || "").toLowerCase();
-            switch (componentType) {
-                case "earning":
-                    totalEarnings += annual;
-                    console.log(`  ✅ Added to earnings: ${annual}`);
-                    break;
-                case "deduction":
-                    totalDeductions += annual;
-                    console.log(`  ➖ Added to deductions: ${annual}`);
-                    break;
-                case "benefit":
-                case "reimbursement":
-                    totalBenefits += annual;
-                    console.log(`  🎁 Added to benefits: ${annual}`);
-                    break;
-                default:
-                    console.log(`  ⚠️ Unknown type: ${componentType}`);
-            }
-
-            // 🔥 BUILD COMPONENT RECORD
-            resultRows.push({
-                structureId: structure.id.toString(),
-                componentId: componentId,
-                formula: finalFormula || "",
-                value: (calculationSource.includes("value")) ? finalValue : null,
-                annualAmount: annual,
-                monthlyAmount: monthly,
-                isOverridden,
-                overrideNote
-            });
-
-            processedComponentIds.add(componentId);
-            console.log(`  ✅ Component processed successfully`);
-        };
-
-        // ============================================================
-        // PROCESS TEMPLATE COMPONENTS IN PRIORITY ORDER
-        // ============================================================
-        console.log("\n📋 Processing template components...");
-
-        for (const tc of templateComponents) {
-            const componentDef = tc.component;
-
-            if (!componentDef) {
-                console.warn(`⚠️ Template component ${tc.id} has no component definition`);
-                continue;
-            }
-
-            // Find existing structure component for this component
-            const existingSC = existingComponents.find(
-                (sc) => sc.componentId.toString() === tc.componentId.toString()
-            );
-
-            processComponent(componentDef, tc, existingSC);
-        }
-
-        // ============================================================
-        // PROCESS STRUCTURE-ONLY COMPONENTS (manually added)
-        // ============================================================
-        console.log("\n📋 Checking for structure-only components...");
-
-        for (const sc of existingComponents) {
-            const componentId = sc.componentId.toString();
-
-            if (processedComponentIds.has(componentId)) {
-                console.log(`⏭️ Already processed: ${componentId}`);
-                continue;
-            }
-
-            console.log(`🔧 Processing structure-only component: ${componentId}`);
-            processComponent(sc.component, null, sc);
-        }
-
-        console.log("\n📊 CALCULATION SUMMARY:");
-        console.log(`  Components processed: ${resultRows.length}`);
-        console.log(`  Total Earnings: ${totalEarnings}`);
-        console.log(`  Total Deductions: ${totalDeductions}`);
-        console.log(`  Total Benefits: ${totalBenefits}`);
-
-        // ============================================================
-        // WRITE TO DATABASE
-        // ============================================================
-        console.log("\n💾 Writing to database...");
-
-        // Delete existing components
-        const deletedCount = await prisma.structureComponent.deleteMany({
-            where: { structureId: structure.id.toString() }
-        });
-        console.log(`  🗑️ Deleted ${deletedCount.count} existing components`);
-
-        // Create new components
-        if (resultRows.length > 0) {
-            const created = await prisma.structureComponent.createMany({
-                data: resultRows
-            });
-            console.log(`  ✅ Created ${created.count} new components`);
-        } else {
-            console.warn("  ⚠️ No components to create!");
-        }
-
-        // ============================================================
-        // COMPUTE FINAL TOTALS
-        // ============================================================
-        const inHandAnnual = toSafeNumber(totalEarnings - totalDeductions);
-        const inHandMonthly = toSafeNumber((inHandAnnual / 12).toFixed(2));
-
-        console.log(`  💰 In-Hand Annual: ${inHandAnnual}`);
-        console.log(`  💵 In-Hand Monthly: ${inHandMonthly}`);
-
-        // ============================================================
-        // UPDATE STRUCTURE WITH TOTALS
-        // ============================================================
-        const updated = await prisma.salaryStructure.update({
-            where: { id: structure.id.toString() },
-            data: {
-                totalEarnings,
-                totalDeductions,
-                totalBenefits,
-                inHandAnnual,
-                inHandMonthly
-            },
-            include: {
-                components: {
-                    include: {
-                        component: true
-                    }
-                },
-                template: {
-                    include: {
-                        components: {
-                            include: {
-                                component: true
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        console.log("✅ Structure updated successfully\n");
-
-        // ============================================================
-        // FORMAT FINAL OUTPUT
-        // ============================================================
-        return {
-            id: updated.id.toString(),
-            employeeId: updated.employeeId.toString(),
-            templateId: updated.templateId?.toString() || "",
-            grossAnnual: toSafeNumber(updated.grossAnnual),
-
+    /* ---------------- UPDATE STRUCTURE TOTALS ---------------- */
+    await prisma.salaryStructure.update({
+        where: { id: structureId },
+        data: {
             totalEarnings,
             totalDeductions,
-            totalBenefits,
-            inHandAnnual,
+            totalBenefits: totalEmployer,
+            inHandAnnual: inHandMonthly * 12,
             inHandMonthly,
+            updatedAt: new Date(),
+        },
+    });
 
-            status: updated.status,
-            effectiveFrom: safeDate(updated.effectiveFrom),
-            effectiveTo: safeDate(updated.effectiveTo),
-
-            deductFromInHand: updated.deductFromInHand,
-            isCurrentActive: updated.isCurrentActive,
-
-            components: updated.components.map((sc) => ({
-                id: sc.id.toString(),
-                componentId: sc.componentId.toString(),
-                componentKey: sc.component?.key || "",
-                componentName: sc.component?.name || "",
-                componentType: sc.component?.type.toUpperCase() || "",
-                formula: sc.formula || "",
-                value: toSafeNumber(sc.value),
-                annualAmount: toSafeNumber(sc.annualAmount),
-                monthlyAmount: toSafeNumber(sc.monthlyAmount),
-                isOverridden: sc.isOverridden,
-                overrideNote: sc.overrideNote || ""
-            }))
-        };
-
-    } catch (err) {
-        console.error("❌ calculateSalaryStructure FAILED:", err);
-        console.error("Stack trace:", err.stack);
-        throw new Error(`Salary calculation failed: ${err.message}`);
-    }
+    return {
+        structureId,
+        templateId: structure.templateId,
+        rangeId: range.id,
+        grossAnnual,
+        grossMonthly,
+        totals: {
+            totalEarnings,
+            totalDeductions,
+            totalEmployer,
+            inHandMonthly,
+            ctcMonthly,
+        },
+        components: allComponents,
+    };
 }
 
-// ============================================================
-// 🔥 BONUS: BULK RECALCULATION FOR MULTIPLE EMPLOYEES
-// ============================================================
+/* ============================================================
+   2️⃣ DRY RUN (PREVIEW)
+============================================================ */
+export async function calculateSalaryStructureDryRun(templateId, grossAnnual) {
+    const ranges = await prisma.salaryTemplateRange.findMany({
+        where: { templateId, deletedAt: null },
+        orderBy: { grossLow: "asc" },
+    });
+
+    const range = pickRange(ranges, grossAnnual);
+    if (!range) throw new Error("No matching range");
+
+    const components = await prisma.templateComponent.findMany({
+        where: {
+            templateId,
+            rangeId: range.id,
+            deletedAt: null,
+        },
+        include: { component: true },
+        orderBy: { priority: "asc" },
+    });
+
+    return calculateSalary({
+        baseInput: { gross: grossAnnual / 12 },
+        components: normalizeTemplateComponents(components),
+    });
+}
+
+/* ============================================================
+   3️⃣ BULK RECALCULATE
+============================================================ */
 export async function bulkRecalculateStructures(employeeIds) {
     const results = [];
     const errors = [];
 
-    for (const empId of employeeIds) {
+    for (const employeeId of employeeIds) {
         try {
             const structure = await prisma.salaryStructure.findFirst({
                 where: {
-                    employeeId: empId.toString(),
+                    employeeId,
                     isCurrentActive: true,
-                    status: "ACTIVE"
-                }
+                    deletedAt: null,
+                },
             });
 
-            if (structure) {
-                const computed = await calculateSalaryStructure(structure.id.toString());
-                results.push({
-                    employeeId: empId.toString(),
-                    structureId: structure.id.toString(),
-                    success: true
-                });
-            } else {
-                errors.push({
-                    employeeId: empId.toString(),
-                    error: "No active salary structure found"
-                });
-            }
-        } catch (err) {
-            errors.push({
-                employeeId: empId.toString(),
-                error: err.message
-            });
+            if (!structure) throw new Error("No active structure");
+
+            await calculateSalaryStructure(structure.id);
+            results.push({ employeeId, structureId: structure.id });
+
+        } catch (e) {
+            errors.push({ employeeId, error: e.message });
         }
     }
 
     return { results, errors };
-}
-
-/**
- * ============================================================
- * 🔥 NEW — DRY RUN CALCULATION (NO DB WRITE)
- * ============================================================
- * @param {string} templateId
- * @param {number} grossAnnual
- * @returns {object} computed salary structure summary
- * ============================================================
- */
-export async function calculateSalaryStructureDryRun(templateId, grossAnnual) {
-    console.log("🟡 DRY RUN: Starting calculation for template:", templateId);
-
-    if (!templateId || !grossAnnual) {
-        throw new Error("templateId & grossAnnual are required");
-    }
-
-    // 1️⃣ Load template + components
-    const template = await prisma.salaryTemplate.findUnique({
-        where: { id: templateId.toString() },
-        include: {
-            components: {
-                include: { component: true },
-                orderBy: { priority: "asc" }
-            }
-        }
-    });
-
-    if (!template) throw new Error("Template not found");
-
-    // Filter active components
-    const templateComponents = (template.components || [])
-        .filter(tc => tc.component && tc.component.isActive);
-
-    // 2️⃣ Base context
-    const context = {
-        gross: toSafeNumber(grossAnnual),
-        grossAnnual: toSafeNumber(grossAnnual),
-        ctc: toSafeNumber(grossAnnual)
-    };
-
-    console.log("💰 DRY RUN context:", context);
-
-    let totalEarnings = 0;
-    let totalDeductions = 0;
-    let totalBenefits = 0;
-
-    const resultRows = [];
-    const processedComponentIds = new Set();
-
-    // ============================================================
-    // INTERNAL PROCESSOR (same as main engine, but no DB writes)
-    // ============================================================
-    const processComponent = (componentDef, templateComp = null) => {
-        if (!componentDef || !componentDef.isActive) return;
-
-        const componentId = componentDef.id.toString();
-        if (processedComponentIds.has(componentId)) return;
-
-        console.log(`\n🔧 DRY RUN Processing: ${componentDef.name} (${componentDef.key})`);
-
-        // 1️⃣ Condition check
-        if (templateComp?.condition) {
-            const conditionMet = !!evaluateFormula(templateComp.condition, context);
-            console.log(`  📝 Condition: "${templateComp.condition}" = ${conditionMet}`);
-            if (!conditionMet) return;
-        }
-
-        let finalValue = null;
-        let finalFormula = null;
-        let calculationSource = "default";
-
-        // 2️⃣ Template fixed value (only if non-zero)
-        if (templateComp?.value !== undefined &&
-            templateComp.value !== null &&
-            templateComp.value !== 0) {
-
-            finalValue = toSafeNumber(templateComp.value);
-            calculationSource = "template_value";
-        }
-        // 3️⃣ Formula calculation
-        else {
-            finalFormula =
-                templateComp?.formula ||
-                componentDef.defaultFormula ||
-                null;
-
-            if (finalFormula) {
-                finalValue = evaluateFormula(finalFormula, context);
-                calculationSource = "formula";
-            } else {
-                finalValue = 0;
-                calculationSource = "zero_default";
-            }
-        }
-
-        console.log(`  🔢 RAW VALUE = ${finalValue}`);
-
-        // 🔥 Apply MIN / MAX — treat 0 as "no limit"
-        if (templateComp) {
-            if (templateComp.minValue > 0 && finalValue < templateComp.minValue) {
-                finalValue = templateComp.minValue;
-                console.log(`  ⬆️ Applied MIN: ${finalValue}`);
-            }
-            if (templateComp.maxValue > 0 && finalValue > templateComp.maxValue) {
-                finalValue = templateComp.maxValue;
-                console.log(`  ⬇️ Applied MAX: ${finalValue}`);
-            }
-        }
-
-        const annual = toSafeNumber(finalValue);
-        const monthly = toSafeNumber((annual / 12).toFixed(2));
-
-        console.log(`  💵 Annual = ${annual}, Monthly = ${monthly}`);
-
-        // 4️⃣ Update context
-        if (componentDef.key) {
-            context[componentDef.key] = annual;
-        }
-
-        // 5️⃣ Add totals
-        const type = (componentDef.type || "").toLowerCase();
-        if (type === "earning") totalEarnings += annual;
-        else if (type === "deduction") totalDeductions += annual;
-        else if (type === "benefit" || type === "reimbursement") totalBenefits += annual;
-
-        // 6️⃣ Push result row
-        resultRows.push({
-            id: "preview",
-            componentId: componentId,
-            componentKey: componentDef.key,
-            componentName: componentDef.name,
-            componentType: componentDef.type?.toUpperCase() || "",
-            formula: finalFormula || "",
-            value: calculationSource.includes("value") ? finalValue : null,
-            annualAmount: annual,
-            monthlyAmount: monthly,
-            isOverridden: false,
-            overrideNote: ""
-        });
-
-        processedComponentIds.add(componentId);
-    };
-
-    // ============================================================
-    // PROCESS TEMPLATE COMPONENTS
-    // ============================================================
-    for (const tc of templateComponents) {
-        processComponent(tc.component, tc);
-    }
-
-    // ============================================================
-    // FINAL TOTALS
-    // ============================================================
-    const inHandAnnual = totalEarnings - totalDeductions;
-    const inHandMonthly = toSafeNumber((inHandAnnual / 12).toFixed(2));
-
-    // ============================================================
-    // RETURN DRY STRUCTURE
-    // ============================================================
-    const result = {
-        grossAnnual: toSafeNumber(grossAnnual),
-        totalEarnings,
-        totalDeductions,
-        totalBenefits,
-        inHandAnnual,
-        inHandMonthly,
-        components: resultRows
-    };
-
-    console.log("\n🟡 DRY RUN RESULT:", result);
-    return result;
 }

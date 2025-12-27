@@ -11,7 +11,7 @@ import {
 } from './handlers/ComponentDefinition.handler.js'
 import {
     listSalaryTemplatesFunc,
-    getSalaryTemplateBuilderDataFunc,
+    // getSalaryTemplateBuilderDataFunc,
     deleteSalaryTemplateFunc,
     upsertSalaryTemplateFunc,
 } from './handlers/SalaryTemplate.handler.js'
@@ -27,11 +27,31 @@ import {
     getStructureByForEmployeeFunc,
     previewTemplateCalculationFunc
 } from './handlers/SalaryAssignment.handler.js'
-
+import {
+    checkIfFinanceEnabledOrNot,
+    enableAndSaveEsiDetails,
+    enableAndSavePfDetails,
+    enableAndSavePtaxDetails,
+    getOrganizationFinanceDetails,
+    enableDisableEsiDetails,
+    enableDisablePfDetails,
+    enableDisablePtaxDetails
+} from './handlers/finance.handler.js'
+import {
+    CreateRange,
+    UpdateRange,
+    DeleteRange,
+    ListRanges,
+    SaveRangeComponents,
+    GetRangeComponents,
+    PreviewSalaryForEmployee,
+} from './handlers/SalaryRange.handler.js'
 const PORT = process.env.SALARY_PAYROLL_SERVICE_PORT || 5081;
 const ComponentDefinitionProto = loadProto('component_definition');
 const SalaryTemplateProto = loadProto('salary_template');
 const SalaryProto = loadProto('employee_salary');
+const FinanceProto = loadProto('finance');
+const SalaryRangeProto = loadProto('salary_range');
 
 /* ------------------------------------------------------------------ */
 /* 🧩 Implementation                                                  */
@@ -45,9 +65,19 @@ const ComponentDefinitionImpl = {
 }
 const SalaryTemplateImpl = {
     listSalaryTemplates: listSalaryTemplatesFunc,
-    getSalaryTemplateBuilderData: getSalaryTemplateBuilderDataFunc,
+    // getSalaryTemplateBuilderData: getSalaryTemplateBuilderDataFunc,
     deleteSalaryTemplate: deleteSalaryTemplateFunc,
     upsertSalaryTemplate: upsertSalaryTemplateFunc,
+}
+const FinanceImpl = {
+    checkIfFinanceEnabledOrNot: checkIfFinanceEnabledOrNot,
+    enableAndSaveEsiDetails: enableAndSaveEsiDetails,
+    enableAndSavePfDetails: enableAndSavePfDetails,
+    enableAndSavePtaxDetails: enableAndSavePtaxDetails,
+    EnableDisablePfDetails: enableDisablePfDetails,
+    EnableDisableEsiDetails: enableDisableEsiDetails,
+    EnableDisablePtaxDetails: enableDisablePtaxDetails,
+    getOrganizationFinanceDetails: getOrganizationFinanceDetails,
 }
 const EmployeeSalaryImpl = {
     AssignSalary: assignSalaryToEmployeeFunc,
@@ -61,6 +91,15 @@ const EmployeeSalaryImpl = {
     BulkRecalculate: bulkRecalculateFunc,
     PreviewTemplateCalculation: previewTemplateCalculationFunc,
 }
+const SalaryRangeImpl = {
+    CreateRange: CreateRange,
+    UpdateRange: UpdateRange,
+    DeleteRange: DeleteRange,
+    ListRanges: ListRanges,
+    SaveRangeComponents: SaveRangeComponents,
+    GetRangeComponents: GetRangeComponents,
+    PreviewSalaryForEmployee: PreviewSalaryForEmployee,
+}
 
 /* ------------------------------------------------------------------ */
 /* 🧩 Graceful Server Setup                                            */
@@ -72,6 +111,8 @@ async function main() {
     server.addService(ComponentDefinitionProto.ComponentDefinitionService.service, ComponentDefinitionImpl);
     server.addService(SalaryTemplateProto.SalaryTemplateService.service, SalaryTemplateImpl);
     server.addService(SalaryProto.SalaryEngineService.service, EmployeeSalaryImpl);
+    server.addService(FinanceProto.FinanceService.service, FinanceImpl);
+    server.addService(SalaryRangeProto.SalaryRangeService.service, SalaryRangeImpl);
 
     await new Promise((resolve, reject) => {
         server.bindAsync(

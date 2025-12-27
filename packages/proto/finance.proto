@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+package finance;
+
+/* =====================================================
+   🔹 COMMON MESSAGES
+===================================================== */
+
+// Generic success response
+message GenericSuccessResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+/* =====================================================
+   🔹 CHECK FINANCE ENABLED
+===================================================== */
+
+message CheckFinanceEnabledRequest { string organization_id = 1; }
+
+message CheckFinanceEnabledResponse {
+  bool success = 1;
+  string message = 2;
+  bool enabledFinance = 3;
+}
+
+/* =====================================================
+   🔹 ENABLE & SAVE PF DETAILS
+===================================================== */
+
+message EnablePfRequest {
+  string organization_id = 1;
+  string pf_formula = 2;
+  string pf_registration_number = 3;
+  string pf_registered_organization_name = 4;
+}
+
+/* =====================================================
+   🔹 ENABLE & SAVE ESI DETAILS
+===================================================== */
+
+message EnableEsiRequest {
+  string organization_id = 1;
+  string esi_formula = 2;
+  string esi_registration_number = 3;
+  string esi_registered_organization_name = 4;
+}
+
+/* =====================================================
+   🔹 ENABLE & SAVE PTAX DETAILS
+===================================================== */
+
+message EnablePtaxRequest {
+  string organization_id = 1;
+  string ptax_formula = 2;
+  string ptax_registration_number = 3;
+  string ptax_registered_organization_name = 4;
+}
+
+/* =====================================================
+🔹 FETCH FINANCE CONFIGURATION
+===================================================== */
+
+message GetFinanceDetailsRequest { string organization_id = 1; }
+
+message FinanceDetails {
+  bool enable_pf = 1;
+  bool enable_esi = 2;
+  bool enable_ptax = 3;
+
+  string pf_formula = 4;
+  string pf_registration_number = 5;
+  string pf_registered_organization_name = 6;
+
+  string esi_formula = 7;
+  string esi_registration_number = 8;
+  string esi_registered_organization_name = 9;
+
+  string ptax_formula = 10;
+  string ptax_registration_number = 11;
+  string ptax_registered_organization_name = 12;
+}
+message EnableDisableRequest {
+  string organization_id = 1;
+  bool activity = 2;
+}
+
+message GetFinanceDetailsResponse {
+  bool success = 1;
+  string message = 2;
+  bool financeEnabled = 3;
+  FinanceDetails finance = 4; // nullable on server side
+}
+
+/* =====================================================
+   🔹 FINANCE SERVICE
+===================================================== */
+
+service FinanceService {
+
+  // Check if finance module is enabled
+  rpc CheckIfFinanceEnabledOrNot(CheckFinanceEnabledRequest)
+      returns (CheckFinanceEnabledResponse);
+
+  // Enable & save PF configuration
+  rpc EnableAndSavePfDetails(EnablePfRequest) returns (GenericSuccessResponse);
+
+  // Enable & save ESI configuration
+  rpc EnableAndSaveEsiDetails(EnableEsiRequest)
+      returns (GenericSuccessResponse);
+
+  // Enable & save PTAX configuration
+  rpc EnableAndSavePtaxDetails(EnablePtaxRequest)
+      returns (GenericSuccessResponse);
+
+  // Fetch full finance configuration
+  rpc GetOrganizationFinanceDetails(GetFinanceDetailsRequest)
+      returns (GetFinanceDetailsResponse);
+
+  rpc EnableDisablePfDetails(EnableDisableRequest)
+      returns (GenericSuccessResponse);
+
+  rpc EnableDisableEsiDetails(EnableDisableRequest)
+      returns (GenericSuccessResponse);
+
+  rpc EnableDisablePtaxDetails(EnableDisableRequest)
+      returns (GenericSuccessResponse);
+}

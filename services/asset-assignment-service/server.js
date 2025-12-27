@@ -79,6 +79,19 @@ const impl = {
                 }
             });
 
+            await prisma.assetRequest.create({
+                data: {
+                    organizationId: data.organization_id,
+                    assignmentId: created.id,
+                    quantity: 1,
+                    priority: "MEDIUM",
+                    status: "PENDING",
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    deletedAt: null
+                }
+            })
+
             callback(null, {
                 assetAssignment: mapAssetAssignment(created),
                 success: true,

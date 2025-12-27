@@ -81,8 +81,8 @@ const impl = {
                 assetTag: data.asset_tag,
                 userName: data.user_name,
                 password: data.password,
-                purchaseDate: data.purchase_date,
-                warrantyExpire: data.warranty_expire,
+                purchaseDate: new Date(data.purchase_date),
+                warrantyExpire: new Date(data.warranty_expire),
                 location: data.location,
                 status: data.status,
                 createdAt: new Date(),
@@ -154,6 +154,8 @@ const impl = {
         try {
             const {
                 organization_id,
+                category_id,
+                model_id,
                 page = 1,
                 limit = 10,
                 search = '',
@@ -161,21 +163,45 @@ const impl = {
                 sort_order = 'desc',
             } = call.request;
 
-            const skip = (page - 1) * limit;
 
             let where = {
                 deletedAt: null,
             };
             if (organization_id) {
                 where = {
+                    ...where,
                     organizationId: organization_id,
+                };
+            }
+            if (category_id) {
+                where = {
+                    ...where,
+                    categoriesId: category_id,
+                };
+            }
+            if (model_id) {
+                where = {
+                    ...where,
+                    modelId: model_id,
                 };
             }
             if (search) {
                 where = {
+                    ...where,
                     OR: [
+                        { userName: { contains: search, mode: 'insensitive' } },
                         { serialNumber: { contains: search, mode: 'insensitive' } },
                         { assetTag: { contains: search, mode: 'insensitive' } },
+                        {
+                            assetCategory: {
+                                name: { contains: search, mode: 'insensitive' }
+                            }
+                        },
+                        {
+                            assetModel: {
+                                modelName: { contains: search, mode: 'insensitive' }
+                            }
+                        },
                     ],
                 };
             }
@@ -183,18 +209,28 @@ const impl = {
             const validSortFields = {
                 created_at: 'createdAt',
                 updated_at: 'updatedAt',
-                deleted_at: 'deletedAt',
             };
-            const orderBy = {
+            const orderBy = sort_by && sort_order ? {
                 [validSortFields[sort_by]]: sort_order,
-            };
+            } : {}
+
+            let paginate = {}
+            if (page && limit) {
+                const skip = (page - 1) * limit;
+                paginate = {
+                    skip,
+                    take: limit
+                }
+            }
 
             const assets = await prisma.assets.findMany({
                 where,
-                skip,
-                take: limit,
                 orderBy,
+                ...paginate,
                 include: {
+                    assetcondition: true,
+                    assetAssignment: true,
+                    assetCategory: true,
                     assetModel: true,
                     organization: true,
                 },
@@ -306,23 +342,105 @@ const impl = {
 
 function mapAsset(asset) {
     return {
+        /* --------------------------------------------------
+           CORE IDENTIFIERS
+        -------------------------------------------------- */
         id: asset.id,
         organization_id: asset.organizationId,
-        category_id: asset.categoriesId,
-        model_id: asset.modelId,
+
         serial_number: asset.serialNumber,
         asset_tag: asset.assetTag,
-        user_name: asset.userName ?? '',
-        password: asset.password ?? '',
-        purchase_date: asset.purchaseDate?.toISOString() ?? '',
-        warranty_expire: asset.warrantyExpire?.toISOString() ?? '',
-        status: asset.status ?? 'Available',
-        location: asset.location ? JSON.stringify(asset.location) : '',
-        created_at: asset.createdAt?.toISOString() ?? '',
-        updated_at: asset.updatedAt?.toISOString() ?? '',
-        deleted_at: asset.deletedAt?.toISOString() ?? '',
+
+        status: asset.status ?? "Available",
+        location: asset.location ?? "",
+        category_id: asset.category_id,
+        model_id: asset.model_id,
+        /* --------------------------------------------------
+           CREDENTIALS (ONLY IF REQUIRED)
+           ⚠️ Consider removing password from list APIs
+        -------------------------------------------------- */
+        credentials: {
+            user_name: asset.userName ?? "",
+            password: asset.password ?? "",
+        },
+
+        purchase_date: asset.purchaseDate?.toISOString() ?? null,
+        warranty_expire: asset.warrantyExpire?.toISOString() ?? null,
+        created_at: asset.createdAt?.toISOString() ?? null,
+        updated_at: asset.updatedAt?.toISOString() ?? null,
+        deleted_at: asset.deletedAt?.toISOString() ?? null,
+
+        /* --------------------------------------------------
+           CATEGORY
+        -------------------------------------------------- */
+        category: asset.assetCategory
+            ? {
+                id: asset.assetCategory.id,
+                name: asset.assetCategory.name,
+                code: asset.assetCategory.code,
+                description: asset.assetCategory.description,
+                is_active: asset.assetCategory.isActive,
+            }
+            : null,
+
+        /* --------------------------------------------------
+           MODEL
+        -------------------------------------------------- */
+        model: asset.assetModel
+            ? {
+                id: asset.assetModel.id,
+                brand: asset.assetModel.brand,
+                model_name: asset.assetModel.modelName,
+                code: asset.assetModel.code,
+                description: asset.assetModel.description,
+                specs: asset.assetModel.specs,
+                is_active: asset.assetModel.isActive,
+            }
+            : null,
+
+        /* --------------------------------------------------
+           ORGANIZATION (MINIMAL, SAFE)
+        -------------------------------------------------- */
+        organization: asset.organization
+            ? {
+                id: asset.organization.id,
+                name: asset.organization.name,
+                domain: asset.organization.domain,
+                industry: asset.organization.industry,
+            }
+            : null,
+
+        /* --------------------------------------------------
+           ASSIGNMENTS
+        -------------------------------------------------- */
+        assignments: asset.assetAssignment?.map(a => ({
+            id: a.id,
+            employee_id: a.employeeId ?? null,
+            assigned_at: a.createdAt?.toISOString() ?? null,
+            returned_at: a.returnedAt?.toISOString?.() ?? null,
+            status: a.status ?? null,
+        })) ?? [],
+
+        /* --------------------------------------------------
+           CONDITIONS / HISTORY
+        -------------------------------------------------- */
+        conditions: asset.assetcondition?.map(c => ({
+            id: c.id,
+            condition: c.condition ?? null,
+            notes: c.notes ?? null,
+            recorded_at: c.createdAt?.toISOString() ?? null,
+        })) ?? [],
+
+        /* --------------------------------------------------
+           META
+        -------------------------------------------------- */
+        meta: {
+            has_assignments: asset.assetAssignment?.length > 0,
+            is_deleted: !!asset.deletedAt,
+        },
     };
 }
+
 
 // -----------------------------
 // Server

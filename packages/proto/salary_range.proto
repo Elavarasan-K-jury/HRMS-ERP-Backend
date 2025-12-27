@@ -1,0 +1,104 @@
+syntax = "proto3";
+package salary_range;
+
+message Range {
+  string id = 1;
+  string template_id = 2;
+
+  double gross_low = 3;
+  double gross_high = 4; // 0 can represent null; use has_gross_high
+  bool has_gross_high = 5;
+
+  double ctc_low = 6;
+  double ctc_high = 7; // 0 can represent null; use has_ctc_high
+  bool has_ctc_high = 8;
+
+  string label = 9;
+
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+message CreateRangeRequest {
+  string organization_id = 1;
+  string template_id = 2;
+  double gross_low = 3;
+  double gross_high = 4;
+  bool has_gross_high = 5;
+  string label = 6;
+}
+
+message UpdateRangeRequest {
+  string organization_id = 1;
+  string range_id = 2;
+  double gross_low = 3;
+  double gross_high = 4;
+  bool has_gross_high = 5;
+  string label = 6;
+}
+
+message DeleteRangeRequest {
+  string organization_id = 1;
+  string range_id = 2;
+}
+
+message ListRangesRequest {
+  string organization_id = 1;
+  string template_id = 2;
+}
+
+message RangeResponse {
+  bool success = 1;
+  string message = 2;
+  Range range = 3;
+}
+
+message ListRangesResponse {
+  bool success = 1;
+  string message = 2;
+  repeated Range ranges = 3;
+}
+
+message RangeComponent {
+  string id = 1;
+  string template_id = 2;
+  string range_id = 3;
+  string component_id = 4;
+
+  string kind = 5; // EARNING/EMPLOYEE/EMPLOYER
+  string formula = 6;
+  double value = 7;
+  int32 priority = 8;
+  double min_value = 9;
+  double max_value = 10;
+  string condition = 11;
+}
+
+message SaveRangeComponentsRequest {
+  string organization_id = 1;
+  string template_id = 2;
+  string range_id = 3;
+  repeated RangeComponent components = 4;
+}
+
+message GetRangeComponentsRequest {
+  string organization_id = 1;
+  string range_id = 2;
+}
+
+message RangeComponentsResponse {
+  bool success = 1;
+  string message = 2;
+  repeated RangeComponent components = 3;
+}
+
+service SalaryRangeService {
+  rpc CreateRange(CreateRangeRequest) returns (RangeResponse);
+  rpc UpdateRange(UpdateRangeRequest) returns (RangeResponse);
+  rpc DeleteRange(DeleteRangeRequest) returns (RangeResponse);
+  rpc ListRanges(ListRangesRequest) returns (ListRangesResponse);
+  rpc SaveRangeComponents(SaveRangeComponentsRequest)
+      returns (RangeComponentsResponse);
+  rpc GetRangeComponents(GetRangeComponentsRequest)
+      returns (RangeComponentsResponse);
+}

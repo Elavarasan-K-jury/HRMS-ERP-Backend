@@ -380,6 +380,96 @@ export default function registerAssetRequestRoutes(app) {
         }
     );
 
+    app.openapi(
+        {
+            method: 'put',
+            path: '/asset-requests/{id}/status',
+            tags: ['Asset Requests'],
+            summary: 'Update asset request',
+            request: {
+                params: z.object({
+                    id: z.string({ required_error: 'Asset Request ID is required' }),
+                }),
+                body: {
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                approved_by: z.string().optional(),
+                                status: z.string(),
+                                approved_at: z.string().optional(),
+                                rejection_reason: z.string().optional(),
+                            })
+                        },
+                    },
+                },
+            },
+            responses: {
+                200: {
+                    description: 'Asset Request updated successfully',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                success: z.boolean(),
+                                message: z.string()
+                            })
+
+                        },
+                    },
+                },
+                400: {
+                    description: 'Validation Error',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                message: z.string(),
+                            }),
+                        },
+                    },
+                },
+                500: {
+                    description: 'Internal Server Error',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                message: z.string(),
+                            }),
+                        },
+                    },
+                },
+            },
+        },
+        async (c) => {
+            try {
+                const id = c.req.param('id');
+
+                if (!id) {
+                    return c.json({ message: 'Asset Request ID is required' }, 400);
+                }
+
+                const body = await c.req.json();
+
+                const response = await new Promise((resolve, reject) => {
+                    assetRequestClient.ApproveRejectAssetRequest({ id, ...body }, (err, response) => {
+                        if (err) {
+                            reject(err);
+                        } else {
+                            resolve(response);
+                        }
+                    });
+                });
+
+                if (!response.request) {
+                    return c.json({ message: 'Asset Request not found' }, 404);
+                }
+
+                return c.json(response);
+
+            } catch (err) {
+                return c.json({ message: err.message }, 500);
+            }
+        }
+    );
+
     //Delete Asset Request
     app.openapi(
         {
@@ -401,7 +491,7 @@ export default function registerAssetRequestRoutes(app) {
                                 success: z.boolean(),
                                 message: z.string(),
                             }),
-                        },    
+                        },
                     },
                 },
                 400: {

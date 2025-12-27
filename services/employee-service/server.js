@@ -208,6 +208,39 @@ const impl = {
             });
         }
     },
+    GetEmployeeData: async (call, callback) => {
+        try {
+            const { id } = call.request;
+
+            const emp = await prisma.organizationEmployees.findFirst({
+                where: { id, deletedAt: null },
+                include: {
+                    organization: true,
+                    category: true,
+                    designation: true,
+                }
+            });
+
+            if (!emp) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Employee not found'
+                });
+            }
+
+            callback(null, {
+                employee: mapEmployee(emp),
+                message: 'Employee found successfully',
+                success: true
+            });
+        } catch (e) {
+            console.error('GetEmployee Error:', e);
+            callback({
+                code: grpc.status.INTERNAL,
+                message: e.message,
+            });
+        }
+    },
 
     ListAllEmployees: async (call, callback) => {
         try {

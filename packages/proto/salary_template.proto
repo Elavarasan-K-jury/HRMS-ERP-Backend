@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package salary_template;
 
-// =========================================================
-// COMMON
-// =========================================================
+/* =========================================================
+   COMMON
+========================================================= */
 message DefaultResponse {
   bool success = 1;
   string message = 2;
@@ -17,79 +17,113 @@ message PaginationMeta {
   int32 total_pages = 4;
 }
 
-// =========================================================
-// COMPONENT DEFINITION (Lightweight for Builder)
-// =========================================================
-message ComponentDefinitionLite {
+/* =========================================================
+   COMPONENT DEFINITION (FULLY ALIGNED)
+========================================================= */
+message ComponentDefinition {
   string id = 1;
   string key = 2;
   string name = 3;
-  string type = 4;       // earning, deduction, etc.
-  string category = 5;   // standard, statutory, etc.
-  string defaultFormula = 6;
-  bool isTaxable = 7;
-  bool isVariable = 8;
-  bool isStatutory = 9;
-  bool includeInCTC = 10;
-  bool includeInGross = 11;
 
-  int32 displayOrder = 12;
-  bool isActive = 13;
+  string type = 4;     // earning | deduction | benefit
+  string category = 5; // recurring | statutory
+
+  string defaultFormula = 6;
+  string description = 7;
+
+  bool isTaxable = 8;
+  bool isVariable = 9;
+  bool isStatutory = 10;
+
+  bool includeInCTC = 11;
+  bool includeInGross = 12;
+
+  int32 displayOrder = 13;
+
+  bool isActive = 14;
+  bool isDefault = 15;
+  bool isDeletable = 16;
+
+  string organizationId = 17;
 }
 
-// =========================================================
-// TEMPLATE COMPONENT
-// =========================================================
-message TemplateComponent {
+/* =========================================================
+   TEMPLATE COMPONENT (RANGE-SCOPED)
+========================================================= */
+message SalaryTemplateComponent {
   string id = 1;
 
-  string componentId = 2;       // FK → ComponentDefinition
-  string formula = 3;           // overrides default
-  double value = 4;             // fixed value
-  int32 priority = 5;
-  double minValue = 6;
-  double maxValue = 7;
-  string condition = 8;         // optional rule expression
+  string component_id = 2;
+  ComponentDefinition component = 3;
 
-  // Populated when fetching builder data
-  ComponentDefinitionLite component = 9;
+  string formula = 4;
+  double value = 5;
+
+  int32 priority = 6;
+  double min_value = 7;
+  double max_value = 8;
+
+  string condition = 9;
 }
 
-// =========================================================
-// SALARY TEMPLATE MODEL
-// =========================================================
+/* =========================================================
+   SALARY TEMPLATE RANGE
+========================================================= */
+message SalaryTemplateRange {
+  string id = 1;
+
+  double gross_low = 2;
+  optional double gross_high = 3;
+
+  double ctc_low = 4;
+  optional double ctc_high = 5;
+
+  string label = 6;
+
+  string createdAt = 7;
+  string updatedAt = 8;
+  string deletedAt = 9;
+
+  repeated SalaryTemplateComponent components = 10;
+}
+
+/* =========================================================
+   SALARY TEMPLATE
+========================================================= */
 message SalaryTemplate {
   string id = 1;
-  string name = 2;
-  string description = 3;
+  string organizationId = 2;
 
-  repeated string departments = 4;
-  repeated string designations = 5;
+  string name = 3;
+  string description = 4;
 
-  bool isDefault = 6;
-  bool isActive = 7;
+  repeated string departments = 5;
+  repeated string designations = 6;
 
-  string organizationId = 8;
+  bool isDefault = 7;
+  bool isActive = 8;
 
-  string createdAt = 9;
-  string updatedAt = 10;
+  int32 version = 9;
+  string baseTemplateId = 10;
 
-  int32 componentCount = 11;
+  string createdAt = 11;
+  string updatedAt = 12;
+  string deletedAt = 13;
 
-  repeated TemplateComponent components = 12;
+  repeated SalaryTemplateRange ranges = 14;
 }
 
-// =========================================================
-// 1️⃣ LIST TEMPLATES
-// =========================================================
+/* =========================================================
+   1️⃣ LIST TEMPLATES
+========================================================= */
 message ListSalaryTemplatesRequest {
   int32 page = 1;
   optional int32 per_page = 2;
 
   string search = 3;
 
-  string sort_by = 4;      // name, createdAt, updatedAt
-  string sort_order = 5;   // asc | desc
+  string sort_by = 4;
+  string sort_order = 5;
 
   string organization_id = 6;
 }
@@ -106,29 +140,11 @@ message ListSalaryTemplatesResponse {
   int32 total_pages = 7;
 }
 
-// =========================================================
-// 2️⃣ TEMPLATE BUILDER DATA
-// =========================================================
-message GetSalaryTemplateBuilderDataRequest {
-  string template_id = 1;     // optional
-  string organization_id = 2; // required
-}
-
-message GetSalaryTemplateBuilderDataResponse {
-  bool success = 1;
-  string message = 2;
-
-  SalaryTemplate template = 3; // null if creating new
-
-  repeated ComponentDefinitionLite availableComponents = 4;
-}
-
-// =========================================================
-// 3️⃣ UPSERT TEMPLATE (Create or Update)
-// =========================================================
+/* =========================================================
+   2️⃣ UPSERT TEMPLATE (META ONLY)
+========================================================= */
 message UpsertSalaryTemplateRequest {
-  string template_id = 1; // null for create
-
+  string template_id = 1; // empty = create
   string organization_id = 2;
 
   string name = 3;
@@ -139,8 +155,6 @@ message UpsertSalaryTemplateRequest {
 
   bool isDefault = 7;
   bool isActive = 8;
-
-  repeated TemplateComponent components = 9; // full replacement
 }
 
 message UpsertSalaryTemplateResponse {
@@ -150,9 +164,9 @@ message UpsertSalaryTemplateResponse {
   SalaryTemplate data = 3;
 }
 
-// =========================================================
-// 4️⃣ DELETE TEMPLATE
-// =========================================================
+/* =========================================================
+   3️⃣ DELETE TEMPLATE
+========================================================= */
 message DeleteSalaryTemplateRequest {
   string template_id = 1;
   string organization_id = 2;
@@ -163,24 +177,17 @@ message DeleteSalaryTemplateResponse {
   string message = 2;
 }
 
-// =========================================================
-// SERVICE
-// =========================================================
+/* =========================================================
+   SERVICE
+========================================================= */
 service SalaryTemplateService {
 
-  // List all templates (summary view)
-  rpc ListSalaryTemplates (ListSalaryTemplatesRequest)
+  rpc ListSalaryTemplates(ListSalaryTemplatesRequest)
       returns (ListSalaryTemplatesResponse);
 
-  // Fetch builder screen data
-  rpc GetSalaryTemplateBuilderData (GetSalaryTemplateBuilderDataRequest)
-      returns (GetSalaryTemplateBuilderDataResponse);
-
-  // Create or update template with all components
-  rpc UpsertSalaryTemplate (UpsertSalaryTemplateRequest)
+  rpc UpsertSalaryTemplate(UpsertSalaryTemplateRequest)
       returns (UpsertSalaryTemplateResponse);
 
-  // Soft delete
-  rpc DeleteSalaryTemplate (DeleteSalaryTemplateRequest)
+  rpc DeleteSalaryTemplate(DeleteSalaryTemplateRequest)
       returns (DeleteSalaryTemplateResponse);
 }

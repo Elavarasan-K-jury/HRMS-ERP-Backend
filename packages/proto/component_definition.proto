@@ -22,10 +22,10 @@ message PaginationMeta {
 // =========================================================
 message ComponentDefinition {
   string id = 1;
-  string key = 2;              // "basic", "hra"
-  string name = 3;             // "Basic Salary"
-  string type = 4;             // earning, deduction, benefit, tax
-  string category = 5;         // statutory, standard, allowance, custom
+  string key = 2;      // "basic", "hra"
+  string name = 3;     // "Basic Salary"
+  string type = 4;     // earning, deduction, benefit, tax
+  string category = 5; // statutory, standard, allowance, custom
 
   string defaultFormula = 6;
   string description = 7;
@@ -38,13 +38,14 @@ message ComponentDefinition {
 
   int32 displayOrder = 13;
   bool isActive = 14;
+  bool isDefault = 15;
+  bool isDeletable = 16;
 
-  string organizationId = 15;
+  string organizationId = 17;
 
-  string createdAt = 16;
-  string updatedAt = 17;
+  string createdAt = 18;
+  string updatedAt = 19;
 }
-
 
 // =========================================================
 // FETCH — LIST WITH PAGINATION
@@ -54,8 +55,8 @@ message FetchComponentDefinitionsRequest {
   int32 per_page = 2;
   string search = 3;
   string category = 4;
-  string sort_by = 5;        // key, name, displayOrder, type, etc.
-  string sort_order = 6;     // asc | desc
+  string sort_by = 5;    // key, name, displayOrder, type, etc.
+  string sort_order = 6; // asc | desc
   string organization_id = 7;
 }
 
@@ -76,7 +77,6 @@ message FetchComponentDefinitionsResponse {
   int32 limit = 7;
   int32 total_pages = 8;
 }
-
 
 // =========================================================
 // CREATE ComponentDefinition
@@ -107,7 +107,6 @@ message CreateComponentDefinitionResponse {
   string message = 2;
   ComponentDefinition data = 3;
 }
-
 
 // =========================================================
 // UPDATE ComponentDefinition
@@ -140,7 +139,6 @@ message UpdateComponentDefinitionResponse {
   ComponentDefinition data = 3;
 }
 
-
 // =========================================================
 // DELETE ComponentDefinition
 // =========================================================
@@ -154,20 +152,19 @@ message DeleteComponentDefinitionResponse {
   string message = 2;
 }
 
-
 // =========================================================
 // SERVICE — Component Definition CRUD
 // =========================================================
 service ComponentDefinitionService {
-  rpc FetchComponentDefinitions (FetchComponentDefinitionsRequest)
+  rpc FetchComponentDefinitions(FetchComponentDefinitionsRequest)
       returns (FetchComponentDefinitionsResponse);
 
-  rpc CreateComponentDefinition (CreateComponentDefinitionRequest)
+  rpc CreateComponentDefinition(CreateComponentDefinitionRequest)
       returns (CreateComponentDefinitionResponse);
 
-  rpc UpdateComponentDefinition (UpdateComponentDefinitionRequest)
+  rpc UpdateComponentDefinition(UpdateComponentDefinitionRequest)
       returns (UpdateComponentDefinitionResponse);
 
-  rpc DeleteComponentDefinition (DeleteComponentDefinitionRequest)
+  rpc DeleteComponentDefinition(DeleteComponentDefinitionRequest)
       returns (DeleteComponentDefinitionResponse);
 }

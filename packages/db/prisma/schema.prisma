@@ -71,6 +71,7 @@ model Organizations {
   approvalflows       ApprovalFlows[]
   posts               Posts[]
   assetconditions     AssetCondition[]
+  assetRequests       AssetRequest[]
 
   smsNotification      Boolean @default(false)
   emailNotification    Boolean @default(true)
@@ -90,6 +91,28 @@ model Organizations {
   attendanceReports         AttendanceReports[]
   salaryComponentDefinition ComponentDefinition[]
   salaryTemplates           SalaryTemplate[]
+  organizationFinanc        OrgaizationFinance?
+}
+
+model OrgaizationFinance {
+  id                             String        @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId                 String        @unique @map("organization_id") @db.ObjectId
+  organization                   Organizations @relation(fields: [organizationId], references: [id])
+  enablePf                       Boolean?      @default(false) @map("enable_pf")
+  enableEsi                      Boolean?      @default(false) @map("enable_esi")
+  enablePtax                     Boolean?      @default(false) @map("enable_ptax")
+  pfFormula                      String?       @map("pf_formula")
+  pfRegistrationNumber           String?       @map("pf_registration_number")
+  pfRegisteredOrganizationName   String?       @map("pf_registered_organization_name")
+  esiFormula                     String?       @map("esi_formula")
+  esiRegistrationNumber          String?       @map("esi_registration_number")
+  esiRegisteredOrganizationName  String?       @map("esi_registered_organization_name")
+  ptaxFormula                    String?       @map("ptax_formula")
+  ptaxRegistrationNumber         String?       @map("ptax_registration_number")
+  ptaxRegisteredOrganizationName String?       @map("ptax_registered_organization_name")
+  createdAt                      DateTime      @map("created_at")
+  updatedAt                      DateTime      @map("updated_at")
+  deletedAt                      DateTime?     @map("deleted_at")
 }
 
 model OrganizationDepartments {
@@ -251,7 +274,6 @@ model OrganizationEmployees {
   pollShares              PostShares[]
   pollVotes               PostVotes[]
   onboardingProgress      OnboardingProgress[]       @relation("EmployeeOnboardingProgress")
-  assetRequests           AssetRequest[]             @relation("RequestedBy")
   approvedRequests        AssetRequest[]             @relation("ApprovedBy")
   acknowledgedConditions  AssetCondition[]           @relation("AcknowledgedBy")
   EmployeeShiftAssignment EmployeeShiftAssignment[]
@@ -754,6 +776,7 @@ model AssetCategories {
   deletedAt      DateTime?     @map("deleted_at")
   organization   Organizations @relation(fields: [organizationId], references: [id])
   assetModels    AssetModels[]
+  assets         Assets[]
 }
 
 model AssetModels {
@@ -792,28 +815,43 @@ model Assets {
   deletedAt       DateTime?          @map("deleted_at")
   assetAssignment AssetAssignments[]
   assetcondition  AssetCondition[]
+  assetCategory   AssetCategories    @relation(fields: [categoriesId], references: [id])
   assetModel      AssetModels        @relation(fields: [modelId], references: [id])
   organization    Organizations      @relation(fields: [organizationId], references: [id])
 }
 
+enum requestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum priorities {
+  CRITICAL
+  URGENT
+  HIGH
+  MEDIUM
+  LOW
+  NEGLIGIBLE
+}
+
 model AssetRequest {
-  id              String                 @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId  String                 @map("organization_id") @db.ObjectId
-  categoriesId    String                 @map("category_id") @db.ObjectId
-  modelId         String                 @map("model_id") @db.ObjectId
-  employeeId      String                 @map("employee_id") @db.ObjectId
-  approvedById    String?                @map("approved_by") @db.ObjectId
-  reason          String
-  quantity        Int                    @default(1)
-  priority        String                 @default("Medium")
-  status          String                 @default("Pending")
-  approvedAt      DateTime?              @map("approved_at")
-  rejectionReason String?
-  createdAt       DateTime               @default(now()) @map("created_at")
-  updatedAt       DateTime               @default(now()) @map("updated_at")
-  deletedAt       DateTime?              @map("deleted_at")
-  employee        OrganizationEmployees  @relation("RequestedBy", fields: [employeeId], references: [id])
-  approvedBy      OrganizationEmployees? @relation("ApprovedBy", fields: [approvedById], references: [id])
+  id                String                 @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId    String                 @map("organization_id") @db.ObjectId
+  assignmentId      String                 @map("assignment_id") @db.ObjectId
+  approvedById      String?                @map("approved_by") @db.ObjectId
+  reason            String?
+  quantity          Int                    @default(1)
+  priority          priorities             @default(MEDIUM)
+  status            requestStatus          @default(PENDING)
+  approvedAt        DateTime?              @map("approved_at")
+  rejectionReason   String?
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @default(now()) @map("updated_at")
+  deletedAt         DateTime?              @map("deleted_at")
+  assignmentDetails AssetAssignments       @relation(fields: [assignmentId], references: [id])
+  organization      Organizations          @relation(fields: [organizationId], references: [id])
+  approvedBy        OrganizationEmployees? @relation("ApprovedBy", fields: [approvedById], references: [id])
 }
 
 model AssetAssignments {
@@ -833,6 +871,7 @@ model AssetAssignments {
   asset           Assets                @relation(fields: [assetId], references: [id])
   organization    Organizations         @relation(fields: [organizationId], references: [id])
   employee        OrganizationEmployees @relation(fields: [employeeId], references: [id])
+  assetRequests   AssetRequest[]
 }
 
 model AssetCondition {
@@ -989,6 +1028,9 @@ model ComponentDefinition {
   displayOrder Int     @default(999)
   isActive     Boolean @default(true)
 
+  isDefault   Boolean @default(false)
+  isDeletable Boolean @default(true)
+
   // Metadata
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -1006,60 +1048,86 @@ model ComponentDefinition {
 // ============================================================================
 // 📋 SALARY TEMPLATE (Reusable Structure)
 // ============================================================================
-
 model SalaryTemplate {
-  id          String  @id @default(auto()) @map("_id") @db.ObjectId
-  name        String // e.g., "IT Department Template", "Senior Management"
-  description String?
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String        @map("organization_id") @db.ObjectId
+  organization   Organizations @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  // Applicability
-  departments  String[] // Array of departments this applies to
-  designations String[] // Array of designations
+  name         String
+  description  String?
+  departments  String[]
+  designations String[]
+  isDefault    Boolean  @default(false)
+  isActive     Boolean  @default(true)
 
-  // Configuration
-  isDefault Boolean @default(false)
-  isActive  Boolean @default(true)
+  // Versioning
+  version        Int              @default(1)
+  baseTemplateId String?          @map("base_template_id") @db.ObjectId
+  baseTemplate   SalaryTemplate?  @relation("TemplateVersions", fields: [baseTemplateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  versions       SalaryTemplate[] @relation("TemplateVersions")
 
-  // Metadata
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  // Foreign Keys
-  organizationId String        @map("organization_id") @db.ObjectId
-  organization   Organizations @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
   // Relations
+  ranges             SalaryTemplateRange[]
+  templateComponents TemplateComponent[]
+  salaryStructures   SalaryStructure[]
+}
+
+model SalaryTemplateRange {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  templateId String         @map("template_id") @db.ObjectId
+  template   SalaryTemplate @relation(fields: [templateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // either gross slabs OR ctc slabs (you can keep both)
+  grossLow  Float?  @map("gross_low")
+  grossHigh Float?  @map("gross_high") // null means infinity
+  ctcLow    Float?  @map("ctc_low")
+  ctcHigh   Float?  @map("ctc_high") // null means infinity
+  label     String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // components mapped to this range
   components TemplateComponent[]
-  structures SalaryStructure[]
+}
+
+enum ComponentKind {
+  EARNING
+  EMPLOYEE
+  EMPLOYER
 }
 
 model TemplateComponent {
   id String @id @default(auto()) @map("_id") @db.ObjectId
 
-  // Component Configuration (can override defaults)
-  formula String?
-  value   Float? // For fixed values
+  kind      ComponentKind?
+  formula   String?
+  value     Float?
+  priority  Int            @default(0)
+  minValue  Float?
+  maxValue  Float?
+  condition String?
 
-  // Priority & Constraints
-  priority Int    @default(0) // Execution order
-  minValue Float?
-  maxValue Float?
-
-  // Metadata
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  // Conditions
-  condition String? // e.g., "basic > 50000"
-
   // Foreign Keys
-  templateId String
-  template   SalaryTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  templateId String         @map("template_id") @db.ObjectId
+  template   SalaryTemplate @relation(fields: [templateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  componentId String
-  component   ComponentDefinition @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  // NEW: range mapping
+  rangeId String?              @map("range_id") @db.ObjectId
+  range   SalaryTemplateRange? @relation(fields: [rangeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  componentId String              @map("component_id") @db.ObjectId
+  component   ComponentDefinition @relation(fields: [componentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 // ============================================================================
@@ -1095,10 +1163,10 @@ model SalaryStructure {
 
   // Foreign Keys
   employeeId String                @map("employee_id") @db.ObjectId
-  employee   OrganizationEmployees @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee   OrganizationEmployees @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   templateId String?         @map("template_id") @db.ObjectId
-  template   SalaryTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  template   SalaryTemplate? @relation(fields: [templateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   // Relations
   components      StructureComponent[]
@@ -1129,10 +1197,10 @@ model StructureComponent {
 
   // Foreign Keys
   structureId String
-  structure   SalaryStructure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+  structure   SalaryStructure @relation(fields: [structureId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   componentId String
-  component   ComponentDefinition @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  component   ComponentDefinition @relation(fields: [componentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 // ============================================================================
@@ -1164,14 +1232,14 @@ model SalaryRevision {
   deletedAt DateTime?
 
   structureId String?
-  structure   SalaryStructure? @relation(name: "currentStructure", fields: [structureId], references: [id], onDelete: SetNull)
+  structure   SalaryStructure? @relation(name: "currentStructure", fields: [structureId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   // Foreign Keys
   employeeId String
-  employee   OrganizationEmployees @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee   OrganizationEmployees @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   oldStructureId String?
-  oldStructure   SalaryStructure? @relation(fields: [oldStructureId], references: [id], onDelete: SetNull)
+  oldStructure   SalaryStructure? @relation(fields: [oldStructureId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 // ============================================================================
@@ -1223,10 +1291,10 @@ model Payslip {
 
   // Foreign Keys
   employeeId String
-  employee   OrganizationEmployees @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee   OrganizationEmployees @relation(fields: [employeeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   structureId String
-  structure   SalaryStructure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+  structure   SalaryStructure @relation(fields: [structureId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   // Relations
   components PayslipComponent[]
@@ -1244,7 +1312,7 @@ model PayslipComponent {
 
   // Foreign Keys
   payslipId String
-  payslip   Payslip @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+  payslip   Payslip @relation(fields: [payslipId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

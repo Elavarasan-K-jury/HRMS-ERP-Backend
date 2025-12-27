@@ -3,121 +3,264 @@ syntax = "proto3";
 package asset_request;
 
 // =============================
+// 🔹 Enums
+// =============================
+enum Priority {
+  PRIORITY_UNSPECIFIED = 0;
+  LOW = 1;
+  MEDIUM = 2;
+  HIGH = 3;
+}
+
+enum RequestStatus {
+  STATUS_UNSPECIFIED = 0;
+  PENDING = 1;
+  APPROVED = 2;
+  REJECTED = 3;
+  CANCELLED = 4;
+}
+
+enum AssignmentStatus {
+  ASSIGNMENT_STATUS_UNSPECIFIED = 0;
+  REQUESTED = 1;
+  ASSIGNED = 2;
+  RETURNED = 3;
+}
+
+enum AssetStatus {
+  ASSET_STATUS_UNSPECIFIED = 0;
+  AVAILABLE = 1;
+  ASSIGNED = 2;
+  MAINTENANCE = 3;
+  RETIRED = 4;
+}
+
+// =============================
 // 🔹 Service
 // =============================
 service AssetRequestService {
-  rpc CreateAssetRequest (CreateAssetRequest) returns (AssetRequestResponse);
-  rpc GetAssetRequest    (GetAssetRequest)    returns (AssetRequestResponse);
-  rpc ListAssetRequests  (ListAssetRequestsRequest) returns (ListAssetRequestsResponse);
-  rpc UpdateAssetRequest (UpdateAssetRequest) returns (AssetRequestResponse);
-  rpc DeleteAssetRequest (DeleteAssetRequest) returns (DeleteAssetRequestResponse);
+  rpc CreateAssetRequest(CreateAssetRequest) returns (AssetRequestResponse);
+  rpc GetAssetRequest(GetAssetRequest) returns (AssetRequestResponse);
+  rpc ListAssetRequests(ListAssetRequestsRequest)
+      returns (ListAssetRequestsResponse);
+  rpc UpdateAssetRequest(UpdateAssetRequest) returns (AssetRequestResponse);
+  rpc ApproveRejectAssetRequest(AssetRequestStatus)
+      returns (DeleteAssetRequestResponse);
+  rpc DeleteAssetRequest(DeleteAssetRequest)
+      returns (DeleteAssetRequestResponse);
 }
 
 // =============================
 // 🔹 Requests
 // =============================
-
-// Create
 message CreateAssetRequest {
   string organization_id = 1;
-  string category_id     = 2;
-  string model_id        = 3;
-  string employee_id     = 4;
-  string reason          = 5;
-  int32  quantity        = 6;
-  string priority        = 7;
-  string status          = 8;
-  string approved_by     = 9; 
-  string approved_at     = 10; 
-  string rejection_reason = 11;
+  string category_id = 2;
+  string model_id = 3;
+  string employee_id = 4;
+  string assignment_id = 5;
+  string asset_id = 6;
+  string reason = 7;
+  int32 quantity = 8;
+  Priority priority = 9;
+  RequestStatus status = 10;
+  string approved_by = 11;
+  string approved_at = 12;
+  string rejection_reason = 13;
 }
 
-// Get
-message GetAssetRequest {
+message GetAssetRequest { string id = 1; }
+
+message AssetRequestStatus {
   string id = 1;
+  RequestStatus status = 2;
+  string approved_by = 3;
+  string approved_at = 4;
+  string rejection_reason = 5;
 }
-
-// Update
 message UpdateAssetRequest {
-  string id              = 1;
+  string id = 1;
   string organization_id = 2;
-  string category_id     = 3;
-  string model_id        = 4;
-  string employee_id     = 5;
-  string reason          = 6;
-  int32  quantity        = 7;
-  string priority        = 8;
-  string status          = 9;
-  string approved_by     = 10;
-  string approved_at     = 11;
-  string rejection_reason = 12;
+  string category_id = 3;
+  string model_id = 4;
+  string employee_id = 5;
+  string assignment_id = 6;
+  string asset_id = 7;
+  string reason = 8;
+  int32 quantity = 9;
+  Priority priority = 10;
+  RequestStatus status = 11;
+  string approved_by = 12;
+  string approved_at = 13;
+  string rejection_reason = 14;
 }
 
-// Delete
-message DeleteAssetRequest {
-  string id = 1;
-}
+message DeleteAssetRequest { string id = 1; }
 
 // =============================
-// 🔹 List Request (Pagination + Filters)
+// 🔹 List Request (Pagination)
 // =============================
 message ListAssetRequestsRequest {
   string organization_id = 1;
-  string employee_id     = 2;
-  string status          = 3; 
-  string search          = 4;
-  int32  page            = 5;
-  int32  limit           = 6;
-  string sort_by         = 7;
-  string sort_order      = 8;
+  string employee_id = 2;
+  RequestStatus status = 3;
+  string search = 4;
+  int32 page = 5;
+  int32 limit = 6;
+  string sort_by = 7;
+  string sort_order = 8;
 }
 
 // =============================
-// 🔹 Asset Request Object
+// 🔹 Asset Request Object (ROOT)
 // =============================
 message AssetRequest {
-  string id              = 1;
+  string id = 1;
   string organization_id = 2;
-  string category_id     = 3;
-  string model_id        = 4;
-  string employee_id     = 5;
-  string approved_by     = 6;
-  string reason          = 7;
-  int32  quantity        = 8;
-  string priority        = 9;
-  string status          = 10;
-  string approved_at     = 11;
-  string rejection_reason = 12;
-  string created_at      = 13;
-  string updated_at      = 14;
-  string deleted_at      = 15;
+  string assignment_id = 3;
+  string approved_by = 4;
+  string reason = 5;
+  int32 quantity = 6;
+  Priority priority = 7;
+  RequestStatus status = 8;
+  string approved_at = 9;
+  string rejection_reason = 10;
+  string created_at = 11;
+  string updated_at = 12;
+  string deleted_at = 13;
+
+  AssignmentDetails assignment_details = 14;
 }
 
 // =============================
-// 🔹 Single Response Wrapper
+// 🔹 Assignment Details
+// =============================
+message AssignmentDetails {
+  string id = 1;
+  string organization_id = 2;
+  string asset_id = 3;
+  string employee_id = 4;
+  string assigned_date = 5;
+  string return_date = 6;
+  string condition_assign = 7;
+  AssignmentStatus status = 8;
+  string notes = 9;
+  string created_at = 10;
+  string updated_at = 11;
+  string deleted_at = 12;
+
+  Employee employee = 13;
+  Asset asset = 14;
+}
+
+// =============================
+// 🔹 Employee
+// =============================
+message Employee {
+  string id = 1;
+  string organization_id = 2;
+  string category_id = 3;
+  string designation_id = 4;
+  string first_name = 5;
+  string last_name = 6;
+  string full_name = 7;
+  string employee_code = 8;
+  string email = 9;
+  string phone = 10;
+  string alt_phone = 11;
+  string gender = 12;
+  string date_of_birth = 13;
+  string created_at = 14;
+  string updated_at = 15;
+  string deleted_at = 16;
+}
+
+// =============================
+// 🔹 Asset
+// =============================
+message Asset {
+  string id = 1;
+  string organization_id = 2;
+  string categories_id = 3;
+  string model_id = 4;
+  string serial_number = 5;
+  string asset_tag = 6;
+  string user_name = 7;
+  string password = 8;
+  string purchase_date = 9;
+  string warranty_expire = 10;
+  AssetStatus status = 11;
+  string location = 12;
+  string created_at = 13;
+  string updated_at = 14;
+  string deleted_at = 15;
+
+  AssetCategory asset_category = 16;
+  AssetModel asset_model = 17;
+}
+
+// =============================
+// 🔹 Asset Category
+// =============================
+message AssetCategory {
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  string code = 4;
+  string description = 5;
+  bool is_active = 6;
+  string created_at = 7;
+  string updated_at = 8;
+  string deleted_at = 9;
+}
+
+// =============================
+// 🔹 Asset Model
+// =============================
+message AssetModel {
+  string id = 1;
+  string organization_id = 2;
+  string categories_id = 3;
+  string brand = 4;
+  string model_name = 5;
+  string code = 6;
+  string description = 7;
+  AssetSpecs specs = 8;
+  bool is_active = 9;
+  string created_at = 10;
+  string updated_at = 11;
+  string deleted_at = 12;
+}
+
+// =============================
+// 🔹 Asset Specs
+// =============================
+message AssetSpecs {
+  string CPU = 1;
+  string GPU = 2;
+  string RAM = 3;
+  string Storage = 4;
+}
+
+// =============================
+// 🔹 Responses
 // =============================
 message AssetRequestResponse {
   AssetRequest request = 1;
-  bool success         = 2;
-  string message       = 3;
+  bool success = 2;
+  string message = 3;
 }
 
-// =============================
-// 🔹 List Response (Pagination)
-// =============================
 message ListAssetRequestsResponse {
   repeated AssetRequest requests = 1;
-  int32 total                   = 2;
-  int32 page                    = 3;
-  int32 limit                   = 4;
-  int32 total_pages             = 5;
-  bool success                  = 6;
-  string message                = 7;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  bool success = 6;
+  string message = 7;
 }
 
-// =============================
-// 🔹 Delete Response
-// =============================
 message DeleteAssetRequestResponse {
   bool success = 1;
   string message = 2;

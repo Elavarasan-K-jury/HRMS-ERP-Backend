@@ -17,24 +17,137 @@ const cleanDate = (val) =>
     val && val !== '' ? new Date(val) : undefined;
 
 function mapAssetRequest(r) {
+    const ad = r.assignmentDetails ?? {};
+    const emp = ad.employee ?? {};
+    const asset = ad.asset ?? {};
+    const assetCategory = asset.assetCategory ?? {};
+    const assetModel = asset.assetModel ?? {};
+    const specs = assetModel.specs ?? {};
+
+    const toISO = (d) => (d ? new Date(d).toISOString() : "");
+    const safe = (v) => (v ?? "");
+
     return {
+        // ===== Request (top-level) =====
         id: r.id,
         organization_id: r.organizationId,
-        category_id: r.categoriesId,
-        model_id: r.modelId,
-        employee_id: r.employeeId,
-        approved_by: r.approvedById ?? '',
-        reason: r.reason,
+        assignment_id: r.assignmentId,
+        approved_by_id: safe(r.approvedById),
+        reason: safe(r.reason),
         quantity: r.quantity,
         priority: r.priority,
         status: r.status,
-        approved_at: r.approvedAt?.toISOString() ?? '',
-        rejection_reason: r.rejectionReason ?? '',
-        created_at: r.createdAt?.toISOString() ?? '',
-        updated_at: r.updatedAt?.toISOString() ?? '',
-        deleted_at: r.deletedAt?.toISOString() ?? '',
+        approved_at: toISO(r.approvedAt),
+        rejection_reason: safe(r.rejectionReason),
+        created_at: toISO(r.createdAt),
+        updated_at: toISO(r.updatedAt),
+        deleted_at: toISO(r.deletedAt),
+
+        // ===== Assignment Details =====
+        assignment_details: {
+            id: ad.id,
+            organization_id: ad.organizationId,
+            asset_id: ad.assetId,
+            employee_id: ad.employeeId,
+            assigned_date: toISO(ad.assignedDate),
+            return_date: toISO(ad.returnDate),
+            condition_assign: safe(ad.conditionAssign),
+            status: safe(ad.status),
+            notes: safe(ad.notes),
+            created_at: toISO(ad.createdAt),
+            updated_at: toISO(ad.updatedAt),
+            deleted_at: toISO(ad.deletedAt),
+
+            // ===== Employee =====
+            employee: {
+                id: emp.id,
+                organization_id: emp.organizationId,
+                category_id: emp.categoryId,
+                designation_id: emp.designationId,
+                first_name: emp.firstName,
+                last_name: emp.lastName,
+                full_name: emp.fullName,
+                employee_code: emp.employeeCode,
+                access_token: safe(emp.accessToken),
+                refresh_token: safe(emp.refreshToken),
+                email: emp.email,
+                phone: emp.phone,
+                alt_phone: emp.altPhone,
+                gender: emp.gender,
+                date_of_birth: toISO(emp.dateOfBirth),
+                created_at: toISO(emp.createdAt),
+                updated_at: toISO(emp.updatedAt),
+                deleted_at: toISO(emp.deletedAt),
+            },
+
+            // ===== Asset =====
+            asset: {
+                id: asset.id,
+                organization_id: asset.organizationId,
+                categories_id: asset.categoriesId,
+                model_id: asset.modelId,
+                serial_number: asset.serialNumber,
+                asset_tag: asset.assetTag,
+                user_name: asset.userName,
+                password: asset.password,
+                purchase_date: toISO(asset.purchaseDate),
+                warranty_expire: toISO(asset.warrantyExpire),
+                status: asset.status,
+                location: asset.location,
+                created_at: toISO(asset.createdAt),
+                updated_at: toISO(asset.updatedAt),
+                deleted_at: toISO(asset.deletedAt),
+
+                // Asset Category
+                asset_category: {
+                    id: assetCategory.id,
+                    organization_id: assetCategory.organizationId,
+                    name: assetCategory.name,
+                    code: assetCategory.code,
+                    description: safe(assetCategory.description),
+                    is_active: !!assetCategory.isActive,
+                    created_at: toISO(assetCategory.createdAt),
+                    updated_at: toISO(assetCategory.updatedAt),
+                    deleted_at: toISO(assetCategory.deletedAt),
+                },
+
+                // Asset Model
+                asset_model: {
+                    id: assetModel.id,
+                    organization_id: assetModel.organizationId,
+                    categories_id: assetModel.categoriesId,
+                    brand: assetModel.brand,
+                    model_name: assetModel.modelName,
+                    code: assetModel.code,
+                    description: safe(assetModel.description),
+                    specs: {
+                        cpu: safe(specs.CPU),
+                        gpu: safe(specs.GPU),
+                        ram: safe(specs.RAM),
+                        storage: safe(specs.Storage),
+                    },
+                    is_active: !!assetModel.isActive,
+                    created_at: toISO(assetModel.createdAt),
+                    updated_at: toISO(assetModel.updatedAt),
+                    deleted_at: toISO(assetModel.deletedAt),
+                },
+
+                // Conditions arrays (keep as-is)
+                asset_condition: Array.isArray(asset.assetcondition) ? asset.assetcondition : [],
+            },
+
+            // Assignment condition array (keep as-is)
+            assignment_condition: Array.isArray(ad.assetcondition) ? ad.assetcondition : [],
+        },
+
+        // ===== Approved By (if you later populate) =====
+        approved_by: r.approvedBy ?? null,
+
+        // ===== Optional: raw copy (if you want literally everything unchanged) =====
+        raw: r,
     };
 }
+
 
 const impl = {
     // -----------------------------
@@ -175,7 +288,18 @@ const impl = {
             const model = await prisma.assetRequest.findUnique({
                 where: { id },
                 include: {
-                    employee: true,
+                    assignmentDetails: {
+                        include: {
+                            asset: {
+                                include: {
+                                    assetCategory: true,
+                                    assetModel: true,
+                                    assetcondition: true
+                                }
+                            },
+                            assetcondition: true,
+                        }
+                    },
                     approvedBy: true,
                 },
             });
@@ -245,7 +369,7 @@ const impl = {
                 ];
             }
 
-            const models = await prisma.assetRequest.findMany({
+            const assetsRequests = await prisma.assetRequest.findMany({
                 where,
                 skip,
                 take: limit,
@@ -253,7 +377,19 @@ const impl = {
                     [prismaSortBy]: sort_order,
                 },
                 include: {
-                    employee: true,
+                    assignmentDetails: {
+                        include: {
+                            employee: true,
+                            asset: {
+                                include: {
+                                    assetCategory: true,
+                                    assetModel: true,
+                                    assetcondition: true
+                                }
+                            },
+                            assetcondition: true,
+                        }
+                    },
                     approvedBy: true,
                 },
             });
@@ -261,7 +397,7 @@ const impl = {
             const count = await prisma.assetRequest.count({ where });
 
             callback(null, {
-                requests: models.map(mapAssetRequest),
+                requests: assetsRequests.map(mapAssetRequest),
                 total: count,
                 page,
                 limit,
@@ -278,6 +414,54 @@ const impl = {
         }
     },
 
+    ApproveRejectAssetRequest: async (call, callback) => {
+        try {
+            const {
+                id,
+                approved_by,
+                rejection_reason,
+                approved_at,
+                status
+            } = call.request;
+
+            const existing = await prisma.assetRequest.findFirst({
+                where: { id, deletedAt: null },
+            });
+
+            if (!existing) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Asset request not found',
+                });
+            }
+
+
+            const updated = await prisma.assetRequest.update({
+                where: { id },
+                data: {
+                    approvedById: clean(approved_by),
+                    status: clean(status),
+                    approvedAt: cleanDate(approved_at),
+                    rejectionReason:
+                        rejection_reason === 'null'
+                            ? null
+                            : clean(rejection_reason),
+                    updatedAt: new Date(),
+                },
+            });
+
+            callback(null, {
+                success: true,
+                message: `Asset request ${status} successfully`,
+            });
+        } catch (e) {
+            console.error('❌ approveRejectAssetRequest Error:', e);
+            callback({
+                code: grpc.status.INTERNAL,
+                message: 'Internal server error',
+            });
+        }
+    },
     // -----------------------------
     // Update
     // -----------------------------

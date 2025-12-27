@@ -38,20 +38,20 @@ export default function registerAssetRoutes(app) {
                         'application/json': {
                             schema: z.object({
                                 assets: z.object({
-                                id: z.string(),
-                                organization_id: z.string(),
-                                category_id: z.string(),
-                                model_id: z.string(),
-                                serial_number: z.string(),
-                                asset_tag: z.string(),
-                                user_name: z.string(),
-                                password: z.string(),
-                                purchase_date: z.string(),
-                                warranty_expire: z.string(),
-                                status: z.string(),
-                                location: z.string(),
-                                created_at: z.string(),
-                                updated_at: z.string(),
+                                    id: z.string(),
+                                    organization_id: z.string(),
+                                    category_id: z.string(),
+                                    model_id: z.string(),
+                                    serial_number: z.string(),
+                                    asset_tag: z.string(),
+                                    user_name: z.string(),
+                                    password: z.string(),
+                                    purchase_date: z.string(),
+                                    warranty_expire: z.string(),
+                                    status: z.string(),
+                                    location: z.string(),
+                                    created_at: z.string(),
+                                    updated_at: z.string(),
                                     deleted_at: z.string(),
                                 }),
                                 message: z.string(),
@@ -112,21 +112,21 @@ export default function registerAssetRoutes(app) {
                         'application/json': {
                             schema: z.object({
                                 assets: z.object({
-                                id: z.string(),
-                                organization_id: z.string(),
-                                category_id: z.string(),
-                                model_id: z.string(),
-                                serial_number: z.string(),
-                                asset_tag: z.string(),
-                                user_name: z.string(),
-                                password: z.string(),
-                                purchase_date: z.string(),
-                                warranty_expire: z.string(),
-                                status: z.string(),
-                                location: z.string(),
-                                created_at: z.string(),
-                                updated_at: z.string(),
-                                deleted_at: z.string(),
+                                    id: z.string(),
+                                    organization_id: z.string(),
+                                    category_id: z.string(),
+                                    model_id: z.string(),
+                                    serial_number: z.string(),
+                                    asset_tag: z.string(),
+                                    user_name: z.string(),
+                                    password: z.string(),
+                                    purchase_date: z.string(),
+                                    warranty_expire: z.string(),
+                                    status: z.string(),
+                                    location: z.string(),
+                                    created_at: z.string(),
+                                    updated_at: z.string(),
+                                    deleted_at: z.string(),
                                 }),
                                 message: z.string(),
                                 success: z.boolean(),
@@ -152,7 +152,7 @@ export default function registerAssetRoutes(app) {
             try {
                 const id = c.req.param('id');
                 const response = await new Promise((resolve, reject) => {
-                    assetClient.GetAsset({id}, (err, resp) => {
+                    assetClient.GetAsset({ id }, (err, resp) => {
                         if (err) {
                             reject(err);
                         } else {
@@ -171,98 +171,143 @@ export default function registerAssetRoutes(app) {
     // 🟢 List All Assets
     app.openapi(
         {
-            method: 'get',
-            path: '/assets',
-            tags: ['Assets'],
-            summary: 'List all assets',
+            method: "get",
+            path: "/assets",
+            tags: ["Assets"],
+            summary: "List assets with filters, pagination & sorting",
+
             request: {
                 query: z.object({
-                    organization_id: z.string({ required_error: 'Organization ID is required' }),
+                    organization_id: z
+                        .string({ required_error: "Organization ID is required" })
+                        .min(1),
+
+                    category_id: z.string().optional(),
+                    model_id: z.string().optional(),
+                    status: z.string().optional(),
+
                     search: z.string().optional(),
-                    total: z.coerce.number().optional().default(0),
-                    page: z.coerce.number().optional().default(1),
-                    limit: z.coerce.number().optional().default(10),
-                    sort_by: z.string().optional(),
-                    sort_order: z.string().optional(),
+
+                    page: z.coerce.number().int().min(1).default(1),
+                    limit: z.coerce.number().int().min(1).max(100).default(10),
+
+                    sort_by: z
+                        .enum(["created_at", "updated_at", "serial_number", "asset_tag"])
+                        .default("created_at"),
+
+                    sort_order: z.enum(["asc", "desc"]).default("desc"),
                 }),
             },
+
             responses: {
                 200: {
-                    description: 'Assets retrieved successfully',
+                    description: "Assets retrieved successfully",
                     content: {
-                        'application/json': {
+                        "application/json": {
                             schema: z.object({
                                 assets: z.array(
                                     z.object({
                                         id: z.string(),
-                                        organization_id: z.string(),
-                                        category_id: z.string(),
-                                        model_id: z.string(),
                                         serial_number: z.string(),
                                         asset_tag: z.string(),
-                                        user_name: z.string(),
-                                        password: z.string(),
-                                        purchase_date: z.string(),
-                                        warranty_expire: z.string(),
                                         status: z.string(),
                                         location: z.string(),
-                                        created_at: z.string(),
-                                        updated_at: z.string(),
-                                        deleted_at: z.string(),
+
+                                        category: z.object({
+                                            id: z.string(),
+                                            name: z.string(),
+                                            code: z.string(),
+                                        }).nullable(),
+
+                                        model: z.object({
+                                            id: z.string(),
+                                            brand: z.string(),
+                                            model_name: z.string(),
+                                        }).nullable(),
+
+                                        organization: z.object({
+                                            id: z.string(),
+                                            name: z.string(),
+                                        }),
+
+                                        lifecycle: z.object({
+                                            purchase_date: z.string().nullable(),
+                                            warranty_expire: z.string().nullable(),
+                                            created_at: z.string().nullable(),
+                                            updated_at: z.string().nullable(),
+                                        }),
+
+                                        meta: z.object({
+                                            has_assignments: z.boolean(),
+                                            is_deleted: z.boolean(),
+                                        }),
                                     })
                                 ),
+
                                 total: z.number(),
                                 page: z.number(),
                                 limit: z.number(),
                                 total_pages: z.number(),
-                                message: z.string(),
+
                                 success: z.boolean(),
+                                message: z.string(),
                             }),
                         },
                     },
                 },
-                404: {
-                    description: 'Organization not found',
+
+                400: {
+                    description: "Validation error",
                     content: {
-                        'application/json': { schema: z.object({ message: z.string() }) },
+                        "application/json": {
+                            schema: z.object({ message: z.string() }),
+                        },
                     },
                 },
+
                 500: {
-                    description: 'Internal server error',
+                    description: "Internal server error",
                     content: {
-                        'application/json': { schema: z.object({ message: z.string() }) },
+                        "application/json": {
+                            schema: z.object({ message: z.string() }),
+                        },
                     },
                 },
             },
         },
+
         async (c) => {
             try {
-                const query = c.req.valid('query');
+                const query = c.req.valid("query");
 
                 const response = await new Promise((resolve, reject) => {
-                    assetClient.ListAssets({
-                        organization_id: query.organization_id,
-                        search: query.search,
-                        page: query.page,
-                        limit: query.limit,
-                        sort_by: query.sort_by,
-                        sort_order: query.sort_order,
-                    }, (err, resp) => {
-                    if (err) {
-                        reject(err);
-                    } else {
-                        resolve(resp);
-                    }
-                    })
+                    assetClient.ListAssets(
+                        {
+                            organization_id: query.organization_id,
+                            category_id: query.category_id,
+                            model_id: query.model_id,
+                            status: query.status,
+                            search: query.search,
+                            page: query.page,
+                            limit: query.limit,
+                            sort_by: query.sort_by,
+                            sort_order: query.sort_order,
+                        },
+                        (err, resp) => {
+                            if (err) reject(err);
+                            else resolve(resp);
+                        }
+                    );
                 });
 
-                if (!response) return c.json({ error: 'Organization not found' }, 404);
                 return c.json(response);
             } catch (error) {
-                return c.json({ error: error.message }, 500);
+                console.error("❌ ListAssets API Error:", error);
+                return c.json({ message: error.message }, 500);
             }
-        },
+        }
     );
+
 
     const UpdateAssetSchema = createAssetSchema.extend({
         id: z.string({ required_error: 'Asset ID is required' })
@@ -292,20 +337,20 @@ export default function registerAssetRoutes(app) {
                         'application/json': {
                             schema: z.object({
                                 assets: z.object({
-                                id: z.string(),
-                                organization_id: z.string(),
-                                category_id: z.string(),
-                                model_id: z.string(),
-                                serial_number: z.string(),
-                                asset_tag: z.string(),
-                                user_name: z.string(),
-                                password: z.string(),
-                                purchase_date: z.string(),
-                                warranty_expire: z.string(),
-                                status: z.string(),
-                                location: z.string(),
-                                created_at: z.string(),
-                                updated_at: z.string(),
+                                    id: z.string(),
+                                    organization_id: z.string(),
+                                    category_id: z.string(),
+                                    model_id: z.string(),
+                                    serial_number: z.string(),
+                                    asset_tag: z.string(),
+                                    user_name: z.string(),
+                                    password: z.string(),
+                                    purchase_date: z.string(),
+                                    warranty_expire: z.string(),
+                                    status: z.string(),
+                                    location: z.string(),
+                                    created_at: z.string(),
+                                    updated_at: z.string(),
                                     deleted_at: z.string(),
                                 }),
                                 message: z.string(),

@@ -1,0 +1,18 @@
+// report.proto
+syntax = "proto3";
+
+package reports;
+
+service ReportService {
+  rpc GenerateEmployeeInsightTemplateReport (EmployeeReportRequest)
+      returns (EmployeeReportResponse);
+}
+
+message EmployeeReportRequest {
+  string employee_id = 1;
+}
+
+message EmployeeReportResponse {
+  string employee_id = 1;
+  string html = 2;
+}

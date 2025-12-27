@@ -105,6 +105,9 @@ import registerHolidayPolicyRoutes from './routes/holidayPolicy.routes.js';
 import registerSalaryRoutes from './routes/salary.routes.js';
 import registerSalaryComponentsRoutes from './routes/salary-components.routes.js';
 import registerSalaryTemplateRoutes from './routes/salary_template.routes.js';
+import registerReportsRoutes from './routes/report.routes.js';
+import registerFinanceRoutes from './routes/finance.routes.js';
+import registerSalaryRangeRoutes from './routes/salary-range.routes.js';
 
 /* ------------------------------------------------------------------ */
 /* 🏗️  App Setup                                                       */
@@ -222,9 +225,12 @@ registerLeaveTypeRoutes({ openapi: wrapService('leave_type') });
 registerLeaveRequestRoutes({ openapi: wrapService('leave_request') });
 registerHolidayRoutes({ openapi: wrapService('holidays') });
 registerHolidayPolicyRoutes({ openapi: wrapService('holiday_policy') });
+registerFinanceRoutes({ openapi: wrapService('finance') });
 registerSalaryComponentsRoutes({ openapi: wrapService('salary_component') });
 registerSalaryTemplateRoutes({ openapi: wrapService('salary_template') });
+registerSalaryRangeRoutes({ openapi: wrapService('salary_range') });
 registerSalaryRoutes({ openapi: wrapService('salary') });
+registerReportsRoutes({ openapi: wrapService('reports') });
 registerHealthRoutes({ openapi: wrapSystem });
 
 /* ------------------------------------------------------------------ */

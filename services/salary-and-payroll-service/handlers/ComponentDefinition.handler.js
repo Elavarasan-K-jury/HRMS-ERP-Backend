@@ -1,5 +1,6 @@
 import { grpc } from '@jury-hrms/proto';
 import { prisma } from '@jury-hrms/db/client.js';
+import { checkFinanceEnabled } from '../helper/checks.js';
 
 /**
  * ================================================================
@@ -9,8 +10,8 @@ import { prisma } from '@jury-hrms/db/client.js';
 export const fetchComponentDefinitionsFunc = async (call, callback) => {
     try {
         const {
-            page = 1,
-            per_page = 20,
+            page,
+            per_page,
             search,
             category = 'recurring',
             sort_by = "displayOrder",
@@ -22,6 +23,27 @@ export const fetchComponentDefinitionsFunc = async (call, callback) => {
             return callback({
                 code: grpc.status.INVALID_ARGUMENT,
                 message: "organization_id is required",
+            });
+        }
+
+        const organization = await prisma.organizations.findFirst({
+            where: {
+                id: organization_id
+            }
+        })
+        if (!organization) {
+            return callback({
+                code: grpc.status.INVALID_ARGUMENT,
+                message: "Organization not found",
+            });
+        }
+
+        const enabledFinance = await checkFinanceEnabled(organization_id)
+
+        if (!enabledFinance) {
+            return callback({
+                code: grpc.status.PERMISSION_DENIED,
+                message: "Finance is not enabled",
             });
         }
 
@@ -46,8 +68,8 @@ export const fetchComponentDefinitionsFunc = async (call, callback) => {
 
         let searchWhere = {
             deletedAt: null,
-            category
         };
+        if (category) searchWhere = { ...searchWhere, category }
         if (search) {
             searchWhere = {
                 OR: [
@@ -58,10 +80,12 @@ export const fetchComponentDefinitionsFunc = async (call, callback) => {
                 ]
             };
         }
+        let orderData = {}
+        if (sort_by && sort_order) orderData = { [sort_by]: sort_order }
 
         const data = await prisma.componentDefinition.findMany({
             where: { organizationId: organization_id, ...searchWhere },
-            orderBy: { [sort_by]: sort_order },
+            orderBy: orderData,
             ...paginate
         });
 
@@ -137,6 +161,26 @@ export const createComponentDefinitionFunc = async (call, callback) => {
                 message: "organization_id is required",
             });
         }
+        const organization = await prisma.organizations.findFirst({
+            where: {
+                id: organization_id
+            }
+        })
+        if (!organization) {
+            return callback({
+                code: grpc.status.INVALID_ARGUMENT,
+                message: "Organization not found",
+            });
+        }
+
+        const enabledFinance = await checkFinanceEnabled(organization_id)
+
+        if (!enabledFinance) {
+            return callback({
+                code: grpc.status.PERMISSION_DENIED,
+                message: "Finance is not enabled",
+            });
+        }
 
         // Check for duplicate key within organization
         const exists = await prisma.componentDefinition.findFirst({
@@ -195,6 +239,8 @@ export const createComponentDefinitionFunc = async (call, callback) => {
                 includeInGross,
                 displayOrder: displayOrder ?? 999,
                 isActive,
+                isDefault: false,
+                isDeletable: true,
                 createdAt: new Date(),
                 updatedAt: new Date(),
                 deletedAt: null
@@ -265,7 +311,26 @@ export const updateComponentDefinitionFunc = async (call, callback) => {
                 message: "id is required",
             });
         }
+        const organization = await prisma.organizations.findFirst({
+            where: {
+                id: organization_id
+            }
+        })
+        if (!organization) {
+            return callback({
+                code: grpc.status.INVALID_ARGUMENT,
+                message: "Organization not found",
+            });
+        }
 
+        const enabledFinance = await checkFinanceEnabled(organization_id)
+
+        if (!enabledFinance) {
+            return callback({
+                code: grpc.status.PERMISSION_DENIED,
+                message: "Finance is not enabled",
+            });
+        }
         const exists = await prisma.componentDefinition.findFirst({
             where: { id, organizationId: organization_id }
         });
@@ -398,6 +463,27 @@ export const deleteComponentDefinitionFunc = async (call, callback) => {
             return callback({
                 code: grpc.status.NOT_FOUND,
                 message: "Component Definition not found",
+            });
+        }
+
+        const organization = await prisma.organizations.findFirst({
+            where: {
+                id: exists.organizationId
+            }
+        })
+        if (!organization) {
+            return callback({
+                code: grpc.status.INVALID_ARGUMENT,
+                message: "Organization not found",
+            });
+        }
+
+        const enabledFinance = await checkFinanceEnabled(exists.organizationId)
+
+        if (!enabledFinance) {
+            return callback({
+                code: grpc.status.PERMISSION_DENIED,
+                message: "Finance is not enabled",
             });
         }
 

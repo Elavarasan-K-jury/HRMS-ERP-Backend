@@ -1,11 +1,12 @@
 // salary-and-payroll-service/handlers/SalaryTemplate.handler.js
 
-import { grpc } from '@jury-hrms/proto';
-import { prisma } from '@jury-hrms/db/client.js';
+import { grpc } from '@jury-hrms/proto'
+import { prisma } from '@jury-hrms/db/client.js'
+import { checkFinanceEnabled } from '../helper/checks.js'
 
 /**
  * ================================================================
- *  FEATURE: LIST SALARY TEMPLATES (summary)
+ *  FEATURE: LIST SALARY TEMPLATES (METADATA ONLY)
  * ================================================================
  */
 export const listSalaryTemplatesFunc = async (call, callback) => {
@@ -14,200 +15,171 @@ export const listSalaryTemplatesFunc = async (call, callback) => {
             page = 1,
             per_page,
             search,
-            sort_by = "createdAt",
-            sort_order = "desc",
+            sort_by = 'createdAt',
+            sort_order = 'desc',
             organization_id,
-        } = call.request;
+        } = call.request
 
         if (!organization_id) {
             return callback({
                 code: grpc.status.INVALID_ARGUMENT,
-                message: "organization_id is required",
-            });
+                message: 'organization_id is required',
+            })
         }
 
-
-        let paginate = {};
-        if (page && per_page) {
-            paginate = { skip: (page - 1) * per_page, take: per_page };
+        const enabledFinance = await checkFinanceEnabled(organization_id)
+        if (!enabledFinance) {
+            return callback({
+                code: grpc.status.PERMISSION_DENIED,
+                message: 'Finance is not enabled',
+            })
         }
 
-        let searchWhere = { deletedAt: null };
+        const skip = page && per_page ? (page - 1) * per_page : undefined
+        const take = page && per_page ? per_page : undefined
 
-        if (search) {
-            searchWhere = {
-                AND: [
-                    { deletedAt: null },
-                    {
-                        OR: [
-                            { name: { contains: search, mode: 'insensitive' } },
-                            { description: { contains: search, mode: 'insensitive' } },
-                            { departments: { has: search } },
-                            { designations: { has: search } },
-                        ]
-                    }
-                ]
-            };
+        const where = {
+            organizationId: organization_id,
+            deletedAt: null,
+            ...(search && {
+                OR: [
+                    { name: { contains: search, mode: 'insensitive' } },
+                    { description: { contains: search, mode: 'insensitive' } },
+                    { departments: { has: search } },
+                    { designations: { has: search } },
+                ],
+            }),
         }
 
-        const data = await prisma.salaryTemplate.findMany({
-            where: {
-                organizationId: organization_id,
-                ...searchWhere,
-            },
-            include: {
-                components: {
-                    where: { deletedAt: null },
-                    include: {
-                        component: true
-                    },
-                },
-            },
+        const templates = await prisma.salaryTemplate.findMany({
+            where,
+            skip,
+            take,
             orderBy: { [sort_by]: sort_order },
-            ...paginate,
-        });
+        })
 
-        const total = await prisma.salaryTemplate.count({
-            where: {
-                organizationId: organization_id,
-                ...searchWhere,
-            },
-        });
+        const total = await prisma.salaryTemplate.count({ where })
 
-        // enrich with component count
-        const mapped = data.map(async (t) => ({
-            ...t,
-            departments: (await prisma.organizationDepartments.findMany({
-                where: {
-                    id: {
-                        in: t.departments
+        // Resolve department & designation names
+        const mapped = await Promise.all(
+            templates.map(async (t) => ({
+                ...t,
+                departments: await prisma.organizationDepartments
+                    .findMany({
+                        where: { id: { in: t.departments } },
+                        select: { name: true },
+                    })
+                    .then((r) => r.map((d) => d.name)),
+                ranges: await prisma.salaryTemplateRange.findMany({
+                    where: {
+                        templateId: t.id,
+                        deletedAt: null,
+                        components: {
+                            some: {
+                                deletedAt: null,
+                                component: {
+                                    deletedAt: null
+                                }
+                            }
+                        }
+                    },
+                    include: {
+                        components: {
+                            where: {
+                                deletedAt: null,
+                                component: {
+                                    deletedAt: null
+                                }
+                            },
+                            include: {
+                                component: true
+                            }
+                        }
                     }
-                },
-                select: {
-                    name: true
-                }
-            })).map(e => e.name),
-            designations: (await prisma.organizationDesignations.findMany({
-                where: {
-                    id: {
-                        in: t.designations
-                    }
-                },
-                select: {
-                    name: true
-                }
-            })).map(e => e.name),
-            componentCount: t.components?.length || 0,
-        }));
+                }),
+                designations: await prisma.organizationDesignations
+                    .findMany({
+                        where: { id: { in: t.designations } },
+                        select: { name: true },
+                    })
+                    .then((r) => r.map((d) => d.name)),
+            }))
+        )
 
         return callback(null, {
             success: true,
-            message: "Salary templates fetched successfully",
-            data: await Promise.all(mapped),
+            message: 'Salary templates fetched successfully',
+            data: mapped,
             total,
             page,
             limit: per_page,
             total_pages: per_page ? Math.ceil(total / per_page) : 1,
-        });
-
+        })
     } catch (e) {
-        console.error("List SalaryTemplate Error:", e);
+        console.error('List SalaryTemplate Error:', e)
         return callback({
             code: grpc.status.INTERNAL,
             message: e.message,
-        });
+        })
     }
-};
+}
+
 /**
  * ================================================================
- *  FEATURE: GET TEMPLATE BUILDER DATA
- * ================================================================
- * - Template (if id provided)
- * - TemplateComponents with ComponentDefinition details
- * - Available ComponentDefinition list for this org
+ *  FEATURE: GET SALARY TEMPLATE (METADATA ONLY)
  * ================================================================
  */
-export const getSalaryTemplateBuilderDataFunc = async (call, callback) => {
+export const getSalaryTemplateFunc = async (call, callback) => {
     try {
-        const { template_id, organization_id } = call.request;
+        const { template_id, organization_id } = call.request
 
-        if (!organization_id) {
+        if (!organization_id || !template_id) {
             return callback({
                 code: grpc.status.INVALID_ARGUMENT,
-                message: "organization_id is required",
-            });
+                message: 'organization_id and template_id are required',
+            })
+        }
+
+        const enabledFinance = await checkFinanceEnabled(organization_id)
+        if (!enabledFinance) {
+            return callback({
+                code: grpc.status.PERMISSION_DENIED,
+                message: 'Finance is not enabled',
+            })
         }
 
         const template = await prisma.salaryTemplate.findFirst({
-            where: template_id ? {
+            where: {
                 id: template_id,
                 organizationId: organization_id,
                 deletedAt: null,
-            } : {
-                organizationId: organization_id,
-                deletedAt: null,
             },
-            include: {
-                components: {
-                    include: {
-                        component: true, // ComponentDefinition
-                    },
-                    orderBy: { priority: 'asc' },
-                },
-            },
-        });
+        })
 
-        if (template_id && !template) {
+        if (!template) {
             return callback({
                 code: grpc.status.NOT_FOUND,
-                message: "Salary Template not found",
-            });
+                message: 'Salary template not found',
+            })
         }
-
-        // All active component definitions for this org
-        const availableComponents = await prisma.componentDefinition.findMany({
-            where: {
-                organizationId: organization_id,
-                deletedAt: null,
-                isActive: true,
-            },
-            orderBy: { displayOrder: 'asc' },
-        });
 
         return callback(null, {
             success: true,
-            message: "Template builder data fetched",
-            template: {
-                ...template,
-                departments: (await prisma.organizationDepartments.findMany({
-                    where: {
-                        id: {
-                            in: template.departments
-                        }
-                    }
-                })).map(e => e.name),
-                designations: (await prisma.organizationDesignations.findMany({
-                    where: {
-                        id: {
-                            in: template.designations
-                        }
-                    }
-                })).map(e => e.name)
-            },
-            availableComponents,
-        });
-
+            message: 'Salary template fetched successfully',
+            data: template,
+        })
     } catch (e) {
-        console.error("Get SalaryTemplate Builder Error:", e);
+        console.error('Get SalaryTemplate Error:', e)
         return callback({
             code: grpc.status.INTERNAL,
             message: e.message,
-        });
+        })
     }
-};
+}
+
 /**
  * ================================================================
- *  FEATURE: UPSERT SALARY TEMPLATE (with nested TemplateComponents)
+ *  FEATURE: CREATE / UPDATE SALARY TEMPLATE (NO COMPONENTS)
  * ================================================================
  */
 export const upsertSalaryTemplateFunc = async (call, callback) => {
@@ -217,184 +189,242 @@ export const upsertSalaryTemplateFunc = async (call, callback) => {
             organization_id,
             name,
             description,
-            departments,
-            designations,
-            isDefault,
-            isActive,
-            components = [],
-        } = call.request;
+            departments = [],
+            designations = [],
+            isDefault = false,
+            isActive = true,
+        } = call.request
 
-        if (!organization_id) {
+        if (!organization_id || !name) {
             return callback({
                 code: grpc.status.INVALID_ARGUMENT,
-                message: "organization_id is required",
-            });
+                message: 'organization_id and name are required',
+            })
         }
 
-        if (!name) {
+        const enabledFinance = await checkFinanceEnabled(organization_id)
+        if (!enabledFinance) {
             return callback({
-                code: grpc.status.INVALID_ARGUMENT,
-                message: "name is required",
-            });
+                code: grpc.status.PERMISSION_DENIED,
+                message: 'Finance is not enabled',
+            })
         }
 
-        const isUpdate = !!template_id;
+        const isUpdate = Boolean(template_id)
 
-        // Validate name uniqueness inside org (excluding current template on update)
-        const existingByName = await prisma.salaryTemplate.findFirst({
+        // Name uniqueness per org
+        const existing = await prisma.salaryTemplate.findFirst({
             where: {
                 name,
                 organizationId: organization_id,
                 deletedAt: null,
                 ...(isUpdate && { id: { not: template_id } }),
             },
-        });
+        })
 
-        if (existingByName) {
+        if (existing) {
             return callback({
                 code: grpc.status.ALREADY_EXISTS,
-                message: "A template with this name already exists",
-            });
+                message: 'A salary template with this name already exists',
+            })
         }
 
-        let resultTemplate = null;
-
-        if (!isUpdate) {
-            // ---------------- CREATE ----------------
-            resultTemplate = await prisma.salaryTemplate.create({
-                data: {
-                    organizationId: organization_id,
-                    name,
-                    description,
-                    departments: departments || [],
-                    designations: designations || [],
-                    isDefault: isDefault ?? false,
-                    isActive: isActive ?? true,
-                },
-            });
-        } else {
-            // ---------------- UPDATE ----------------
-            const existing = await prisma.salaryTemplate.findFirst({
-                where: { id: template_id, organizationId: organization_id, deletedAt: null },
-            });
-
-            if (!existing) {
-                return callback({
-                    code: grpc.status.NOT_FOUND,
-                    message: "SalaryTemplate not found",
-                });
-            }
-
-            resultTemplate = await prisma.salaryTemplate.update({
+        const template = isUpdate
+            ? await prisma.salaryTemplate.update({
                 where: { id: template_id },
                 data: {
                     name,
                     description,
-                    departments: departments || [],
-                    designations: designations || [],
+                    departments,
+                    designations,
                     isDefault,
                     isActive,
-                    updatedAt: new Date()
+                    updatedAt: new Date(),
                 },
-            });
-        }
-
-        const finalTemplateId = resultTemplate.id;
-
-        // 🔁 Replace all TemplateComponents for this template_id
-        await prisma.templateComponent.deleteMany({
-            where: { templateId: finalTemplateId },
-        });
-
-        if (Array.isArray(components) && components.length > 0) {
-            const toCreate = components.map((c, index) => ({
-                templateId: finalTemplateId,
-                componentId: c.componentId,
-                formula: c.formula || null,
-                value: c.value ?? null,
-                priority: c.priority ?? index, // fallback to index if not provided
-                minValue: c.minValue ?? null,
-                maxValue: c.maxValue ?? null,
-                condition: c.condition ?? null,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                deletedAt: null
-            }));
-
-            await prisma.templateComponent.createMany({
-                data: toCreate,
-            });
-        }
-
-        // return with components
-        const fullTemplate = await prisma.salaryTemplate.findFirst({
-            where: { id: finalTemplateId },
-            include: {
-                components: {
-                    include: { component: true },
-                    orderBy: { priority: 'asc' },
+            })
+            : await prisma.salaryTemplate.create({
+                data: {
+                    organizationId: organization_id,
+                    name,
+                    description,
+                    departments,
+                    designations,
+                    isDefault,
+                    isActive,
                 },
-            },
-        });
+            })
 
         return callback(null, {
             success: true,
             message: isUpdate
-                ? "Salary template updated successfully"
-                : "Salary template created successfully",
-            data: fullTemplate,
-        });
-
+                ? 'Salary template updated successfully'
+                : 'Salary template created successfully',
+            data: template,
+        })
     } catch (e) {
-        console.error("Upsert SalaryTemplate Error:", e);
+        console.error('Upsert SalaryTemplate Error:', e)
         return callback({
             code: grpc.status.INTERNAL,
             message: e.message,
-        });
+        })
     }
-};
+}
+
 /**
  * ================================================================
- *  FEATURE: DELETE SALARY TEMPLATE (soft delete)
+ *  FEATURE: DELETE SALARY TEMPLATE (SOFT DELETE)
  * ================================================================
  */
 export const deleteSalaryTemplateFunc = async (call, callback) => {
     try {
-        const { id, organization_id } = call.request;
+        const { id, organization_id } = call.request
 
-        if (!id) {
+        if (!organization_id || !id) {
             return callback({
                 code: grpc.status.INVALID_ARGUMENT,
-                message: "id is required",
-            });
+                message: 'organization_id and id are required',
+            })
+        }
+
+        const enabledFinance = await checkFinanceEnabled(organization_id)
+        if (!enabledFinance) {
+            return callback({
+                code: grpc.status.PERMISSION_DENIED,
+                message: 'Finance is not enabled',
+            })
         }
 
         const exists = await prisma.salaryTemplate.findFirst({
             where: { id, organizationId: organization_id, deletedAt: null },
-        });
+        })
 
         if (!exists) {
             return callback({
                 code: grpc.status.NOT_FOUND,
-                message: "SalaryTemplate not found",
-            });
+                message: 'Salary template not found',
+            })
         }
 
         await prisma.salaryTemplate.update({
             where: { id },
             data: { deletedAt: new Date() },
+        })
+
+        return callback(null, {
+            success: true,
+            message: 'Salary template deleted successfully',
+        })
+    } catch (e) {
+        console.error('Delete SalaryTemplate Error:', e)
+        return callback({
+            code: grpc.status.INTERNAL,
+            message: e.message,
+        })
+    }
+}
+
+
+function rangeMatches(range, gross) {
+    const low = Number(range.grossLow ?? 0);
+    const high = range.grossHigh == null ? Infinity : Number(range.grossHigh);
+    return gross >= low && gross <= high;
+}
+
+export const PreviewSalaryForEmployee = async (call, callback) => {
+    try {
+        const { organization_id, employee_id, template_id, gross } = call.request;
+
+        if (!(await assertFinanceEnabled(organization_id, callback))) return;
+        if (!employee_id) return callback({ code: grpc.status.INVALID_ARGUMENT, message: "employee_id is required" });
+        if (!gross || Number(gross) <= 0) return callback({ code: grpc.status.INVALID_ARGUMENT, message: "gross is required" });
+
+        const emp = await prisma.organizationEmployees.findFirst({
+            where: { id: employee_id, organizationId: organization_id, deletedAt: null },
+            select: { id: true, designationId: true, departmentId: true },
+        });
+        if (!emp) return callback({ code: grpc.status.NOT_FOUND, message: "Employee not found" });
+
+        // choose template
+        let tpl = null;
+
+        if (template_id) {
+            tpl = await prisma.salaryTemplate.findFirst({ where: { id: template_id, organizationId: organization_id, deletedAt: null } });
+        } else {
+            // example matching logic (you can refine)
+            tpl = await prisma.salaryTemplate.findFirst({
+                where: {
+                    organizationId: organization_id,
+                    deletedAt: null,
+                    isActive: true,
+                    OR: [
+                        { departments: { has: emp.departmentId } },
+                        { designations: { has: emp.designationId } },
+                    ],
+                },
+                orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+            });
+        }
+
+        if (!tpl) return callback({ code: grpc.status.NOT_FOUND, message: "No salary template found" });
+
+        // find range
+        const ranges = await prisma.salaryTemplateRange.findMany({
+            where: { templateId: tpl.id, deletedAt: null },
+            orderBy: { grossLow: "asc" },
+        });
+
+        const picked = ranges.find((r) => rangeMatches(r, Number(gross)));
+        if (!picked) return callback({ code: grpc.status.NOT_FOUND, message: "No matching range found" });
+
+        // fetch components for range + definitions
+        const comps = await prisma.templateComponent.findMany({
+            where: { templateId: tpl.id, rangeId: picked.id, deletedAt: null },
+            include: { component: true },
+            orderBy: { priority: "asc" },
+        });
+
+        // normalize for engine
+        const engineComponents = comps.map((c) => ({
+            componentId: c.componentId,
+            componentKey: c.component.key,
+            componentName: c.component.name,
+            kind: c.kind,
+            formula: c.formula,
+            value: c.value,
+            priority: c.priority,
+            minValue: c.minValue,
+            maxValue: c.maxValue,
+            condition: c.condition,
+        }));
+
+        const result = calculateSalary({
+            baseInput: { gross: Number(gross) },
+            components: engineComponents,
         });
 
         return callback(null, {
             success: true,
-            message: "Salary template deleted successfully",
+            message: "Salary preview generated",
+            template_id: tpl.id,
+            range_id: picked.id,
+            components: result.components.map((x) => ({
+                component_id: x.componentId,
+                key: x.componentKey,
+                name: x.componentName,
+                kind: x.kind || "",
+                value: x.value,
+                formula: x.formula || "",
+                priority: x.priority || 0,
+            })),
+            totals: {
+                total_earnings: result.totals.totalEarnings,
+                total_deductions: result.totals.totalDeductions,
+                total_employer: result.totals.totalEmployer,
+                in_hand_monthly: result.totals.inHandMonthly,
+                ctc_monthly: result.totals.ctcMonthly,
+            },
         });
-
     } catch (e) {
-        console.error("Delete SalaryTemplate Error:", e);
-        return callback({
-            code: grpc.status.INTERNAL,
-            message: e.message,
-        });
+        return callback({ code: grpc.status.INTERNAL, message: e.message });
     }
 };

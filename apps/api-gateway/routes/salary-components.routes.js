@@ -15,8 +15,8 @@ export default function registerComponentDefinitionRoutes({ openapi }) {
             request: {
                 query: z.object({
                     organization_id: z.string(),
-                    page: z.coerce.number().default(1),
-                    limit: z.coerce.number().default(10),
+                    page: z.coerce.number().optional().nullable(),
+                    limit: z.coerce.number().optional().nullable(),
                     search: z.string().optional().default(''),
                     category: z.enum(['recurring', 'adhoc', 'allowance', 'custom']).default('recurring'),
                     sort_by: z
