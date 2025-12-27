@@ -5,6 +5,7 @@ module.exports = {
             script: "npm",
             args: "run start",
             interpreter: "bash",
+            cwd: "/root/JuryHRMS/Backend",
             instances: 1,
             autorestart: true,
             watch: false,
