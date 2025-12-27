@@ -2,7 +2,7 @@
 module.exports = {
     apps: [
         {
-            name: "my-app",
+            name: "Jury-HRMS||Backend",
             script: "npm",
             args: "run start",
             cwd: __dirname,              // runs from project root
