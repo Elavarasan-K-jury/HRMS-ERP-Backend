@@ -146,9 +146,8 @@ app.use(
             if (!origin) return "*"; // allow curl / mobile apps
 
             // Match any allowed IP range
-            console.log('server.js @ Line 148:', allowedOriginPatterns);
-            console.log('server.js @ Line 148:', origin);
             for (const pattern of allowedOriginPatterns) {
+                console.log('server.js @ Line 150:', typeof pattern);
                 if (pattern == origin) {
                     return origin
                 } else if (pattern.test(origin)) {
