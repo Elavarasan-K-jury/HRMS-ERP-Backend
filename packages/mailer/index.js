@@ -27,7 +27,7 @@ export async function sendOnboardEmail(employeeName, employeeEmail, accessLevel,
     try {
         const subject = `Onboarded to ${companyName}!`;
         const text = `Welcome to ${companyName}!`;
-        const html = generateOnboardingEmail(employeeName, employeeEmail, accessLevel, loginUrl, companyName, supportEmail);
+        const html = generateOnboardingEmail({ employeeName, employeeEmail, accessLevel, loginUrl, companyName, supportEmail });
         return sendEmail(employeeEmail, subject, text, html);
     } catch (error) {
         console.log('index.js @ Line 29:', error);
