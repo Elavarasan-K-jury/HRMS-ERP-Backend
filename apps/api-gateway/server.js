@@ -122,7 +122,6 @@ const app = new OpenAPIHono({
 
 function parseAllowedIPs() {
     const raw = process.env.ALLOWED_IPS || "";
-    console.log('server.js @ Line 125:', raw);
     const ips = raw.split(",").map(ip => ip.trim());
 
     return ips.map(ip => {
@@ -146,6 +145,8 @@ app.use(
             if (!origin) return "*"; // allow curl / mobile apps
 
             // Match any allowed IP range
+            console.log('server.js @ Line 148:', allowedOriginPatterns);
+            console.log('server.js @ Line 148:', origin);
             for (const pattern of allowedOriginPatterns) {
                 if (pattern.test(origin)) {
                     return origin;
