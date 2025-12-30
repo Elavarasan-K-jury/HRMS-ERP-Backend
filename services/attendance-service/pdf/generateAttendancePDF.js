@@ -15,7 +15,7 @@ export async function generateAttendancePDF({ reportId, days, summary }) {
     console.log(`📄 Generating PDF for report: ${reportId}`);
 
     // 1️⃣ Render full HTML content
-    const html = renderAttendanceHTML({ days, summary });
+    const html = renderAttendanceHTML({ reportId, days, summary });
 
     // 2️⃣ Launch headless browser
     const browser = await puppeteer.launch({
@@ -24,6 +24,8 @@ export async function generateAttendancePDF({ reportId, days, summary }) {
             "--no-sandbox",
             "--disable-setuid-sandbox",
             "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--single-process",
         ],
     });
 
