@@ -147,10 +147,9 @@ app.use(
 
             // Match any allowed IP range
             for (const pattern of allowedOriginPatterns) {
-                console.log('server.js @ Line 150:', typeof pattern);
                 if (pattern == origin) {
                     return origin
-                } else if (pattern.test(origin)) {
+                } else if (typeof pattern == 'object' && pattern.test(origin)) {
                     return origin;
                 }
             }
