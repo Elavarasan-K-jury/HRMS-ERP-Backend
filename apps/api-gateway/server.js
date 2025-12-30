@@ -128,11 +128,11 @@ function parseAllowedIPs() {
         // Convert wildcard: "192.168.68.*"
         if (ip.endsWith(".*")) {
             const base = ip.replace(".*", "").replace(/\./g, "\\.");
-            return new RegExp(`^https:\\/\\/${base}\\.\\d+(?::\\d+)?$`);
+            return new RegExp(`^${process.env.ENVIRONMENT == 'DEVELOPMENT' ? 'http' : 'https'}\\/\\/${base}\\.\\d+(?::\\d+)?$`);
         }
 
         // Exact IP (localhost, IPv4, IPv6)
-        return new RegExp(`^https:\\/\\/${ip.replace(/\./g, "\\.")}(?::\\d+)?$`);
+        return new RegExp(`^${process.env.ENVIRONMENT == 'DEVELOPMENT' ? 'http' : 'https'}\\/\\/${ip.replace(/\./g, "\\.")}(?::\\d+)?$`);
     });
 }
 
