@@ -72,7 +72,7 @@ const impl = {
             });
 
             // Always send OTP to the admin's email
-            // sendOtpEmail(admin.email, otp, OTP_TTL_MS / 60000);
+            sendOtpEmail(admin.email, otp, OTP_TTL_MS / 60000);
 
             cb(null, { message: 'OTP sent to registered email', success: true });
         } catch (e) {
