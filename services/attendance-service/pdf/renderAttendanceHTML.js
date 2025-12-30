@@ -1,136 +1,136 @@
 // services/attendance/renderAttendanceHTML.js
 
 function escapeHtml(str = "") {
-    return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function formatHours(value) {
-    if (value === null || value === undefined) return "-";
-    const num = Number(value);
-    if (Number.isNaN(num)) return "-";
-    return `${num.toFixed(2)} hrs`;
+  if (value === null || value === undefined) return "-";
+  const num = Number(value);
+  if (Number.isNaN(num)) return "-";
+  return `${num.toFixed(2)} hrs`;
 }
 
 function formatMinutes(value) {
-    if (value === null || value === undefined) return "-";
-    const num = Number(value);
-    if (Number.isNaN(num)) return "-";
-    return `${num} min`;
+  if (value === null || value === undefined) return "-";
+  const num = Number(value);
+  if (Number.isNaN(num)) return "-";
+  return `${num} min`;
 }
 
 function formatDateLabel(dateStr) {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    if (Number.isNaN(d.getTime())) return escapeHtml(dateStr);
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return escapeHtml(dateStr);
 
-    const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const w = weekdays[d.getDay()];
-    return `${dateStr} (${w})`;
+  const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const w = weekdays[d.getDay()];
+  return `${dateStr} (${w})`;
 }
 
 function formatTime(ts) {
-    if (!ts) return "—";
-    const d = new Date(ts);
-    if (Number.isNaN(d.getTime())) return escapeHtml(ts);
-    return d.toLocaleTimeString("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit",
-    });
+  if (!ts) return "—";
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return escapeHtml(ts);
+  return d.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function parseSource(sourceRaw) {
-    if (!sourceRaw) return "";
-    try {
-        const obj = JSON.parse(sourceRaw);
-        if (obj.source) return obj.source;
-        const parts = [];
-        if (obj.browser) parts.push(obj.browser);
-        if (obj.os) parts.push(obj.os);
-        return parts.join(" on ") || sourceRaw;
-    } catch {
-        return sourceRaw;
-    }
+  if (!sourceRaw) return "";
+  try {
+    const obj = JSON.parse(sourceRaw);
+    if (obj.source) return obj.source;
+    const parts = [];
+    if (obj.browser) parts.push(obj.browser);
+    if (obj.os) parts.push(obj.os);
+    return parts.join(" on ") || sourceRaw;
+  } catch {
+    return sourceRaw;
+  }
 }
 
 function statusClass(status) {
-    switch (status) {
-        case "PRESENT":
-            return "status-pill present";
-        case "HALF_DAY":
-            return "status-pill half";
-        case "ABSENT":
-            return "status-pill absent";
-        default:
-            return "status-pill default";
-    }
+  switch (status) {
+    case "PRESENT":
+      return "status-pill present";
+    case "HALF_DAY":
+      return "status-pill half";
+    case "ABSENT":
+      return "status-pill absent";
+    default:
+      return "status-pill default";
+  }
 }
 
 export function renderAttendanceHTML({ reportId, days = [], summary = {} }) {
-    const allAttendance = days.flatMap((d) => d.attendance || []);
+  const allAttendance = days.flatMap((d) => d.attendance || []);
 
-    // Unique employees across all days
-    const employeeMap = new Map();
-    for (const day of days) {
-        for (const rec of day.attendance || []) {
-            if (rec.employee && !employeeMap.has(rec.employee.id)) {
-                employeeMap.set(rec.employee.id, rec.employee);
-            }
-        }
+  // Unique employees across all days
+  const employeeMap = new Map();
+  for (const day of days) {
+    for (const rec of day.attendance || []) {
+      if (rec.employee && !employeeMap.has(rec.employee.id)) {
+        employeeMap.set(rec.employee.id, rec.employee);
+      }
     }
-    const employees = Array.from(employeeMap.values());
+  }
+  const employees = Array.from(employeeMap.values());
 
-    // Basic org info from first employee (if any)
-    const org =
-        employees[0]?.organization || {
-            name: "Organization Name",
-            domain: "",
-        };
-
-    // Stats
-    let present = 0;
-    let half = 0;
-    let absent = 0;
-    let totalGross = 0;
-    let totalEffective = 0;
-
-    for (const rec of allAttendance) {
-        if (rec.status === "PRESENT") present++;
-        if (rec.status === "HALF_DAY") half++;
-        if (rec.status === "ABSENT") absent++;
-        totalGross += rec.gross_hours || 0;
-        totalEffective += rec.effective_hours || 0;
-    }
-
-    const stats = {
-        totalRecords: allAttendance.length,
-        totalDays: days.length,
-        totalEmployees: employees.length,
-        present,
-        half,
-        absent,
-        totalGross,
-        totalEffective,
+  // Basic org info from first employee (if any)
+  const org =
+    employees[0]?.organization || {
+      name: "Organization Name",
+      domain: "",
     };
 
-    const periodStart = summary.start || "";
-    const periodEnd = summary.end || "";
-    const generatedOn = new Date().toISOString().slice(0, 10);
+  // Stats
+  let present = 0;
+  let half = 0;
+  let absent = 0;
+  let totalGross = 0;
+  let totalEffective = 0;
 
-    const orgInitials = org.name
-        .split(" ")
-        .filter(Boolean)
-        .map((w) => w[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
+  for (const rec of allAttendance) {
+    if (rec.status === "PRESENT") present++;
+    if (rec.status === "HALF_DAY") half++;
+    if (rec.status === "ABSENT") absent++;
+    totalGross += rec.gross_hours || 0;
+    totalEffective += rec.effective_hours || 0;
+  }
 
-    // Build HTML
-    const html = `<!DOCTYPE html>
+  const stats = {
+    totalRecords: allAttendance.length,
+    totalDays: days.length,
+    totalEmployees: employees.length,
+    present,
+    half,
+    absent,
+    totalGross,
+    totalEffective,
+  };
+
+  const periodStart = summary.start || "";
+  const periodEnd = summary.end || "";
+  const generatedOn = new Date().toISOString().slice(0, 10);
+
+  const orgInitials = org.name
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  // Build HTML
+  const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -744,7 +744,7 @@ export function renderAttendanceHTML({ reportId, days = [], summary = {} }) {
           <strong>${escapeHtml(generatedOn)}</strong>
         </div>
         <div class="report-id">
-          Report ID: ${escapeHtml(reportId || "-")}
+          Report ID: ${escapeHtml(reportId?.toUpperCase() || "-")}
         </div>
       </div>
     </header>
@@ -810,17 +810,17 @@ export function renderAttendanceHTML({ reportId, days = [], summary = {} }) {
           <div class="employee-list-title">Sample employees in this report</div>
           <div class="employee-tags">
             ${employees
-            .slice(0, 12)
-            .map((emp) => {
-                const name = escapeHtml(emp.fullName || emp.name || "Employee");
-                const code = escapeHtml(emp.code || emp.employeeCode || "");
-                return `<span class="employee-tag">${name}${code ? " · " + code : ""}</span>`;
-            })
-            .join("")}
+      .slice(0, 12)
+      .map((emp) => {
+        const name = escapeHtml(emp.fullName || emp.name || "Employee");
+        const code = escapeHtml(emp.code || emp.employeeCode || "");
+        return `<span class="employee-tag">${name}${code ? " · " + code : ""}</span>`;
+      })
+      .join("")}
             ${employees.length > 12
-            ? `<span class="employee-tag">+${employees.length - 12} more…</span>`
-            : ""
-        }
+      ? `<span class="employee-tag">+${employees.length - 12} more…</span>`
+      : ""
+    }
           </div>
         </div>
       </div>
@@ -828,12 +828,12 @@ export function renderAttendanceHTML({ reportId, days = [], summary = {} }) {
 
     <!-- DAYS & ATTENDANCE -->
     ${days
-            .map((day) => {
-                const attendance = day.attendance || [];
-                const dayTitle = formatDateLabel(day.date);
-                const employeesCount = attendance.length;
+      .map((day) => {
+        const attendance = day.attendance || [];
+        const dayTitle = formatDateLabel(day.date);
+        const employeesCount = attendance.length;
 
-                return `
+        return `
         <section class="day-section">
           <div class="day-header">
             <div>
@@ -842,36 +842,36 @@ export function renderAttendanceHTML({ reportId, days = [], summary = {} }) {
             </div>
             <div class="day-meta">
               <span class="meta-pill">Total records: ${attendance.length
-                    }</span>
+          }</span>
             </div>
           </div>
           <div class="day-body">
             ${attendance
-                        .map((rec) => {
-                            const emp = rec.employee || {};
-                            const empName = escapeHtml(emp.fullName || emp.name || "Employee");
-                            const empCode = escapeHtml(emp.code || emp.employeeCode || "");
-                            const designation = escapeHtml(emp.designation || "");
-                            const department = escapeHtml(emp.department || "");
-                            const phone = escapeHtml(emp.phone || "");
-                            const email = escapeHtml(emp.email || "");
+            .map((rec) => {
+              const emp = rec.employee || {};
+              const empName = escapeHtml(emp.fullName || emp.name || "Employee");
+              const empCode = escapeHtml(emp.code || emp.employeeCode || "");
+              const designation = escapeHtml(emp.designation || "");
+              const department = escapeHtml(emp.department || "");
+              const phone = escapeHtml(emp.phone || "");
+              const email = escapeHtml(emp.email || "");
 
-                            const ci = rec.check_in ? formatTime(rec.check_in) : "—";
-                            const co = rec.check_out ? formatTime(rec.check_out) : "—";
+              const ci = rec.check_in ? formatTime(rec.check_in) : "—";
+              const co = rec.check_out ? formatTime(rec.check_out) : "—";
 
-                            const status = rec.status || "PENDING";
-                            const statusCls = statusClass(status);
+              const status = rec.status || "PENDING";
+              const statusCls = statusClass(status);
 
-                            return `
+              return `
                   <article class="employee-attendance">
                     <div class="emp-header">
                       <div>
                         <div class="emp-main">
                           <span class="emp-name">${empName}</span>
                           ${empCode
-                                    ? `<span class="emp-code">${empCode}</span>`
-                                    : ""
-                                }
+                  ? `<span class="emp-code">${empCode}</span>`
+                  : ""
+                }
                         </div>
                         <div class="emp-meta-line">
                           ${designation ? designation : "—"}
@@ -895,25 +895,25 @@ export function renderAttendanceHTML({ reportId, days = [], summary = {} }) {
                       <div class="metric">
                         <span class="metric-label">Gross</span>
                         <span class="metric-value">${formatHours(
-                                    rec.gross_hours
-                                )}</span>
+                  rec.gross_hours
+                )}</span>
                       </div>
                       <div class="metric">
                         <span class="metric-label">Effective</span>
                         <span class="metric-value">${formatHours(
-                                    rec.effective_hours
-                                )}</span>
+                  rec.effective_hours
+                )}</span>
                       </div>
                       <div class="metric">
                         <span class="metric-label">Late</span>
                         <span class="metric-value">${formatMinutes(
-                                    rec.late_minutes
-                                )}</span>
+                  rec.late_minutes
+                )}</span>
                       </div>
                     </div>
 
                     ${(rec.logs || []).length
-                                    ? `
+                  ? `
                     <div class="logs-wrapper">
                       <table class="logs">
                         <thead>
@@ -928,21 +928,21 @@ export function renderAttendanceHTML({ reportId, days = [], summary = {} }) {
                         </thead>
                         <tbody>
                           ${(rec.logs || [])
-                                        .map((log, idx) => {
-                                            const createdAt = formatTime(log.created_at);
-                                            const tagClass =
-                                                log.type === "CHECK_IN" ? "tag check-in" : "tag check-out";
+                    .map((log, idx) => {
+                      const createdAt = formatTime(log.created_at);
+                      const tagClass =
+                        log.type === "CHECK_IN" ? "tag check-in" : "tag check-out";
 
-                                            let geo = "";
-                                            if (log.geo && typeof log.geo.latitude === "number" && typeof log.geo.longitude === "number") {
-                                                const lat = log.geo.latitude.toFixed(6);
-                                                const lng = log.geo.longitude.toFixed(6);
-                                                geo = `${lat}, ${lng}`;
-                                            }
+                      let geo = "";
+                      if (log.geo && typeof log.geo.latitude === "number" && typeof log.geo.longitude === "number") {
+                        const lat = log.geo.latitude.toFixed(6);
+                        const lng = log.geo.longitude.toFixed(6);
+                        geo = `${lat}, ${lng}`;
+                      }
 
-                                            const srcText = parseSource(log.source || "");
+                      const srcText = parseSource(log.source || "");
 
-                                            return `
+                      return `
       <tr>
         <td>${idx + 1}</td>
         <td>${escapeHtml(createdAt)}</td>
@@ -954,26 +954,26 @@ export function renderAttendanceHTML({ reportId, days = [], summary = {} }) {
         <td class="source">${escapeHtml(srcText)}</td>
       </tr>
     `;
-                                        })
-                                        .join("")}
+                    })
+                    .join("")}
 
                         </tbody>
                       </table>
                     </div>
                     `
-                                    : ""
-                                }
+                  : ""
+                }
                   </article>
                 `;
-                        })
-                        .join("")}
-          </div>
-        </section>`;
             })
             .join("")}
+          </div>
+        </section>`;
+      })
+      .join("")}
   </div>
 </body>
 </html>`;
 
-    return html;
+  return html;
 }
