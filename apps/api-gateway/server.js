@@ -122,6 +122,7 @@ const app = new OpenAPIHono({
 
 function parseAllowedIPs() {
     const raw = process.env.ALLOWED_IPS || "";
+    console.log('server.js @ Line 125:', raw);
     const ips = raw.split(",").map(ip => ip.trim());
 
     return ips.map(ip => {
