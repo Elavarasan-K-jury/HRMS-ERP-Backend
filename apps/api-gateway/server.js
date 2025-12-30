@@ -126,10 +126,9 @@ function parseAllowedIPs() {
 
     return ips.map(ip => {
         // Convert wildcard: "192.168.68.*"
-        if (ip.endsWith('.com', '.in')) {
+        if (ip.endsWith('.com') || ip.endsWith('.in')) {
             return ip
-        }
-        if (ip.endsWith(".*")) {
+        } else if (ip.endsWith(".*")) {
             const base = ip.replace(".*", "").replace(/\./g, "\\.");
             return new RegExp(`^http\\/\\/${base}\\.\\d+(?::\\d+)?$`);
         }
