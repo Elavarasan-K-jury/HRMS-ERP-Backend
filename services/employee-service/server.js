@@ -1,6 +1,6 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
-import { sendOtpEmail } from '@jury-hrms/mailer';
+import { sendOtpEmail, sendOnboardEmail } from '@jury-hrms/mailer';
 import dotenv from 'dotenv';
 dotenv.config();
 import { signAccessToken, signRefreshToken, verifyToken, ACCESS_EXPIRES_IN } from '@jury-hrms/auth/jwt.js';
@@ -58,8 +58,9 @@ const impl = {
             }
 
             // Validate designation if provided
+            let designationExists = null
             if (data.designation_id) {
-                const designationExists = await prisma.organizationDesignations.findFirst({
+                designationExists = await prisma.organizationDesignations.findFirst({
                     where: {
                         id: data.designation_id,
                         organizationId: data.organization_id,
@@ -147,6 +148,16 @@ const impl = {
                     designation: true,
                 },
             });
+
+            sendOnboardEmail(
+                data.full_name || `${data.first_name || ''} ${data.last_name || ''}`.trim(),
+                data.email,
+                `${designationExists.name} (${designationExists.level})`,
+                'https://juryhrms-employee.jurysoftprojects.com/',
+                'Jurysoft Global',
+                'info@jurysoft.com'
+            )
+
             await prisma.organizations.update({
                 where: { id: data.organization_id },
                 data: { totalEmployee: organizationExists.totalEmployee + 1, activeEmployee: organizationExists.activeEmployee + 1 },
