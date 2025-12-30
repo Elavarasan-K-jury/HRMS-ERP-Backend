@@ -126,12 +126,12 @@ function parseAllowedIPs() {
 
     return ips.map(ip => {
         // Convert wildcard: "192.168.68.*"
+        if (ip.endsWith('.com', '.in')) {
+            return ip
+        }
         if (ip.endsWith(".*")) {
             const base = ip.replace(".*", "").replace(/\./g, "\\.");
             return new RegExp(`^http\\/\\/${base}\\.\\d+(?::\\d+)?$`);
-        }
-        if (ip.endsWith('.com', '.in')) {
-            return ip
         }
         // Exact IP (localhost, IPv4, IPv6)
         return new RegExp(`^http\\/\\/${ip.replace(/\./g, "\\.")}(?::\\d+)?$`);
