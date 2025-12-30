@@ -152,6 +152,8 @@ app.use(
             for (const pattern of allowedOriginPatterns) {
                 if (pattern.test(origin)) {
                     return origin;
+                } else if (pattern == origin) {
+                    return origin
                 }
             }
 
