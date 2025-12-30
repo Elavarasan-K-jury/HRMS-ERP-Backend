@@ -149,10 +149,10 @@ app.use(
             console.log('server.js @ Line 148:', allowedOriginPatterns);
             console.log('server.js @ Line 148:', origin);
             for (const pattern of allowedOriginPatterns) {
-                if (pattern.test(origin)) {
-                    return origin;
-                } else if (pattern == origin) {
+                if (pattern == origin) {
                     return origin
+                } else if (pattern.test(origin)) {
+                    return origin;
                 }
             }
 
