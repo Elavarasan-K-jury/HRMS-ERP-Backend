@@ -1,17 +1,94 @@
 export function otpHtml(otp, ttlMinutes = 5) {
   return `
-  <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color:#0b1220;">
-    <h2 style="margin:0 0 8px">Your Jury HRMS OTP</h2>
-    <p style="margin:0 0 12px">Use this code to log in. It expires in ${ttlMinutes} minutes.</p>
-    <div style="display:inline-block;background:#0b1220;color:#fff;padding:10px 18px;border-radius:10px;
-                font-weight:700;letter-spacing:2px;font-size:20px;">
-      ${otp}
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="UTF-8">
+    <style>
+      .body-wrap {
+        background-color: #f9fafb;
+        padding: 40px 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      .container {
+        max-width: 480px;
+        margin: 0 auto;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 40px;
+        text-align: left;
+      }
+      .label-top {
+        color: #6b7280;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 8px;
+        display: block;
+      }
+      .title {
+        color: #111827;
+        font-size: 22px;
+        font-weight: 600;
+        margin: 0 0 12px 0;
+        letter-spacing: -0.02em;
+      }
+      .description {
+        color: #374151;
+        font-size: 15px;
+        line-height: 1.5;
+        margin-bottom: 32px;
+      }
+      .otp-container {
+        background-color: #f3f4f6;
+        border-radius: 8px;
+        padding: 24px;
+        text-align: center;
+        margin-bottom: 32px;
+      }
+      .otp-code {
+        font-family: 'SF Mono', 'Menlo', 'Courier New', monospace;
+        font-size: 32px;
+        font-weight: 700;
+        color: #111827;
+        letter-spacing: 4px;
+      }
+      .footer-text {
+        font-size: 13px;
+        color: #9ca3af;
+        line-height: 1.4;
+        border-top: 1px solid #f3f4f6;
+        padding-top: 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="body-wrap">
+      <div class="container">
+        <span class="label-top">Security Protocol</span>
+        <h1 class="title">Verification Code</h1>
+        <p class="description">
+          Please use the following code to complete your login to <strong>Jury HRMS</strong>. 
+          This code is valid for the next ${ttlMinutes} minutes.
+        </p>
+        
+        <div class="otp-container">
+          <div class="otp-code">${otp}</div>
+        </div>
+
+        <div class="footer-text">
+          If you did not attempt to sign in, please ignore this email or contact security if you have concerns.
+          <br><br>
+          &copy; 2025 Jury HRMS
+        </div>
+      </div>
     </div>
-    <p style="margin:16px 0 0;font-size:12px;color:#5b6476">If you didn’t request this, you can ignore this email.</p>
-  </div>
+  </body>
+  </html>
   `;
 }
-
 
 export function generateOnboardingEmail({
   employeeName,
