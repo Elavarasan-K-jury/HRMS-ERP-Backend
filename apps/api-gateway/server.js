@@ -4,6 +4,8 @@
 import dotenv from 'dotenv';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { trafficMiddleware } from "./middlewares/traffic.middleware.js";
+import { publishTrafficEvent } from "./queue/traffic.publisher.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -70,6 +72,7 @@ import { rateLimiter } from './middlewares/rate_limiter.js';
 import { withQueue } from './middlewares/request_queue.js';
 import { requestLogger } from './middlewares/req_logged.js';
 import { withServiceMetrics } from './middlewares/service_metrics.js';
+import { usageMiddleware } from './middlewares/usage_tracking.js';
 
 
 import registerOrganizationRoutes from './routes/organization.routes.js';
@@ -120,52 +123,200 @@ const app = new OpenAPIHono({
     },
 });
 
-function parseAllowedIPs() {
-    const raw = process.env.ALLOWED_IPS || "";
-    const ips = raw.split(",").map(ip => ip.trim());
-
-    return ips.map(ip => {
-        // Convert wildcard: "192.168.68.*"
-        if (ip.endsWith('.com') || ip.endsWith('.in')) {
-            return ip
-        } else if (ip.endsWith(".*")) {
-            const base = ip.replace(".*", "").replace(/\./g, "\\.");
-            return new RegExp(`^http\\/\\/${base}\\.\\d+(?::\\d+)?$`);
-        }
-        // Exact IP (localhost, IPv4, IPv6)
-        return new RegExp(`^http\\/\\/${ip.replace(/\./g, "\\.")}(?::\\d+)?$`);
-    });
+function parseList(envValue = "") {
+    return envValue
+        .split(",")
+        .map(v => v.trim())
+        .filter(Boolean);
 }
 
-const allowedOriginPatterns = parseAllowedIPs();
+function ipToRegex(ip) {
+    // 192.168.68.*
+    if (ip.endsWith(".*")) {
+        const base = ip
+            .replace(".*", "")
+            .replace(/\./g, "\\.");
+        return new RegExp(`^${base}\\.\\d+$`);
+    }
+
+    // exact IP (IPv4 / IPv6 / localhost)
+    return new RegExp(`^${ip.replace(/\./g, "\\.")}$`);
+}
+
+const allowedIPs = parseList(process.env.ALLOWED_IPS)
+    .map(ipToRegex);
+
+const allowedDomains = parseList(process.env.ALLOWED_DOMAINS);
 
 app.use(
     "*",
     cors({
         origin: (origin) => {
-            if (!origin) return "*"; // allow curl / mobile apps
+            // allow curl / mobile apps / server-to-server
+            if (!origin) return true
 
-            // Match any allowed IP range
-            for (const pattern of allowedOriginPatterns) {
-                if (pattern == origin) {
+            let hostname
+            try {
+                hostname = new URL(origin).hostname
+            } catch {
+                console.warn("Invalid origin:", origin)
+                return false
+            }
+
+            console.log("CORS origin:", origin)
+            console.log("Parsed hostname:", hostname)
+
+            // ✅ Check IPs
+            for (const regex of allowedIPs) {
+                if (regex.test(hostname)) {
                     return origin
-                } else if (typeof pattern == 'object' && pattern.test(origin)) {
-                    return origin;
                 }
             }
 
-            console.warn("CORS BLOCKED:", origin);
-            return false;
+            // ✅ Check domains & subdomains
+            for (const domain of allowedDomains) {
+                if (
+                    hostname === domain ||
+                    hostname.endsWith(`.${domain}`)
+                ) {
+                    return origin
+                }
+            }
+
+            console.warn("CORS BLOCKED:", origin)
+            return false
         },
-        allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        credentials: true,
     })
 );
+
 
 // Common middlewares
 app.use('*', requestLogger); // 📝 Log requests
 app.use('*', ipWhitelist); // 🛡️ IP Whitelist
 app.use('*', rateLimiter); // ⏱️ Rate limiting
+const detectServiceByPath = (c) => {
+    const p = new URL(c.req.url).pathname;
 
+    // global “cross-cutting” routes
+    if (p.includes("/hierarchy")) return "hierarchy";
+    if (p.includes("/login") || p.includes("/token") || p.startsWith("/auth")) return "auth";
+
+    // Helper: matches exact segment prefix (avoids "/admin" matching "/adminsX" weirdness)
+    const startsWithAny = (prefixes) => prefixes.some((x) => p.startsWith(x));
+
+    // Service routing map (add/edit here)
+    const routes = [
+        // ORGANIZATION
+        { service: "organization", prefixes: ["/organizations", "/organization"] },
+
+        // EMPLOYEES
+        { service: "employee", prefixes: ["/employees", "/employee"] },
+
+        // EMPLOYEE CATEGORIES (keeping your typo path too)
+        { service: "employee_category", prefixes: ["/employee-categories", "/employee-categorie"] },
+
+        // DEPARTMENTS
+        { service: "department", prefixes: ["/departments", "/department"] },
+
+        // DESIGNATIONS
+        { service: "designation", prefixes: ["/designations", "/designation"] },
+
+        // ADMIN USERS (cover both)
+        { service: "admin", prefixes: ["/admins", "/admin"] },
+
+        // APPROVAL
+        { service: "approval", prefixes: ["/approval"] },
+
+        // ASSETS (group all asset-* + assets)
+        {
+            service: "asset",
+            prefixes: [
+                "/assets",
+                "/asset-assignments",
+                "/asset-categories",
+                "/asset-conditions",
+                "/asset-models",
+                "/asset-requests",
+            ],
+        },
+
+        // ATTENDANCE
+        { service: "attendance", prefixes: ["/attendance", "/attendance-policies"] },
+
+        // FINANCE / SALARY
+        { service: "finance", prefixes: ["/finance", "/salary"] },
+
+        // GEO FENCES
+        { service: "geo_fence", prefixes: ["/geo-fences"] },
+
+        // HOLIDAYS / HOLIDAY POLICIES
+        { service: "holiday", prefixes: ["/holidays", "/holiday-policies"] },
+
+        // LEAVE
+        { service: "leave", prefixes: ["/leave", "/leave-types"] },
+
+        // NETWORK POLICIES
+        { service: "network_policy", prefixes: ["/network-policies"] },
+
+        // POSTS / POLLS
+        { service: "post", prefixes: ["/posts", "/post-polls"] },
+
+        // REPORTS
+        { service: "reports", prefixes: ["/reports"] },
+
+        // SERVICE METRICS
+        { service: "service_metrics", prefixes: ["/service-metrics"] },
+
+        // SHIFTS
+        {
+            service: "shift",
+            prefixes: ["/shifts", "/shift-policies", "/shift-assignments"],
+        },
+
+        // EMPLOYEE ONBOARDING (group)
+        {
+            service: "employee_onboarding",
+            prefixes: [
+                "/employee-onboarding-features",
+                "/employee-onboarding-flows",
+                "/employee-onboarding-progress",
+                "/employee-onboarding-steps",
+            ],
+        },
+    ];
+
+    for (const r of routes) {
+        if (startsWithAny(r.prefixes)) return r.service;
+    }
+
+    return "api-gateway";
+};
+
+
+app.use('*', usageMiddleware({
+    serviceNameResolver: (c) =>
+        c.req.header("x-target-service") || detectServiceByPath(c),
+
+    moduleResolver: (c) =>
+        c.req.header("x-module") || detectServiceByPath(c), // optional
+    featureResolver: (c) => "generic"
+})
+); // 📈 Usage tracking
+
+app.use(
+    "*",
+    trafficMiddleware({
+        serviceNameResolver: (c) =>
+            c.req.header("x-target-service") || detectServiceByPath(c),
+
+        moduleResolver: (c) =>
+            c.req.header("x-module") || null, // optional
+
+        publish: publishTrafficEvent
+    })
+);
 // Health check
 app.get('/', (c) => c.text('🚀 Jury-HRMS API Gateway is running!'));
 
@@ -239,7 +390,6 @@ registerHealthRoutes({ openapi: wrapSystem });
 /* ------------------------------------------------------------------ */
 /* 📜 OpenAPI / Swagger                                                */
 /* ------------------------------------------------------------------ */
-
 app.doc('/doc', {
     openapi: '3.1.0',
     info: {

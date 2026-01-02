@@ -1,18 +1,31 @@
-import pkg from '@prisma/client';
+import pkg from "@prisma/client";
 const { PrismaClient } = pkg;
 
-export const prisma = new PrismaClient();
+const globalForPrisma = globalThis;
 
 /**
- * Call this once on service startup to verify DB connectivity.
+ * Single Prisma client across the entire process
  */
-export async function checkDbConnection(serviceName = 'unknown-service') {
+export const prisma =
+    globalForPrisma.prisma ??
+    new PrismaClient({
+        log: ["error"]
+    });
+
+if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma = prisma;
+}
+
+/**
+ * Optional health check (SAFE)
+ */
+export async function checkDbConnection(serviceName = "unknown-service") {
     try {
-        await prisma.$connect(); // forces an actual connection
-        console.log(`[${serviceName}] ✅ Database connected`);
+        // light ping instead of forcing a new connection
+        await prisma.$runCommandRaw({ ping: 1 });
+        console.log(`[${serviceName}] ✅ Database reachable`);
     } catch (err) {
-        console.error(`[${serviceName}] ❌ Database connection failed:`, err);
-        // hard fail so the container/process doesn’t run half-broken
+        console.error(`[${serviceName}] ❌ Database check failed`, err);
         process.exit(1);
     }
 }

@@ -1,0 +1,25 @@
+{
+    "name": "@jury-hrms/traffic-reporting-service",
+    "private": true,
+    "type": "module",
+    "version": "1.0.0",
+    "description": "Super admin traffic reporting, aggregation, and anomaly detection service",
+    "main": "server.js",
+    "scripts": {
+        "dev": "nodemon server.js",
+        "start": "node server.js"
+    },
+    "dependencies": {
+        "hono": "^4.10.4",
+        "@hono/node-server": "^1.19.6",
+        "@hono/zod-openapi": "^1.1.4",
+        "@jury-hrms/proto": "*",
+        "@jury-hrms/redis": "*",
+        "@jury-hrms/db": "*",
+        "dotenv": "^17.2.3",
+        "node-cron": "^3.0.3"
+    },
+    "devDependencies": {
+        "nodemon": "^3.1.0"
+    }
+}

@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-
+import "dotenv";
 const MAIL_HOST = process.env.SMTP_HOST;
 const MAIL_PORT = Number(process.env.SMTP_PORT || 587);
 const MAIL_USER = process.env.SMTP_USER;

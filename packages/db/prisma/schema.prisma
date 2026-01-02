@@ -1318,3 +1318,209 @@ model PayslipComponent {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 }
+
+model TrafficEvent {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  timestamp DateTime @default(now())
+
+  // Identity
+  organizationId String?
+  userId         String?
+  role           String?
+  requestId      String? // trace / correlation ID
+
+  // Classification
+  service  String
+  module   String?
+  endpoint String // raw path
+  routeKey String? // normalized path: /leave/:id
+  method   String
+
+  // Result
+  statusCode     Int
+  statusClass    String // 2xx | 4xx | 5xx
+  success        Boolean
+  responseTimeMs Int
+  errorType      String? // validation | auth | timeout | server
+
+  // Size (optional but powerful)
+  requestSizeBytes  Int?
+  responseSizeBytes Int?
+
+  // Client
+  ip        String?
+  userAgent String?
+  source    String? // web | mobile | api | system
+  country   String? // optional (from IP later)
+
+  // Flags
+  isSystem Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([service, timestamp])
+  @@index([organizationId, timestamp])
+  @@index([routeKey, timestamp])
+}
+
+model TrafficHourlyStat {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  hour           DateTime
+  organizationId String?
+  service        String
+  module         String?
+
+  requestCount Int
+  successCount Int
+  errorCount   Int
+
+  avgLatencyMs Float
+  p95LatencyMs Float
+  p99LatencyMs Float
+
+  uniqueUsers Int
+
+  createdAt DateTime @default(now())
+
+  @@unique([hour, organizationId, service, module])
+  @@index([hour])
+}
+
+model TrafficDailyStat {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  date           DateTime
+  organizationId String?
+  service        String
+  module         String?
+
+  requestCount Int
+  successCount Int
+  errorCount   Int
+
+  avgLatencyMs Float
+  p95LatencyMs Float
+  p99LatencyMs Float
+
+  activeUsers Int
+
+  createdAt DateTime @default(now())
+
+  @@unique([date, organizationId, service, module])
+  @@index([date])
+}
+
+model TrafficAlertRule {
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  name     String
+  isActive Boolean @default(true)
+
+  // Scope
+  organizationId String? // null => platform-wide
+  service        String? // null => all
+  module         String? // null => all
+
+  // Types: ERROR_RATE | LATENCY_P95 | REQUEST_SPIKE
+  type String
+
+  // Generic threshold fields (interpret by type)
+  threshold     Float
+  windowMinutes Int   @default(15)
+
+  minRequests Int @default(50)
+
+  // Avoid spam
+  cooldownMinutes Int       @default(60)
+  lastTriggeredAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, type])
+}
+
+model TrafficAlert {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  ruleId      String
+  triggeredAt DateTime @default(now())
+
+  organizationId String?
+  service        String?
+  module         String?
+
+  type          String
+  value         Float
+  threshold     Float
+  windowMinutes Int
+
+  message String
+
+  createdAt DateTime @default(now())
+
+  @@index([triggeredAt])
+  @@index([type, triggeredAt])
+}
+
+model OrganizationUsageEvent {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  /**
+   * 🔐 Organization & Actor
+   */
+  organizationId String  @db.ObjectId
+  employeeId     String? @db.ObjectId
+  role           String? // ADMIN, HR, EMPLOYEE, SYSTEM
+
+  /**
+   * 🧩 What was used
+   */
+  module       String // leave, payroll, attendance
+  feature      String? // apply_leave, approve_leave
+  action       String // VIEW, CREATE, UPDATE, DELETE
+  resourceType String? // LEAVE, EMPLOYEE, PAYROLL
+  resourceId   String? @db.ObjectId
+
+  /**
+   * 🌐 API / UI Tracking
+   */
+  source   String  @default("UI") // UI, API, CRON, WEBHOOK
+  endpoint String?
+  method   String?
+
+  /**
+   * ⏱️ Metrics
+   */
+  durationMs   Int?
+  statusCode   Int?
+  success      Boolean @default(true)
+  errorCode    String?
+  errorMessage String?
+
+  /**
+   * 📊 Usage Quantification
+   */
+  usageUnit  String? // request, record, run
+  usageCount Int     @default(1)
+
+  /**
+   * 🕒 Time
+   */
+  occurredAt DateTime @default(now())
+  date       DateTime // normalized date (YYYY-MM-DD)
+
+  /**
+   * 🧠 Metadata
+   */
+  metadata Json?
+
+  /**
+   * 🧹 Soft delete
+   */
+  deletedAt DateTime?
+
+  @@index([organizationId, date])
+  @@index([organizationId, module])
+  @@index([organizationId, feature])
+  @@index([occurredAt])
+  @@index([success, statusCode])
+}

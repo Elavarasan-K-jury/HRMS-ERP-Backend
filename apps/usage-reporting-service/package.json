@@ -1,5 +1,5 @@
 {
-    "name": "@jury-hrms/api-gateway",
+    "name": "@jury-hrms/usage-reporting-service",
     "version": "0.1.0",
     "type": "module",
     "scripts": {
@@ -7,14 +7,9 @@
         "start": "node server.js"
     },
     "dependencies": {
-        "hono": "latest",
-        "@grpc/grpc-js": "latest",
-        "@grpc/proto-loader": "latest",
-        "@hono/zod-openapi": "^1.1.4",
-        "@hono/swagger-ui": "^0.5.2",
-        "@hono/node-server": "^1.0.0",
         "@jury-hrms/proto": "*",
         "@jury-hrms/db": "*",
+        "@jury-hrms/auth": "*",
         "@jury-hrms/redis": "*"
     }
 }
