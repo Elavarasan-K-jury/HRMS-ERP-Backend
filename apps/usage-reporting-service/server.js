@@ -182,9 +182,7 @@ function ingest(orgId, events) {
 function computeMetrics(win) {
     rollWindow(win);
 
-    let total = 0,
-        errors = 0,
-        sum = 0;
+    let total = 0, errors = 0, sum = 0;
     const hist = new Uint32Array(LAT_BUCKETS);
     const minSec = win.headSec - (WINDOW_BUCKETS - 1);
 
@@ -200,8 +198,7 @@ function computeMetrics(win) {
         return { rps: 0, errors: 0, errorRate: 0, avgLatency: 0, p95Latency: 0 };
     }
 
-    let cum = 0,
-        p95 = 0;
+    let cum = 0, p95 = 0;
     for (let i = 0; i < LAT_BUCKETS; i++) {
         cum += hist[i];
         if (cum >= total * 0.95) {
@@ -224,7 +221,7 @@ function serializeSeries(orgId) {
     if (!smap) return [];
     return [...smap.values()]
         .sort((a, b) => a.ts - b.ts)
-        .map((b) => ({
+        .map(b => ({
             ts: b.ts,
             requests: b.requests,
             errors: b.errors,
@@ -244,8 +241,7 @@ async function warmOrgFromDB(orgId) {
             organizationId: orgId,
             occurredAt: { gte: from30m },
         },
-        // ✅ FIX 1: MUST order by occurredAt to keep lastSeen correct
-        orderBy: { occurredAt: "asc" },
+        orderBy: { date: "desc" },
         take: 30_000,
     });
 
@@ -270,27 +266,15 @@ io.on("connection", async (socket) => {
         scope: orgId ? "org" : "global",
     });
 
-    // ✅ FIX 2: Always emit a baseline snapshot/metrics (even for global)
-    if (!orgId) {
-        socket.emit("usage:timeseries", []);
-        socket.emit("usage:metrics", {
-            ts: Date.now(),
-            rps: 0,
-            errors: 0,
-            errorRate: 0,
-            avgLatency: 0,
-            p95Latency: 0,
-        });
-        return;
-    }
-
-    try {
-        await warmOrgFromDB(orgId);
-        const win = windowByOrg.get(orgId);
-        socket.emit("usage:timeseries", serializeSeries(orgId));
-        socket.emit("usage:metrics", { ts: Date.now(), ...computeMetrics(win) });
-    } catch (err) {
-        console.error(`❌ warmOrgFromDB failed for ${orgId}`, err);
+    if (orgId) {
+        try {
+            await warmOrgFromDB(orgId);
+            const win = windowByOrg.get(orgId);
+            socket.emit("usage:timeseries", serializeSeries(orgId));
+            socket.emit("usage:metrics", { ts: Date.now(), ...computeMetrics(win) });
+        } catch (err) {
+            console.error(`❌ warmOrgFromDB failed for ${orgId}`, err);
+        }
     }
 });
 
@@ -337,10 +321,7 @@ setInterval(async () => {
 
             io.to(`org:${orgId}`).emit("usage:metrics", metrics);
             io.to(`org:${orgId}`).emit("usage:timeseries", serializeSeries(orgId));
-
-            // ✅ FIX 3: If global listeners exist, they should also get series + metrics
             io.to(GLOBAL_ROOM).emit("usage:metrics", { orgId, ...metrics });
-            io.to(GLOBAL_ROOM).emit("usage:timeseries", serializeSeries(orgId));
         }
     } catch (err) {
         console.error("❌ usage-reporting poller:", err);
