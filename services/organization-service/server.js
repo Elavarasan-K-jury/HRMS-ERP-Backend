@@ -455,7 +455,13 @@ const impl = {
                 sort_order = 'desc',
             } = call.request;
 
-            const skip = (page - 1) * limit;
+            let pagination = {}
+            if (page && limit) {
+                pagination = {
+                    skip: (page - 1) * limit,
+                    take: limit
+                }
+            }
 
             const where = {
                 deletedAt: null,
@@ -485,8 +491,7 @@ const impl = {
             const orgs = await prisma.organizations.findMany({
                 where,
                 orderBy: { [sortField]: sortOrder },
-                skip,
-                take: limit,
+                ...pagination
             });
 
             const totalPages = Math.ceil(total / limit);
