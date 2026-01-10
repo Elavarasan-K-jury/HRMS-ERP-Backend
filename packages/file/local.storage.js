@@ -8,7 +8,8 @@ export async function saveLocal(fileBuffer, filename) {
     const fullPath = path.join(baseDir, filename);
     if (filename.includes("/")) {
         const dirs = filename.split("/");
-        await fs.promises.mkdir(path.join(baseDir, dirs[0]), { recursive: true });
+        dirs.pop()
+        await fs.promises.mkdir(path.join(baseDir, dirs.join('/')), { recursive: true });
     }
 
     await fs.promises.mkdir(baseDir, { recursive: true });
@@ -18,6 +19,17 @@ export async function saveLocal(fileBuffer, filename) {
         url: `/uploads/${filename}`,
         path: fullPath,
     };
+}
+
+export async function readLocal(fileKey) {
+    const fullPath = path.join(baseDir, fileKey);
+    console.log('local.storage.js @ Line  thirty three :', fullPath);
+
+    if (!fs.existsSync(fullPath)) {
+        throw new Error(`File not found: ${fileKey}`);
+    }
+
+    return fs.promises.readFile(fullPath); // ✅ returns Buffer
 }
 
 export async function deleteLocal(filepath) {

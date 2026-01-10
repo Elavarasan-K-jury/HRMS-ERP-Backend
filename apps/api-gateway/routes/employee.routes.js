@@ -13,6 +13,7 @@ export default function registerEmployeeRoutes(app) {
         email: z.string().email('Invalid email format').optional(),
         phone: z.string().regex(/^[0-9]{10}$/, 'Phone number must be 10 digits'),
         altPhone: z.string().optional(),
+        isAdmin: z.boolean().optional(),
         gender: z.enum(['MALE', 'FEMALE', 'OTHER', 'UNKNOWN']).optional(),
         dateOfBirth: z.string().refine(v => !isNaN(Date.parse(v)), {
             message: 'dateOfBirth must be a valid ISO date',
@@ -75,7 +76,7 @@ export default function registerEmployeeRoutes(app) {
             try {
                 const body = await c.req.json();
                 const parsed = createEmployeeSchema.parse(body);
-
+                
                 const grpcPayload = {
                     organization_id: parsed.organizationId,
                     category_id: parsed.categoryId,
@@ -83,6 +84,7 @@ export default function registerEmployeeRoutes(app) {
                     first_name: parsed.firstName ?? null,
                     last_name: parsed.lastName ?? null,
                     full_name: parsed.fullName ?? null,
+                    is_admin: parsed.isAdmin ?? null,
                     email: parsed.email ?? null,
                     phone: parsed.phone,
                     alt_phone: parsed.altPhone ?? null,
@@ -367,6 +369,7 @@ export default function registerEmployeeRoutes(app) {
                     last_name: parsed.lastName,
                     full_name: parsed.fullName,
                     email: parsed.email,
+                    is_admin: parsed.isAdmin,
                     phone: parsed.phone,
                     alt_phone: parsed.altPhone,
                     gender: parsed.gender,

@@ -111,6 +111,10 @@ import registerSalaryTemplateRoutes from './routes/salary_template.routes.js';
 import registerReportsRoutes from './routes/report.routes.js';
 import registerFinanceRoutes from './routes/finance.routes.js';
 import registerSalaryRangeRoutes from './routes/salary-range.routes.js';
+import registerSubscriptionPlanRoutes from './routes/subscription-plans.routes.js';
+import registerInvoiceRoutes from './routes/invoices.routes.js';
+import registerOrganizationSubscriptionRoutes from './routes/organization-subscriptions.routes.js';
+import registerStorageRoutes from './routes/storage.routes.js';
 
 /* ------------------------------------------------------------------ */
 /* 🏗️  App Setup                                                       */
@@ -275,6 +279,12 @@ const detectServiceByPath = (c) => {
             prefixes: ["/shifts", "/shift-policies", "/shift-assignments"],
         },
 
+        // STORAGE
+        {
+            service: "storage",
+            prefixes: ["/folders", "/files"],
+        },
+
         // EMPLOYEE ONBOARDING (group)
         {
             service: "employee_onboarding",
@@ -385,6 +395,10 @@ registerSalaryTemplateRoutes({ openapi: wrapService('salary_template') });
 registerSalaryRangeRoutes({ openapi: wrapService('salary_range') });
 registerSalaryRoutes({ openapi: wrapService('salary') });
 registerReportsRoutes({ openapi: wrapService('reports') });
+registerSubscriptionPlanRoutes({ openapi: wrapService('subscription_plan') });
+registerOrganizationSubscriptionRoutes({ openapi: wrapService('organization_subscription') });
+registerInvoiceRoutes({ openapi: wrapService('invoice') });
+registerStorageRoutes({ openapi: wrapService('storage') });
 registerHealthRoutes({ openapi: wrapSystem });
 
 /* ------------------------------------------------------------------ */

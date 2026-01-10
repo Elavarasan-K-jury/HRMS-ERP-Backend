@@ -19,6 +19,19 @@ export function uploadToS3(buffer, filename, mime) {
     }).promise();
 }
 
+
+export async function readFromS3(key) {
+    const data = await s3
+        .getObject({
+            Bucket: fileConfig.s3.bucket,
+            Key: key,
+        })
+        .promise();
+
+    return data.Body; // ✅ Buffer
+}
+
+
 export function deleteFromS3(key) {
     return s3.deleteObject({
         Bucket: fileConfig.s3.bucket,

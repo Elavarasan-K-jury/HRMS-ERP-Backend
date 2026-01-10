@@ -1,5 +1,5 @@
 import { sendRaw, verifyTransport, getFromAddress } from './transport.js';
-import { otpHtml, generateOnboardingEmail } from './templates.js';
+import { otpHtml, generateOnboardingEmail, generateInvoiceEmail } from './templates.js';
 
 export async function sendEmail(to, subject, text, html) {
     return sendRaw({ to, subject, text, html });
@@ -31,6 +31,68 @@ export async function sendOnboardEmail(employeeName, employeeEmail, accessLevel,
         return sendEmail(employeeEmail, subject, text, html);
     } catch (error) {
         console.log('index.js @ Line 29:', error);
+    }
+}
+
+export async function sendInvoiceEmail({
+    to,
+    organizationName,
+    invoiceNumber,
+    amount,
+    currency = "INR",
+    billingPeriodStart,
+    billingPeriodEnd,
+    dueDate,
+    pdfBuffer,
+    supportEmail,
+    paymentLink,
+}) {
+    try {
+        const subject = `Invoice ${invoiceNumber} – Payment Due`;
+        console.log("📎 Sending attachment:", {
+            isBuffer: Buffer.isBuffer(pdfBuffer),
+            size: pdfBuffer?.length,
+        });
+        // ✅ Ensure Buffer
+        const buffer =
+            Buffer.isBuffer(pdfBuffer)
+                ? pdfBuffer
+                : Buffer.from(pdfBuffer);
+        const text = `
+Invoice ${invoiceNumber}
+Amount: ${amount} ${currency}
+Billing Period: ${billingPeriodStart} - ${billingPeriodEnd}
+Due Date: ${dueDate}
+`;
+
+        const html = generateInvoiceEmail({
+            organizationName,
+            invoiceNumber,
+            amount,
+            currency,
+            billingPeriodStart,
+            billingPeriodEnd,
+            dueDate,
+            supportEmail,
+            paymentLink,
+        });
+
+        return sendRaw({
+            to,
+            subject,
+            text,
+            html,
+            attachments: [
+                {
+                    filename: `invoice-${invoiceNumber}.pdf`,
+                    content: buffer,
+                    contentType: "application/pdf",
+                },
+            ],
+        });
+    } catch (error) {
+        console.error("sendInvoiceEmail failed:", error);
+        throw error;
     }
 }
 

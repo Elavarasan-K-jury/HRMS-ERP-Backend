@@ -1,0 +1,13 @@
+{
+    "name": "@jury-hrms/payments",
+    "version": "1.0.0",
+    "type": "module",
+    "main": "index.js",
+    "exports": {
+        ".": "./index.js"
+    },
+    "dependencies": {
+        "ioredis": "^5.4.1",
+        "redlock": "^5.0.0-beta.2"
+    }
+}

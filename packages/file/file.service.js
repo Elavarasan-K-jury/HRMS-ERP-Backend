@@ -2,14 +2,15 @@
 import { v4 as uuid } from "uuid";
 import mime from "mime-types";
 import { fileConfig } from "./config.js";
-import { saveLocal, deleteLocal } from "./local.storage.js";
-import { uploadToS3, deleteFromS3 } from "./s3.storage.js";
+import { saveLocal, readLocal, deleteLocal } from "./local.storage.js";
+import { uploadToS3, readFromS3, deleteFromS3 } from "./s3.storage.js";
 
 export class FileService {
     static async upload(fileBuffer, originalName, storePath = '') {
         const lookupMime = mime.lookup(originalName) || "application/octet-stream";
         const ext = mime.extension(lookupMime) || "bin";
         const filename = `${storePath + '/' || ""}${uuid()}${new Date().getTime()}${originalName.split(".")[0]}.${ext}`;
+
 
         if (fileConfig.storage === "local") {
             return saveLocal(fileBuffer, filename);
@@ -18,6 +19,21 @@ export class FileService {
         if (fileConfig.storage === "s3") {
             const uploaded = await uploadToS3(fileBuffer, filename, lookupMime);
             return { url: uploaded.Location, key: uploaded.Key };
+        }
+
+        throw new Error("Invalid storage type");
+    }
+
+    /* ✅ NEW: Read file as Buffer */
+    static async get(fileKey) {
+        if (!fileKey) throw new Error("File key is required");
+
+        if (fileConfig.storage === "local") {
+            return readLocal(fileKey);
+        }
+
+        if (fileConfig.storage === "s3") {
+            return readFromS3(fileKey);
         }
 
         throw new Error("Invalid storage type");

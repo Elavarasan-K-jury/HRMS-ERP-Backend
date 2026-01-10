@@ -7,44 +7,42 @@ package employee;
 ──────────────────────────────── */
 
 service EmployeeService {
-  rpc CreateEmployee        (CreateEmployeeRequest)        returns (EmployeeResponse);
-  rpc GetEmployee           (GetEmployeeRequest)           returns (EmployeeResponse);
-  rpc ListEmployees         (ListEmployeesRequest)         returns (ListEmployeesResponse);
-  rpc UpdateEmployee        (UpdateEmployeeRequest)        returns (EmployeeResponse);
-  rpc DeleteEmployee        (DeleteEmployeeRequest)        returns (DeleteEmployeeResponse);
-  rpc ListAllEmployees      (ListAllEmployeesRequest)      returns (ListAllEmployeesResponse);
-  rpc RequestLoginOtp (RequestLoginOtpRequest) returns (RequestLoginOtpResponse);
-  rpc VerifyLoginOtp  (VerifyLoginOtpRequest)  returns (AuthResponse);
-  rpc RefreshTokens   (RefreshTokensRequest)   returns (AuthResponse);
-  rpc VerifyToken     (VerifyTokenRequest)     returns (VerifyTokenResponse);
-
+  rpc CreateEmployee(CreateEmployeeRequest) returns (EmployeeResponse);
+  rpc GetEmployee(GetEmployeeRequest) returns (EmployeeResponse);
+  rpc ListEmployees(ListEmployeesRequest) returns (ListEmployeesResponse);
+  rpc UpdateEmployee(UpdateEmployeeRequest) returns (EmployeeResponse);
+  rpc DeleteEmployee(DeleteEmployeeRequest) returns (DeleteEmployeeResponse);
+  rpc ListAllEmployees(ListAllEmployeesRequest)
+      returns (ListAllEmployeesResponse);
+  rpc RequestLoginOtp(RequestLoginOtpRequest) returns (RequestLoginOtpResponse);
+  rpc VerifyLoginOtp(VerifyLoginOtpRequest) returns (AuthResponse);
+  rpc RefreshTokens(RefreshTokensRequest) returns (AuthResponse);
+  rpc VerifyToken(VerifyTokenRequest) returns (VerifyTokenResponse);
 }
-  
 
 /* ──────────────────────────────
    🧩 Employee Object (core)
 ──────────────────────────────── */
 
 message VerifyLoginOtpRequest {
-    string email = 1;   // OR phone (fill one)
-    string phone = 2;
-    string otp = 3;
+  string email = 1; // OR phone (fill one)
+  string phone = 2;
+  string otp = 3;
 }
 
-message RefreshTokensRequest {
-    string refresh_token = 1;
-}
+message RefreshTokensRequest { string refresh_token = 1; }
 
 message AuthResponse {
-    string access_token = 1;
-    string refresh_token = 2;
-    string token_type = 3; // "Bearer"
-    string expires_in = 4; // seconds for access token
-    Employee employee = 5;
-    string success = 6;
+  string access_token = 1;
+  string refresh_token = 2;
+  string token_type = 3; // "Bearer"
+  string expires_in = 4; // seconds for access token
+  Employee employee = 5;
+  string success = 6;
 }
 message RequestLoginOtpRequest {
-  // one of: email or phone (if phone provided, OTP is still emailed to the admin's email)
+  // one of: email or phone (if phone provided, OTP is still emailed to the
+  // admin's email)
   string email = 1;
   string phone = 2;
   string purpose = 3; // e.g. "login" (optional)
@@ -60,47 +58,49 @@ message VerifyTokenRequest {
 }
 
 message VerifyTokenResponse {
-  string sub = 1;        // Subject (admin id)
-  string email = 2;      // Admin email
-  string scope = 3;      // Token scope
-  string typ = 4;        // Token type (access / refresh)
-  string iat = 5;        // Issued at
-  string exp = 6;        // Expiry timestamp
-  string success = 7;    // true/false
-  string message = 8;    // Status message
-  Employee user = 9;      // Token scope
+  string sub = 1;     // Subject (admin id)
+  string email = 2;   // Admin email
+  string scope = 3;   // Token scope
+  string typ = 4;     // Token type (access / refresh)
+  string iat = 5;     // Issued at
+  string exp = 6;     // Expiry timestamp
+  string success = 7; // true/false
+  string message = 8; // Status message
+  Employee user = 9;  // Token scope
 }
 
 message Employee {
-  string id                = 1;
-  string organization_id   = 2;
-  string category_id       = 3;
-  string designation_id    = 4;
+  string id = 1;
+  string organization_id = 2;
+  string category_id = 3;
+  string designation_id = 4;
 
   // primary department (first assignment)
-  string department_id     = 5;
+  string department_id = 5;
 
-  string employee_code     = 6;
+  string employee_code = 6;
 
-  string first_name        = 7;
-  string last_name         = 8;
-  string full_name         = 9;
-  string email             = 10;
-  string phone             = 11;
-  string alt_phone         = 12;
-  string gender            = 13;
-  string date_of_birth     = 14;
+  string first_name = 7;
+  string last_name = 8;
+  string full_name = 9;
+  string email = 10;
+  string phone = 11;
+  string alt_phone = 12;
+  string gender = 13;
+  string date_of_birth = 14;
 
-  string created_at        = 15;
-  string updated_at        = 16;
-  string deleted_at        = 17;
+  string created_at = 15;
+  string updated_at = 16;
+  string deleted_at = 17;
 
   Organization organization = 18;
-  Category     category     = 19;
-  Designation  designation  = 20;
+  Category category = 19;
+  Designation designation = 20;
 
   // 🔥 NEW: department assignment array
   repeated DepartmentAssignment departments = 21;
+
+  bool admin_of_organization = 22;
 }
 
 /* ──────────────────────────────
@@ -109,16 +109,16 @@ message Employee {
 ──────────────────────────────── */
 
 message DepartmentAssignment {
-  string id  = 1;  // emp.departmentAssignments.id
-  string department_id  = 2;  // direct ID
-  string reporting_to   = 3;
+  string id = 1;            // emp.departmentAssignments.id
+  string department_id = 2; // direct ID
+  string reporting_to = 3;
 
-  string start_date     = 4;
-  string end_date       = 5;
+  string start_date = 4;
+  string end_date = 5;
 
-  string created_at     = 6;
-  string updated_at     = 7;
-  string deleted_at     = 8;
+  string created_at = 6;
+  string updated_at = 7;
+  string deleted_at = 8;
 
   // full department object
   Department department = 9;
@@ -129,19 +129,19 @@ message DepartmentAssignment {
 ──────────────────────────────── */
 
 message Department {
-  string id                       = 1;
-  string organization_id          = 2;
-  string name                     = 3;
-  string code                     = 4;
-  string description              = 5;
-  string note                     = 6;
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  string code = 4;
+  string description = 5;
+  string note = 6;
 
-  string department_head_id       = 7;
+  string department_head_id = 7;
   string department_head_start_date = 8;
 
-  string created_at               = 9;
-  string updated_at               = 10;
-  string deleted_at               = 11;
+  string created_at = 9;
+  string updated_at = 10;
+  string deleted_at = 11;
 }
 
 /* ──────────────────────────────
@@ -149,27 +149,27 @@ message Department {
 ──────────────────────────────── */
 
 message Organization {
-  string id                     = 1;
-  string name                   = 2;
-  string domain                 = 3;
-  string gst_number             = 4;
-  string email                  = 5;
-  string contact_person_name    = 6;
-  string contact_person_number  = 7;
-  string note                   = 8;
-  string industry               = 9;
-  int32  size                   = 10;
-  string address                = 11;
-  string created_at             = 12;
-  string updated_at             = 13;
-  string deleted_at             = 14;
+  string id = 1;
+  string name = 2;
+  string domain = 3;
+  string gst_number = 4;
+  string email = 5;
+  string contact_person_name = 6;
+  string contact_person_number = 7;
+  string note = 8;
+  string industry = 9;
+  int32 size = 10;
+  string address = 11;
+  string created_at = 12;
+  string updated_at = 13;
+  string deleted_at = 14;
 
-  int32 max_employees             = 15;
-  int32 max_storage_in_gb         = 16;
-  int32 max_api_rate_per_minute   = 17;
-  int32 max_payroll_runs_per_month= 18;
-  int32 max_leave_policies        = 19;
-  int32 max_admin_accounts        = 20;
+  int32 max_employees = 15;
+  int32 max_storage_in_gb = 16;
+  int32 max_api_rate_per_minute = 17;
+  int32 max_payroll_runs_per_month = 18;
+  int32 max_leave_policies = 19;
+  int32 max_admin_accounts = 20;
 }
 
 /* ──────────────────────────────
@@ -177,30 +177,30 @@ message Organization {
 ──────────────────────────────── */
 
 message Category {
-  string id                  = 1;
-  string organization_id     = 2;
-  string name                = 3;
-  string code                = 4;
-  string description         = 5;
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  string code = 4;
+  string description = 5;
 
-  string id_prefix           = 6;
+  string id_prefix = 6;
 
-  bool   is_permanent        = 7;
-  bool   benefits_applicable = 8;
-  bool   is_active           = 9;
+  bool is_permanent = 7;
+  bool benefits_applicable = 8;
+  bool is_active = 9;
 
-  bool   training_required   = 10;
-  int32  training_months     = 11;
+  bool training_required = 10;
+  int32 training_months = 11;
 
-  bool   probation_required  = 12;
-  int32  probation_months    = 13;
+  bool probation_required = 12;
+  int32 probation_months = 13;
 
-  bool   notice_required     = 14;
-  int32  notice_months       = 15;
+  bool notice_required = 14;
+  int32 notice_months = 15;
 
-  string created_at          = 16;
-  string updated_at          = 17;
-  string deleted_at          = 18;
+  string created_at = 16;
+  string updated_at = 17;
+  string deleted_at = 18;
 }
 
 /* ──────────────────────────────
@@ -208,15 +208,15 @@ message Category {
 ──────────────────────────────── */
 
 message Designation {
-  string id              = 1;
+  string id = 1;
   string organization_id = 2;
-  string department_id   = 3;
-  string name            = 4;
-  string level           = 5;
-  string description     = 6;
-  string created_at      = 7;
-  string updated_at      = 8;
-  string deleted_at      = 9;
+  string department_id = 3;
+  string name = 4;
+  string level = 5;
+  string description = 6;
+  string created_at = 7;
+  string updated_at = 8;
+  string deleted_at = 9;
 }
 
 /* ──────────────────────────────
@@ -224,45 +224,43 @@ message Designation {
 ──────────────────────────────── */
 
 message CreateEmployeeRequest {
-  string organization_id  = 1;
-  string category_id      = 2;
-  string designation_id   = 3;
-  string department_id    = 4;
+  string organization_id = 1;
+  string category_id = 2;
+  string designation_id = 3;
+  string department_id = 4;
 
-  string first_name       = 5;
-  string last_name        = 6;
-  string full_name        = 7;
-  string email            = 8;
-  string phone            = 9;
-  string alt_phone        = 10;
-  string gender           = 11;
-  string date_of_birth    = 12;
+  string first_name = 5;
+  string last_name = 6;
+  string full_name = 7;
+  string email = 8;
+  string phone = 9;
+  string alt_phone = 10;
+  string gender = 11;
+  bool is_admin = 12;
+  string date_of_birth = 13;
 }
 
 message UpdateEmployeeRequest {
-  string id               = 1;
-  string organization_id  = 2;
-  string category_id      = 3;
-  string designation_id   = 4;
-  string department_id    = 5;
-
-  string first_name       = 6;
-  string last_name        = 7;
-  string full_name        = 8;
-  string email            = 9;
-  string phone            = 10;
-  string alt_phone        = 11;
-  string gender           = 12;
-  string date_of_birth    = 13;
-}
-
-message GetEmployeeRequest {
   string id = 1;
+  string organization_id = 2;
+  string category_id = 3;
+  string designation_id = 4;
+  string department_id = 5;
+
+  string first_name = 6;
+  string last_name = 7;
+  string full_name = 8;
+  string email = 9;
+  string phone = 10;
+  string alt_phone = 11;
+  string gender = 12;
+  string date_of_birth = 13;
+  bool is_admin = 14;
 }
 
-message DeleteEmployeeRequest {
-  string id = 1;
-}
+message GetEmployeeRequest { string id = 1; }
+
+message DeleteEmployeeRequest { string id = 1; }
 
 /* ──────────────────────────────
    🧩 List Employees
@@ -270,13 +268,13 @@ message DeleteEmployeeRequest {
 
 message ListEmployeesRequest {
   optional string organization_id = 1;
-  string category_id     = 2;
-  string designation_id  = 3;
-  int32  page            = 4;
-  int32  limit           = 5;
-  string search          = 6;
-  string sort_by         = 7;
-  string sort_order      = 8;
+  string category_id = 2;
+  string designation_id = 3;
+  int32 page = 4;
+  int32 limit = 5;
+  string search = 6;
+  string sort_by = 7;
+  string sort_order = 8;
 }
 
 message EmployeeResponse {
@@ -305,8 +303,8 @@ message DeleteEmployeeResponse {
 ──────────────────────────────── */
 
 message ListAllEmployeesRequest {
-  string organization_id = 1; 
-  string department_id   = 2;
+  string organization_id = 1;
+  string department_id = 2;
 }
 
 message ListAllEmployeesResponse {

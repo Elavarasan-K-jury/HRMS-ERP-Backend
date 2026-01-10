@@ -165,7 +165,7 @@ export default function registerOrganizationRoutes({ openapi }) {
                 const response = await new Promise((resolve, reject) => {
                     orgClient.GetOrganization({ id }, (err, resp) => {
                         if (err) return reject(err);
-                        resolve(resp.organization);
+                        resolve(resp);
                     });
                 });
                 if (!response) return c.json({ error: 'Organization not found' }, 404);

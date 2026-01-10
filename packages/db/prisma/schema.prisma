@@ -78,12 +78,12 @@ model Organizations {
   whatsappNotification Boolean @default(false)
   pushNotification     Boolean @default(true)
 
-  maxEmployees              Int?                  @default(20) @map("max_employees")
-  maxStorageInGB            Int?                  @default(10) @map("max_storage_in_gb")
-  maxApiRatePerMin          Int?                  @default(1000) @map("max_api_rate_per_minute")
-  maxPayrollRunsPerMonth    Int?                  @default(1) @map("max_payout_runs_per_month")
-  maxLeavePolicies          Int?                  @default(5) @map("max_leave_policies")
-  maxAdminAccounts          Int?                  @default(3) @map("max_admin_accounts")
+  maxEmployees              Int?                        @default(20) @map("max_employees")
+  maxStorageInGB            Int?                        @default(10) @map("max_storage_in_gb")
+  maxApiRatePerMin          Int?                        @default(1000) @map("max_api_rate_per_minute")
+  maxPayrollRunsPerMonth    Int?                        @default(1) @map("max_payout_runs_per_month")
+  maxLeavePolicies          Int?                        @default(5) @map("max_leave_policies")
+  maxAdminAccounts          Int?                        @default(3) @map("max_admin_accounts")
   assetCategories           AssetCategories[]
   assetModels               AssetModels[]
   assets                    Assets[]
@@ -92,6 +92,9 @@ model Organizations {
   salaryComponentDefinition ComponentDefinition[]
   salaryTemplates           SalaryTemplate[]
   organizationFinanc        OrgaizationFinance?
+  organizationSubscriptions OrganizationSubscriptions[]
+  folders                   Folders[]
+  files                     Files[]
 }
 
 model OrgaizationFinance {
@@ -255,6 +258,7 @@ model OrganizationEmployees {
   refreshToken       String?                   @map("refresh_token")
   email              String?
   phone              String
+  isAdmin            Boolean                   @default(false)
   altPhone           String?                   @map("alt_phone")
   gender             Gender
   dateOfBirth        DateTime                  @map("date_of_birth")
@@ -281,15 +285,19 @@ model OrganizationEmployees {
   leaveRequests           LeaveRequests[]
   workrequests            WorkdayRequests[]
 
-  createdAt               DateTime                  @default(now()) @map("created_at")
-  updatedAt               DateTime                  @updatedAt @map("updated_at")
-  deletedAt               DateTime?                 @map("deleted_at")
+  createdAt               DateTime                    @default(now()) @map("created_at")
+  updatedAt               DateTime                    @updatedAt @map("updated_at")
+  deletedAt               DateTime?                   @map("deleted_at")
   organizationDepartments OrganizationDepartments[]
   assetConditions         AssetCondition[]
   attendanceReports       AttendanceReports[]
   salaryStructures        SalaryStructure[]
   salaryRevisions         SalaryRevision[]
   payslips                Payslip[]
+  SharedWithEmployees     FolderSharedWithEmployees[] @relation("employees")
+  SharedByEmployees       FolderSharedWithEmployees[] @relation("addedBy")
+  folders                 Folders[]
+  files                   Files[]
 }
 
 model EmployeeDepartments {
@@ -1523,4 +1531,251 @@ model OrganizationUsageEvent {
   @@index([organizationId, feature])
   @@index([occurredAt])
   @@index([success, statusCode])
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  FAILED
+  CANCELLED
+}
+
+model SubscriptionPlans {
+  id   String @id @default(auto()) @map("_id") @db.ObjectId
+  name String
+
+  description String?
+  isActive    Boolean @default(true)
+
+  // Pricing
+  monthlyPrice Float?
+  yearlyPrice  Float?
+
+  gst Float? @default(18)
+
+  trialDays Int @default(14)
+
+  adminOnly Boolean @default(false)
+
+  // Metadata
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Relations
+  features      SubscriptionPlanFeatures[]
+  subscriptions OrganizationSubscriptions[]
+}
+
+model SubscriptionPlanFeatures {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  planId String            @map("plan_id") @db.ObjectId
+  plan   SubscriptionPlans @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  key   String // max_employees, max_storage_gb, api_rate_limit
+  value Float? // numeric limits
+  unit  String? // employees, gb, requests/min
+
+  isUnlimited Boolean @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now())
+  deletedAt DateTime?
+}
+
+model OrganizationSubscriptions {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  organizationId String        @map("organization_id") @db.ObjectId
+  organization   Organizations @relation(fields: [organizationId], references: [id], onDelete: NoAction)
+
+  planId String            @map("plan_id") @db.ObjectId
+  plan   SubscriptionPlans @relation(fields: [planId], references: [id])
+
+  status SubscriptionStatus @default(TRIAL)
+
+  billingInterval BillingInterval @default(MONTHLY)
+
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  trialEndsAt DateTime?
+
+  cancelAtPeriodEnd Boolean   @default(false)
+  cancelledAt       DateTime?
+
+  // Pricing snapshot (important!)
+  priceAtPurchase Float
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Relations
+  invoices Invoices[]
+  usage    SubscriptionUsageSnapshot[]
+  history  SubscriptionChangeLog[]
+}
+
+enum paymentStatuses {
+  SUCCESS
+  PENDING
+  FAILED
+}
+
+model Invoices {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  subscriptionId String                    @map("subscription_id") @db.ObjectId
+  subscription   OrganizationSubscriptions @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  invoiceNumber String @unique
+
+  amount   Float
+  tax      Float? @default(0)
+  total    Float? @default(0)
+  currency String @default("INR")
+
+  status InvoiceStatus @default(DRAFT)
+
+  invoiceUrl String?
+  invoiceKey String?
+
+  billingPeriodStart DateTime
+  billingPeriodEnd   DateTime
+
+  issuedAt DateTime?
+  paidAt   DateTime?
+
+  paymentOrderId       String?
+  paymentLink          String?
+  paymentLinkExpiredBy DateTime?
+
+  paymentStatus   paymentStatuses? @default(PENDING)
+  paymentRef      String?
+  paymentProvider String? // razorpay, stripe
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
+model SubscriptionUsageSnapshot {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  subscriptionId String                    @map("subscription_id") @db.ObjectId
+  subscription   OrganizationSubscriptions @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  periodStart DateTime
+  periodEnd   DateTime
+
+  metricKey  String // api_requests, storage_gb, employees
+  usedValue  Float
+  limitValue Float?
+  isExceeded Boolean @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([subscriptionId, periodStart])
+}
+
+model SubscriptionChangeLog {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  subscriptionId String                    @map("subscription_id") @db.ObjectId
+  subscription   OrganizationSubscriptions @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  oldPlanId String?
+  newPlanId String?
+
+  changeType String // UPGRADE | DOWNGRADE | RENEW | CANCEL
+
+  effectiveDate DateTime
+  reason        String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
+model InvoiceCounter {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  year Int @unique
+  seq  Int @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
+enum folderVisibility {
+  PUBLIC
+  SHARED
+  PRIVATE
+}
+
+model Folders {
+  id                        String                      @id @default(auto()) @map("_id") @db.ObjectId
+  name                      String
+  color                     String?
+  folderImageId             String?
+  filesCount                Int                         @default(0)
+  folderStorageUsedInBytes  Float                       @default(0)
+  organizationId            String
+  createdById               String
+  visibility                folderVisibility            @default(PRIVATE)
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime                    @updatedAt
+  deletedAt                 DateTime?
+  organization              Organizations               @relation(fields: [organizationId], references: [id], onDelete: NoAction)
+  createdBy                 OrganizationEmployees       @relation(fields: [createdById], references: [id])
+  folderSharedWithEmployees FolderSharedWithEmployees[]
+  files                     Files[]
+}
+
+model FolderSharedWithEmployees {
+  id         String                @id @default(auto()) @map("_id") @db.ObjectId
+  folderId   String
+  employeeId String
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+  deletedAt  DateTime?
+  folder     Folders               @relation(fields: [folderId], references: [id])
+  employee   OrganizationEmployees @relation("employees", fields: [employeeId], references: [id])
+  addedById  String
+  addedBy    OrganizationEmployees @relation("addedBy", fields: [addedById], references: [id])
+}
+
+model Files {
+  id                       String                @id @default(auto()) @map("_id") @db.ObjectId
+  folderId                 String?
+  folder                   Folders?              @relation(fields: [folderId], references: [id])
+  fileUrl                  String
+  fileKey                  String
+  folderStorageUsedInBytes Float                 @default(0)
+  addedById                String
+  addedBy                  OrganizationEmployees @relation(fields: [addedById], references: [id])
+  organizationId           String
+  organization             Organizations         @relation(fields: [organizationId], references: [id], onDelete: NoAction)
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+  deletedAt                DateTime?
 }

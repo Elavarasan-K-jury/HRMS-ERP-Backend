@@ -30,7 +30,7 @@ export function getFromAddress() {
     return MAIL_FROM;
 }
 
-export async function sendRaw({ to, subject, text, html }) {
+export async function sendRaw({ to, subject, text, html, attachments }) {
     if (!to) throw new Error('sendRaw: "to" is required');
 
     if (!hasCreds) {
@@ -48,6 +48,7 @@ export async function sendRaw({ to, subject, text, html }) {
         subject,
         text,
         html,
+        attachments
     });
 
     return info;

@@ -57,6 +57,34 @@ const impl = {
                 });
             }
 
+            const addedEmployees = await prisma.organizationEmployees.count({
+                where: {
+                    deletedAt: null,
+                    organizationId: data.organization_id,
+                }
+            })
+
+            if (organizationExists.maxEmployees <= addedEmployees) {
+                return callback({
+                    code: grpc.status.OUT_OF_RANGE,
+                    message: 'Employee adding limit exceeded. Contact support.',
+                });
+            }
+            const admins = await prisma.organizationEmployees.count({
+                where: {
+                    deletedAt: null,
+                    organizationId: data.organization_id,
+                    isAdmin: true
+                }
+            })
+
+            if (organizationExists.maxAdminAccounts <= admins) {
+                return callback({
+                    code: grpc.status.OUT_OF_RANGE,
+                    message: 'Admins adding limit exceeded. Contact support.',
+                });
+            }
+
             // Validate designation if provided
             let designationExists = null
             if (data.designation_id) {
@@ -131,6 +159,7 @@ const impl = {
                 fullName: data.full_name || `${data.first_name || ''} ${data.last_name || ''}`.trim(),
                 email: data.email || null,
                 phone: data.phone,
+                isAdmin: data.is_admin || false,
                 altPhone: data.alt_phone || null,
                 gender: data.gender ? data.gender.toUpperCase() : null,
                 dateOfBirth: new Date(data.date_of_birth),
@@ -434,6 +463,37 @@ const impl = {
                 });
             }
 
+            const organizationExists = await prisma.organizations.findFirst({
+                where: { id: data.organization_id, deletedAt: null },
+            });
+
+            if (!organizationExists) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Organization not found',
+                });
+            }
+
+            if (data.is_admin) {
+                const admins = await prisma.organizationEmployees.count({
+                    where: {
+                        deletedAt: null,
+                        organizationId: data.organization_id,
+                        isAdmin: true,
+                        id: {
+                            not: data.id
+                        }
+                    }
+                })
+
+                if (organizationExists.maxAdminAccounts <= admins) {
+                    return callback({
+                        code: grpc.status.OUT_OF_RANGE,
+                        message: 'Admins adding limit exceeded. Contact support.',
+                    });
+                }
+            }
+
             // Validate designation if provided
             if (data.designation_id && data.designation_id !== existing.designationId) {
                 const designationExists = await prisma.organizationDesignations.findFirst({
@@ -467,6 +527,7 @@ const impl = {
                 lastName: data.last_name ?? existing.lastName,
                 fullName: data.full_name || `${data.first_name || existing.firstName || ''} ${data.last_name || existing.lastName || ''}`.trim(),
                 email: data.email ?? existing.email,
+                isAdmin: data.is_admin || false,
                 phone: data.phone ?? existing.phone,
                 altPhone: data.alt_phone ?? existing.altPhone,
                 gender: data.gender ? data.gender.toUpperCase() : existing.gender,
@@ -786,6 +847,8 @@ function mapEmployee(emp) {
         phone: emp?.phone ?? '',
         alt_phone: emp?.altPhone ?? '',
         gender: emp?.gender ?? '',
+
+        admin_of_organization: emp?.isAdmin || false,
 
         date_of_birth: emp?.dateOfBirth
             ? new Date(emp.dateOfBirth).toLocaleString('en-IN', {

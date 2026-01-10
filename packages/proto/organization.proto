@@ -3,20 +3,24 @@ syntax = "proto3";
 package organization;
 
 service OrganizationService {
-  rpc CreateOrganization (CreateOrganizationRequest) returns (OrganizationResponse);
-  rpc GetOrganization    (GetOrganizationRequest)    returns (OrganizationResponse);
-  rpc ListOrganizations  (ListOrganizationsRequest)  returns (ListOrganizationsResponse);
-  rpc UpdateOrganization (UpdateOrganizationRequest) returns (OrganizationResponse);
-  rpc DeleteOrganization (DeleteOrganizationRequest) returns (DeleteOrganizationResponse);
-  rpc OrganizationHierarchy (OrganizationHierarchyRequest) returns (OrganizationHierarchyResponse);
-  rpc DepartmentHierarchy (DepartmentHierarchyRequest) returns (DepartmentHierarchyResponse);
+  rpc CreateOrganization(CreateOrganizationRequest)
+      returns (OrganizationResponse);
+  rpc GetOrganization(GetOrganizationRequest) returns (OrganizationResponse);
+  rpc ListOrganizations(ListOrganizationsRequest)
+      returns (ListOrganizationsResponse);
+  rpc UpdateOrganization(UpdateOrganizationRequest)
+      returns (OrganizationResponse);
+  rpc DeleteOrganization(DeleteOrganizationRequest)
+      returns (DeleteOrganizationResponse);
+  rpc OrganizationHierarchy(OrganizationHierarchyRequest)
+      returns (OrganizationHierarchyResponse);
+  rpc DepartmentHierarchy(DepartmentHierarchyRequest)
+      returns (DepartmentHierarchyResponse);
 }
 // ===============================
 //   REQUEST
 // ===============================
-message OrganizationHierarchyRequest {
-  string organization_id = 1;
-}
+message OrganizationHierarchyRequest { string organization_id = 1; }
 
 // ===============================
 //   INTERNAL STRUCTS
@@ -40,8 +44,8 @@ message OrgHierarchyEmployee {
 }
 
 message OrgLevelBlock {
-  string level = 1;     // internal level value
-  string label = 2;     // user-friendly label
+  string level = 1; // internal level value
+  string label = 2; // user-friendly label
 
   int32 designation_count = 3;
   int32 employee_count = 4;
@@ -92,7 +96,6 @@ message DepartmentHierarchyResponse {
   ReportingNode hierarchy = 3; // root → reportees → tree
 }
 
-
 // =============================
 // 🔹 Create
 // =============================
@@ -105,7 +108,7 @@ message CreateOrganizationRequest {
   string contact_person_number = 6;
   string note = 7;
   string industry = 8;
-  int32  size = 9;
+  int32 size = 9;
   string address = 10; // store JSON string
 
   // ✅ new system config fields
@@ -120,9 +123,7 @@ message CreateOrganizationRequest {
 // =============================
 // 🔹 Get by ID
 // =============================
-message GetOrganizationRequest {
-  string id = 1;
-}
+message GetOrganizationRequest { string id = 1; }
 
 // =============================
 // 🔹 Organization Object
@@ -137,7 +138,7 @@ message Organization {
   string contact_person_number = 7;
   string note = 8;
   string industry = 9;
-  int32  size = 10;
+  int32 size = 10;
   string address = 11;
   string created_at = 12;
   string updated_at = 13;
@@ -150,6 +151,9 @@ message Organization {
   int32 max_payroll_runs_per_month = 18;
   int32 max_leave_policies = 19;
   int32 max_admin_accounts = 20;
+
+  string plan_id = 21;
+  string plan_duration = 22;
 }
 
 // =============================
@@ -195,7 +199,7 @@ message UpdateOrganizationRequest {
   string contact_person_number = 7;
   string note = 8;
   string industry = 9;
-  int32  size = 10;
+  int32 size = 10;
   string address = 11;
 
   // ✅ new system config fields
@@ -210,9 +214,7 @@ message UpdateOrganizationRequest {
 // =============================
 // 🔹 Delete (Soft Delete)
 // =============================
-message DeleteOrganizationRequest {
-  string id = 1;
-}
+message DeleteOrganizationRequest { string id = 1; }
 
 message DeleteOrganizationResponse {
   bool success = 1;

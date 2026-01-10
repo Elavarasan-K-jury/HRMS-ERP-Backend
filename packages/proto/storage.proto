@@ -1,0 +1,244 @@
+syntax = "proto3";
+
+package storage;
+
+/* ======================================================
+   🔐 Enums
+====================================================== */
+
+enum FolderVisibility {
+  PRIVATE = 0;
+  SHARED = 1;
+  PUBLIC = 2;
+}
+
+/* ======================================================
+   📦 Core Messages
+====================================================== */
+
+message Folder {
+  string id = 1;
+  string name = 2;
+  string color = 3;
+  string folder_image_id = 4;
+  int32 files_count = 5;
+  double folder_storage_used_in_bytes = 6;
+  string organization_id = 7;
+  string created_by_id = 8;
+  FolderVisibility visibility = 9;
+  string created_at = 10;
+  string updated_at = 11;
+  string deleted_at = 12;
+}
+
+message File {
+  string id = 1;
+  string folder_id = 2;
+  string file_url = 3;
+  string file_key = 4;
+  string added_by_id = 5;
+  string organization_id = 6;
+  string created_at = 7;
+  string updated_at = 8;
+  string deleted_at = 9;
+  string folder_name = 10;
+  int64 size = 11;
+}
+
+message FolderShare {
+  string id = 1;
+  string folder_id = 2;
+  string employee_id = 3;
+  string added_by_id = 4;
+  string created_at = 5;
+  string updated_at = 6;
+  string deleted_at = 7;
+}
+
+/* ======================================================
+   🟢 Folder CRUD
+====================================================== */
+
+message CreateFolderRequest {
+  string name = 1;
+  string organization_id = 2;
+  string created_by_id = 3;
+  string color = 4;
+  FolderVisibility visibility = 5;
+
+  // Optional image
+  bytes folder_image_buffer = 6;
+  string folder_image_name = 7;
+}
+
+message CreateFolderResponse {
+  Folder folder = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message GetFolderRequest { string id = 1; }
+
+message GetFolderResponse {
+  Folder folder = 1;
+  bool success = 2;
+}
+
+message UpdateFolderRequest {
+  string id = 1;
+  string name = 2;
+  string color = 3;
+  FolderVisibility visibility = 4;
+
+  // Optional replace image
+  bytes folder_image_buffer = 5;
+  string folder_image_name = 6;
+}
+
+message UpdateFolderResponse {
+  Folder folder = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message DeleteFolderRequest { string id = 1; }
+
+message DeleteFolderResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+/* ======================================================
+   🔵 Folder Listing
+====================================================== */
+
+message ListFoldersRequest {
+  string organization_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  string search = 4;
+  FolderVisibility visibility = 5;
+  string sort_by = 6;
+  string sort_order = 7;
+}
+
+message ListFoldersResponse {
+  repeated Folder folders = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  bool success = 6;
+  string message = 7;
+  int64 total_storage = 8;
+  int64 used_storage = 9;
+}
+
+/* ======================================================
+   📄 Files
+====================================================== */
+
+message UploadFileRequest {
+  string organization_id = 1;
+  string folder_id = 2; // optional
+  string added_by_id = 3;
+
+  bytes file_buffer = 4;
+  string file_name = 5;
+}
+
+message UploadFileResponse {
+  File file = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message ListFilesRequest {
+  string organization_id = 1;
+  string folder_id = 2; // optional
+  int32 page = 3;
+  int32 limit = 4;
+}
+
+message ListFilesResponse {
+  repeated File files = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  bool success = 6;
+  string message = 7;
+}
+
+message DeleteFileRequest { string id = 1; }
+
+message DeleteFileResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+/* ======================================================
+   👥 Folder Sharing
+====================================================== */
+
+message ShareFolderRequest {
+  string folder_id = 1;
+  repeated string employee_ids = 2;
+  string added_by_id = 3;
+}
+
+message ShareFolderResponse {
+  repeated FolderShare shares = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message UnshareFolderRequest {
+  string folder_id = 1;
+  string employee_id = 2;
+}
+
+message UnshareFolderResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ListFolderSharesRequest {
+  string folder_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+}
+
+message ListFolderSharesResponse {
+  repeated FolderShare shares = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  bool success = 6;
+  string message = 7;
+}
+
+/* ======================================================
+   🚀 Service Definition
+====================================================== */
+
+service StorageService {
+  // Folder
+  rpc CreateFolder(CreateFolderRequest) returns (CreateFolderResponse);
+  rpc GetFolder(GetFolderRequest) returns (GetFolderResponse);
+  rpc ListFolders(ListFoldersRequest) returns (ListFoldersResponse);
+  rpc UpdateFolder(UpdateFolderRequest) returns (UpdateFolderResponse);
+  rpc DeleteFolder(DeleteFolderRequest) returns (DeleteFolderResponse);
+
+  // Files
+  rpc UploadFileToFolder(UploadFileRequest) returns (UploadFileResponse);
+  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse);
+  rpc DeleteFile(DeleteFileRequest) returns (DeleteFileResponse);
+
+  // Sharing
+  rpc ShareFolder(ShareFolderRequest) returns (ShareFolderResponse);
+  rpc UnshareFolder(UnshareFolderRequest) returns (UnshareFolderResponse);
+  rpc ListFolderShares(ListFolderSharesRequest)
+      returns (ListFolderSharesResponse);
+}
