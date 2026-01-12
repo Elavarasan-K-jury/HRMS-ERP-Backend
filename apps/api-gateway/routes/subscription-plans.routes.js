@@ -53,6 +53,13 @@ export default function registerSubscriptionPlanRoutes({ openapi }) {
         is_unlimited: z.boolean().optional(),
     });
 
+    //  http://juryhrms-api.jurysoftprojects.com/payment/process-payment/6964ce06538d4c398653cb37?razorpay_payment_id=pay_S2ym6kU5syp6Gq&razorpay_payment_link_id=plink_S2yla3Wi6tPkRJ&razorpay_payment_link_reference_id=&razorpay_payment_link_status=paid&razorpay_signature=a64418058a20a3f4617a6e225c097e642aacf43631c19d652958474d1a958e5d
+
+    const processPaymentQuerySchema = z.object({
+        razorpay_payment_id: z.string(),
+        razorpay_payment_link_status: z.string(),
+    });
+
     /* ====================================================
        🟢 CREATE SUBSCRIPTION PLAN
     ==================================================== */
@@ -64,6 +71,7 @@ export default function registerSubscriptionPlanRoutes({ openapi }) {
             summary: 'Process subscription plan',
             request: {
                 params: idParamSchema,
+                query: processPaymentQuerySchema,
             },
             responses: {
                 201: { description: 'Subscription plan created' },
