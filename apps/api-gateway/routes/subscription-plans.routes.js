@@ -72,11 +72,11 @@ export default function registerSubscriptionPlanRoutes({ openapi }) {
         },
         async (c) => {
             try {
-                const body = await c.req.json();
-                const payload = createPlanSchema.parse(body);
-                const { id } = c.req.param();
 
-                console.log('subscription-plans.routes.js @ Line 79:', body, payload, id);
+                const { id } = c.req.param();
+                const query = c.req.valid('query');
+
+                console.log('subscription-plans.routes.js @ Line 79:', query, id);
 
 
                 return c.json({}, 201);
