@@ -58,6 +58,41 @@ export default function registerSubscriptionPlanRoutes({ openapi }) {
     ==================================================== */
     openapi(
         {
+            method: 'get',
+            path: '/payment/process-payment/{id}',
+            tags: ['Subscription Plans'],
+            summary: 'Process subscription plan',
+            request: {
+                params: idParamSchema,
+            },
+            responses: {
+                201: { description: 'Subscription plan created' },
+                400: { description: 'Validation error' },
+            },
+        },
+        async (c) => {
+            try {
+                const body = await c.req.json();
+                const payload = createPlanSchema.parse(body);
+                const { id } = c.req.param();
+
+                console.log('subscription-plans.routes.js @ Line 79:', body, payload, id);
+
+
+                return c.json({}, 201);
+            } catch (error) {
+                if (error instanceof ZodError) {
+                    return c.json(
+                        { success: false, message: 'Validation failed', errors: error.errors },
+                        400
+                    );
+                }
+                return c.json({ success: false, message: error.message }, 500);
+            }
+        }
+    );
+    openapi(
+        {
             method: 'post',
             path: '/subscription-plans',
             tags: ['Subscription Plans'],
