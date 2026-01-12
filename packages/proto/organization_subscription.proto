@@ -93,6 +93,53 @@ message SubscriptionPlan {
   repeated SubscriptionPlanFeature features = 11;
 }
 
+message Invoice {
+  string id = 1;
+  string invoice_number = 2;
+
+  double amount = 3;
+  double tax = 18;
+  double total = 17;
+  string currency = 4;
+  InvoiceStatus status = 5;
+
+  string billing_period_start = 6;
+  string billing_period_end = 7;
+
+  string issued_at = 8;
+  string paid_at = 9;
+
+  string invoice_url = 10;
+  string invoice_key = 11;
+
+  Payment payment = 12;
+
+  string created_at = 13;
+  string updated_at = 14;
+}
+
+message Payment {
+  string order_id = 1;
+  string link = 2;
+  PaymentStatus status = 3;
+  string ref = 4;
+  string provider = 5;
+  string expires_at = 6;
+}
+
+enum InvoiceStatus {
+  DRAFT = 0;
+  ISSUED = 1;
+  PAID = 2;
+  FAILED = 3;
+  CANCELLED = 4;
+}
+enum PaymentStatus {
+  PENDING = 0;
+  SUCCESS = 1;
+  FAILED = 2;
+}
+
 /* ============================
    MODELS
 ============================ */
@@ -114,6 +161,7 @@ message OrganizationSubscription {
   bool cancel_at_period_end = 11;
   string cancelled_at = 12;
   SubscriptionPlan plan = 13;
+  repeated Invoice invoices = 14;
 }
 
 /* ============================

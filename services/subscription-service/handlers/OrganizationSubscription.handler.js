@@ -73,7 +73,7 @@ export const AssignPlanToOrganizationFunc = async (call, callback) => {
                 createdAt: now,
                 updatedAt: now,
             },
-            include: { plan: true },
+            include: { plan: true, invoices: true },
         });
 
         await generateInvoiceForSubscription({
@@ -362,6 +362,42 @@ function mapPlanFeature(feature) {
     };
 }
 
+function mapInvoiceFull(invoice) {
+    return {
+        id: invoice.id,
+        invoice_number: invoice.invoiceNumber,
+
+        amount: invoice.amount,
+        tax: invoice.tax,
+        total: invoice.total,
+        currency: invoice.currency,
+        status: invoice.status,
+
+        billing_period_start: invoice.billingPeriodStart?.toISOString?.() ?? "",
+        billing_period_end: invoice.billingPeriodEnd?.toISOString?.() ?? "",
+
+        issued_at: invoice.issuedAt?.toISOString?.() ?? "",
+        paid_at: invoice.paidAt?.toISOString?.() ?? "",
+
+        invoice_url: invoice.invoiceUrl ?? "",
+        invoice_key: invoice.invoiceKey ?? "",
+
+        payment: {
+            order_id: invoice.paymentOrderId ?? "",
+            link: invoice.paymentLink ?? "",
+            status: invoice.paymentStatus ?? "PENDING",
+            ref: invoice.paymentRef ?? "",
+            provider: invoice.paymentProvider ?? "",
+            expires_at: invoice.paymentLinkExpiredBy?.toISOString?.() ?? "",
+        },
+
+        created_at: invoice.createdAt?.toISOString?.() ?? "",
+        updated_at: invoice.updatedAt?.toISOString?.() ?? "",
+    };
+}
+
+
+
 function mapOrganizationSubscription(sub) {
     return {
         id: sub.id,
@@ -376,6 +412,7 @@ function mapOrganizationSubscription(sub) {
         trial_ends_at: sub.trialEndsAt?.toISOString() ?? '',
         cancel_at_period_end: sub.cancelAtPeriodEnd,
         cancelled_at: sub.cancelledAt?.toISOString() ?? '',
-        plan: mapPlan(sub.plan)
+        plan: mapPlan(sub.plan),
+        invoices: sub.invoices.length ? sub.invoices.map(mapInvoiceFull) : [],
     };
 }
