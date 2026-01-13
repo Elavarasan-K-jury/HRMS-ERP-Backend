@@ -65,13 +65,17 @@ export default function registerSubscriptionPlanRoutes({ openapi }) {
     ==================================================== */
     openapi(
         {
-            method: 'get',
+            method: 'post',
             path: '/payment/process-payment/{id}',
             tags: ['Subscription Plans'],
             summary: 'Process subscription plan',
             request: {
                 params: idParamSchema,
-                query: processPaymentQuerySchema,
+                body: {
+                    content: {
+                        'application/json': { schema: processPaymentQuerySchema },
+                    },
+                },
             },
             responses: {
                 201: { description: 'Subscription plan created' },
@@ -80,11 +84,11 @@ export default function registerSubscriptionPlanRoutes({ openapi }) {
         },
         async (c) => {
             try {
-
                 const { id } = c.req.param();
-                const query = c.req.valid('query');
+                const body = await c.req.json();
+                const payload = processPaymentQuerySchema.parse(body);
 
-                console.log('subscription-plans.routes.js @ Line 79:', query, id);
+                console.log('subscription-plans.routes.js @ Line 79:', payload, id);
 
 
                 return c.json({}, 201);
