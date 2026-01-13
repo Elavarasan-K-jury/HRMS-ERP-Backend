@@ -30,6 +30,7 @@ import {
     ListInvoicesFunc,
     GetInvoiceFunc,
     MarkInvoicePaidFunc,
+    ProcessInvoicePaymentFunc,
     RegenerateInvoicePaymentLinkFunc,
 } from './handlers/Invoice.handler.js';
 
@@ -68,6 +69,7 @@ const OrganizationSubscriptionImpl = {
 
 const InvoiceImpl = {
     ListInvoices: ListInvoicesFunc,
+    ProcessInvoicePayment: ProcessInvoicePaymentFunc,
     GetInvoice: GetInvoiceFunc,
     MarkInvoicePaid: MarkInvoicePaidFunc,
     RegenerateInvoicePaymentLink: RegenerateInvoicePaymentLinkFunc

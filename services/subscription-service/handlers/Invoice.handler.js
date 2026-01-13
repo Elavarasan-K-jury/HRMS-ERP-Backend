@@ -265,6 +265,91 @@ export const DownloadInvoiceFunc = async (call, callback) => {
     }
 };
 
+/* ============================================================
+   🟠 PROCESS PAYMENT
+============================================================ */
+export const ProcessInvoicePaymentFunc = async (call, callback) => {
+    try {
+        const { id, payment_ref, payment_status } = call.request;
+        if (!id) {
+            return callback({
+                code: grpc.status.INVALID_ARGUMENT,
+                message: "Invoice id is required",
+            });
+        }
+
+        const invoice = await prisma.invoices.findUnique({
+            where: { id },
+            include: {
+                subscription: {
+                    include: { organization: true, plan: true },
+                },
+            },
+        });
+
+        if (!invoice) {
+            return callback({
+                code: grpc.status.NOT_FOUND,
+                message: "Invoice not found",
+            });
+        }
+
+        if (invoice.status === "PAID") {
+            return callback({
+                code: grpc.status.FAILED_PRECONDITION,
+                message: "Invoice already paid",
+            });
+        }
+
+        if (invoice.status === "CANCELLED") {
+            return callback({
+                code: grpc.status.FAILED_PRECONDITION,
+                message: "Cancelled invoice cannot be paid",
+            });
+        }
+
+        if (invoice.status === "FAILED") {
+            return callback({
+                code: grpc.status.FAILED_PRECONDITION,
+                message: "Failed invoice cannot be paid",
+            });
+        }
+
+        // For simplicity, we just update payment ref and status here
+        const updated = await prisma.invoices.update({
+            where: { id },
+            data: {
+                paymentRef: payment_ref ?? null,
+                paymentStatus: payment_status == 'paid' ? 'SUCCESS' : 'FAILED',
+                status: payment_status == 'paid' ? 'PAID' : 'FAILED',
+                paidAt: payment_status == 'paid' ? new Date() : null,
+                updatedAt: new Date(),
+            },
+            include: {
+                subscription: {
+                    include: { organization: true, plan: true },
+                },
+            },
+        });
+
+        return callback(null, {
+            success: true,
+            message: "Invoice payment processed successfully",
+            data: mapInvoiceFull(updated),
+        });
+    } catch (e) {
+        console.error("ProcessInvoicePayment Error:", e);
+        return callback({
+            code: grpc.status.INTERNAL,
+            message: e?.message ?? "Internal error",
+        });
+    }
+}
+
+/* ============================================================
+   🟠 REGENERATE INVOICE PAYMENT LINK
+============================================================ */
+
 export const RegenerateInvoicePaymentLinkFunc = async (call, callback) => {
     try {
         const { invoice_id } = call.request;

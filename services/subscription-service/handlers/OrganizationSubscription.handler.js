@@ -128,8 +128,6 @@ export const GetOrganizationSubscriptionFunc = async (call, callback) => {
             });
         }
 
-        console.log('OrganizationSubscription.handler.js @ Line 135:', sub);
-
         return callback(null, {
             success: true,
             data: mapOrganizationSubscription(sub),

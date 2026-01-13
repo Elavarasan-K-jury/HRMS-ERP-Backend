@@ -1,5 +1,7 @@
 import { z, ZodError } from 'zod';
 import { subscriptionPlanClient } from '../grpc/subscription.client.js';
+import { invoiceClient } from "../grpc/invoice.client.js";
+
 
 export default function registerSubscriptionPlanRoutes({ openapi }) {
     /* ----------------------------------------------------
@@ -67,8 +69,8 @@ export default function registerSubscriptionPlanRoutes({ openapi }) {
         {
             method: 'post',
             path: '/payment/process-payment/{id}',
-            tags: ['Subscription Plans'],
-            summary: 'Process subscription plan',
+            tags: ['Payments'],
+            summary: 'Process payment for invoice',
             request: {
                 params: idParamSchema,
                 body: {
@@ -90,8 +92,18 @@ export default function registerSubscriptionPlanRoutes({ openapi }) {
 
                 console.log('subscription-plans.routes.js @ Line 79:', payload, id);
 
+                const response = await new Promise((resolve, reject) => {
+                    invoiceClient.ProcessInvoicePayment(
+                        {
+                            id,
+                            payment_ref: payload.razorpay_payment_id,
+                            payment_status: payload.razorpay_payment_link_status,
+                        },
+                        (err, resp) => (err ? reject(err) : resolve(resp))
+                    );
+                });
 
-                return c.json({}, 201);
+                return c.json(response, 201);
             } catch (error) {
                 if (error instanceof ZodError) {
                     return c.json(

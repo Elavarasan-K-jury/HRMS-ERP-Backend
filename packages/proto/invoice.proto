@@ -48,6 +48,20 @@ service InvoiceService {
   rpc DownloadInvoice(DownloadInvoiceRequest) returns (DownloadInvoiceResponse);
   rpc RegenerateInvoicePaymentLink(RegenerateInvoicePaymentLinkRequest)
       returns (InvoiceResponse);
+  rpc ProcessInvoicePayment(ProcessInvoicePaymentFuncRequest)
+      returns (ProcessInvoicePaymentFuncResponse);
+}
+
+message ProcessInvoicePaymentFuncRequest {
+  string id = 1;
+  string payment_ref = 2;
+  string payment_status = 3;
+}
+
+message ProcessInvoicePaymentFuncResponse {
+  bool success = 1;
+  string message = 2;
+  Invoice data = 3;
 }
 
 message RegenerateInvoicePaymentLinkRequest { string invoice_id = 1; }
