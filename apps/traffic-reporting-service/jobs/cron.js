@@ -83,9 +83,9 @@ if (FAST_MODE) {
         { timezone: TZ }
     );
 
-    // Anomaly checks every 5 second
+    // Anomaly checks every minute (can be adjusted based on load)
     cron.schedule(
-        "*/5 * * * * *",
+        "* * * * *",
         () => safeRun("anomaly_checks", runAnomalyChecks),
         { timezone: TZ }
     );

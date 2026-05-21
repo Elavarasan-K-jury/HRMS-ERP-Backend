@@ -6,6 +6,9 @@
     "dependencies": {
         "@jury-hrms/db": "*",
         "@jury-hrms/proto": "*",
-        "@prisma/client": "latest"
+        "@jury-hrms/mailer": "*",
+        "@prisma/client": "latest",
+        "ejs": "^5.0.2",
+        "js-beautify": "^1.15.4"
     }
 }

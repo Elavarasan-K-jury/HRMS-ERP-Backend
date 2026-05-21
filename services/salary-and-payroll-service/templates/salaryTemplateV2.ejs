@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+        <%= pageTitle %>
+    </title>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap"
+        rel="stylesheet" />
+
+    <style>
+        :root {
+            --ink: #1a1a2e;
+            --ink-soft: #4a4a6a;
+            --ink-dim: #8888aa;
+            --rule: #e0dff0;
+            --rule-strong: #c8c6e0;
+            --accent: #2d2a7a;
+            --accent-light: #f0effc;
+            --green: #0a6e4f;
+            --green-light: #e8f6f1;
+            --red: #7a1a2e;
+            --red-light: #fdf0f3;
+            --gold: #b8860b;
+            --paper: #fdfcfa;
+            --paper-warm: #f7f4ee;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: #ffffff;
+            font-family: 'DM Sans', sans-serif;
+            color: var(--ink);
+            min-height: 100vh;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        .slip {
+            background: var(--paper);
+            width: 100%;
+            max-width: 860px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.06), 0 20px 60px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.04);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Decorative edge rule */
+        .slip::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent) 0%, #6c63d0 50%, var(--gold) 100%);
+        }
+
+        /* ── HEADER ── */
+        .header {
+            background: var(--ink);
+            color: white;
+            padding: 32px 40px 28px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: -30px;
+            right: -30px;
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .logo-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .logo-img {
+            height: 36px;
+            filter: brightness(0) invert(1);
+            object-fit: contain;
+        }
+
+        .company-name {
+            font-family: 'Playfair Display', serif;
+            font-size: 19px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: #fff;
+        }
+
+        .company-details {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+            letter-spacing: 0.01em;
+            line-height: 1.6;
+            margin-top: 2px;
+        }
+
+        .header-right {
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .slip-label {
+            font-family: 'Playfair Display', serif;
+            font-size: 28px;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.95);
+            letter-spacing: 0.01em;
+            line-height: 1;
+        }
+
+        .slip-month {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.55);
+            margin-top: 6px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .slip-docid {
+            font-family: 'DM Mono', monospace;
+            font-size: 10.5px;
+            color: rgba(255, 255, 255, 0.35);
+            margin-top: 8px;
+            letter-spacing: 0.06em;
+        }
+
+        /* ── EMPLOYEE GRID ── */
+        .employee-section {
+            background: var(--paper-warm);
+            padding: 28px 40px;
+            border-bottom: 1px solid var(--rule);
+        }
+
+        .section-label {
+            font-size: 9.5px;
+            font-weight: 600;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--ink-dim);
+            margin-bottom: 16px;
+        }
+
+        .employee-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0;
+        }
+
+        .emp-field {
+            padding: 10px 0;
+            border-bottom: 1px solid var(--rule);
+            padding-right: 24px;
+        }
+
+        .emp-field:nth-child(3n) {
+            padding-right: 0;
+        }
+
+        .emp-label {
+            font-size: 10px;
+            font-weight: 500;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: var(--ink-dim);
+            margin-bottom: 3px;
+        }
+
+        .emp-value {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--ink);
+        }
+
+        .emp-value.mono {
+            font-family: 'DM Mono', monospace;
+            font-size: 12px;
+            letter-spacing: 0.04em;
+        }
+
+        /* ── PAY TABLE WRAPPER ── */
+        .pay-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            border-bottom: 1px solid var(--rule);
+        }
+
+        .pay-col {
+            padding: 28px 40px;
+        }
+
+        .pay-col:first-child {
+            border-right: 1px solid var(--rule);
+        }
+
+        .pay-col-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--ink);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .pay-col-title span {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 10px;
+            font-weight: 500;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--ink-dim);
+        }
+
+        .pay-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .pay-table tr td {
+            padding: 7px 0;
+            font-size: 13px;
+            line-height: 1.4;
+            border-bottom: 1px solid var(--rule);
+            vertical-align: middle;
+        }
+
+        .pay-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .pay-table .item-label {
+            color: var(--ink);
+            font-weight: 400;
+        }
+
+        .pay-table .item-note {
+            font-size: 10px;
+            color: var(--ink-dim);
+            margin-left: 5px;
+            font-family: 'DM Mono', monospace;
+        }
+
+        .pay-table .item-amount {
+            text-align: right;
+            font-family: 'DM Mono', monospace;
+            font-size: 12.5px;
+            font-weight: 500;
+            color: var(--ink);
+            white-space: nowrap;
+        }
+
+        .pay-table tr.dim td {
+            color: var(--ink-dim);
+        }
+
+        .pay-table tr.dim .item-amount {
+            color: var(--ink-dim);
+        }
+
+        /* Total rows */
+        .pay-total-row {
+            margin-top: 14px;
+            padding: 12px 16px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .pay-total-row.earnings {
+            background: var(--green-light);
+            border: 1px solid #b8e3d4;
+        }
+
+        .pay-total-row.deductions {
+            background: var(--red-light);
+            border: 1px solid #f0c4ce;
+        }
+
+        .pay-total-label {
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+        }
+
+        .pay-total-row.earnings .pay-total-label {
+            color: var(--green);
+        }
+
+        .pay-total-row.deductions .pay-total-label {
+            color: var(--red);
+        }
+
+        .pay-total-amount {
+            font-family: 'DM Mono', monospace;
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .pay-total-row.earnings .pay-total-amount {
+            color: var(--green);
+        }
+
+        .pay-total-row.deductions .pay-total-amount {
+            color: var(--red);
+        }
+
+        /* ── NET PAY BANNER ── */
+        .net-pay {
+            background: var(--accent);
+            padding: 24px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .net-pay-left {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .net-pay-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .net-pay-words {
+            font-size: 13px;
+            font-style: italic;
+            color: rgba(255, 255, 255, 0.8);
+            font-family: 'Playfair Display', serif;
+            font-weight: 400;
+            max-width: 460px;
+            line-height: 1.4;
+        }
+
+        .net-pay-amount {
+            font-family: 'Playfair Display', serif;
+            font-size: 36px;
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+            letter-spacing: -0.01em;
+        }
+
+        .net-pay-amount .currency {
+            font-size: 22px;
+            font-weight: 400;
+            opacity: 0.8;
+            margin-right: 2px;
+        }
+
+        /* ── FOOTER ── */
+        .footer {
+            padding: 24px 40px;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: start;
+            gap: 32px;
+            border-top: 1px solid var(--rule);
+            background: var(--paper-warm);
+        }
+
+        .footer-notes-title,
+        .footer-contact-title {
+            font-size: 9px;
+            font-weight: 600;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--ink-dim);
+            margin-bottom: 8px;
+        }
+
+        .footer-notes-body {
+            font-size: 10.5px;
+            color: var(--ink-soft);
+            line-height: 1.8;
+        }
+
+        .footer-signature {
+            text-align: center;
+            padding-top: 8px;
+        }
+
+        .sig-line {
+            width: 100px;
+            height: 1px;
+            background: var(--rule-strong);
+            margin: 0 auto 8px;
+        }
+
+        .sig-text {
+            font-size: 10px;
+            color: var(--ink-dim);
+            line-height: 1.6;
+            letter-spacing: 0.04em;
+        }
+
+        .footer-contact {
+            text-align: right;
+        }
+
+        .footer-contact-body {
+            font-size: 10.5px;
+            color: var(--ink-soft);
+            line-height: 1.8;
+        }
+
+        /* Stamp-like watermark */
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-family: 'Playfair Display', serif;
+            font-size: 80px;
+            font-weight: 700;
+            color: rgba(45, 42, 122, 0.022);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            pointer-events: none;
+            white-space: nowrap;
+            z-index: 0;
+        }
+
+        /* Print */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .slip {
+                box-shadow: none;
+                max-width: 100%;
+            }
+        }
+
+        @media (max-width: 700px) {
+            .employee-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .pay-section {
+                grid-template-columns: 1fr;
+            }
+
+            .pay-col:first-child {
+                border-right: none;
+                border-bottom: 1px solid var(--rule);
+            }
+
+            .footer {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-contact {
+                text-align: left;
+            }
+
+            .header {
+                flex-direction: column;
+            }
+
+            .header-right {
+                text-align: left;
+            }
+
+            .net-pay {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <article class="slip">
+        <div class="watermark">PAID</div>
+
+        <!-- HEADER -->
+        <header class="header">
+            <div class="header-left">
+                <div class="logo-row">
+                    <img class="logo-img" src="<%= company.logo %>" alt="<%= company.logoAlt %>"
+                        onerror="this.style.display='none'" />
+                    <div class="company-name">
+                        <%= company.name %>
+                    </div>
+                </div>
+                <div class="company-details">
+                    <%= company.details %>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <div class="slip-label">
+                    <%= slip.label %>
+                </div>
+                <div class="slip-month">
+                    <%= slip.month %>
+                </div>
+                <div class="slip-docid">
+                    <%= slip.docId %>
+                </div>
+            </div>
+        </header>
+
+        <!-- EMPLOYEE -->
+        <section class="employee-section">
+            <div class="section-label">Employee Details</div>
+
+            <div class="employee-grid">
+                <% employeeFields.forEach(function(field){ %>
+                    <div class="emp-field">
+                        <div class="emp-label">
+                            <%= field.label %>
+                        </div>
+                        <div class="emp-value <%= field.isMono ? 'mono' : '' %>">
+                            <%= field.value %>
+                        </div>
+                    </div>
+                    <% }) %>
+            </div>
+        </section>
+
+        <!-- EARNINGS + DEDUCTIONS -->
+        <section class="pay-section">
+
+            <!-- Earnings -->
+            <div class="pay-col">
+                <div class="pay-col-title">
+                    <%= earnings.title %>
+                        <span>
+                            <%= earnings.amountTitle %>
+                        </span>
+                </div>
+
+                <table class="pay-table">
+                    <tbody>
+                        <% earnings.items.forEach(function(item){ %>
+                            <tr class="<%= item.isDim ? 'dim' : '' %>">
+                                <td class="item-label">
+                                    <%= item.label %>
+                                        <% if(item.note){ %>
+                                            <span class="item-note">
+                                                <%= item.note %>
+                                            </span>
+                                            <% } %>
+                                </td>
+                                <td class="item-amount">
+                                    <%= item.amount %>
+                                </td>
+                            </tr>
+                            <% }) %>
+                    </tbody>
+                </table>
+
+                <div class="pay-total-row earnings">
+                    <span class="pay-total-label">
+                        <%= earnings.totalLabel %>
+                    </span>
+                    <span class="pay-total-amount">
+                        <%= currency %>
+                            <%= earnings.totalAmount %>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Deductions -->
+            <div class="pay-col">
+                <div class="pay-col-title">
+                    <%= deductions.title %>
+                        <span>
+                            <%= deductions.amountTitle %>
+                        </span>
+                </div>
+
+                <table class="pay-table">
+                    <tbody>
+                        <% deductions.items.forEach(function(item){ %>
+                            <tr class="<%= item.isDim ? 'dim' : '' %>">
+                                <td class="item-label">
+                                    <%= item.label %>
+                                        <% if(item.note){ %>
+                                            <span class="item-note">
+                                                <%= item.note %>
+                                            </span>
+                                            <% } %>
+                                </td>
+                                <td class="item-amount">
+                                    <%= item.amount %>
+                                </td>
+                            </tr>
+                            <% }) %>
+                    </tbody>
+                </table>
+
+                <div class="pay-total-row deductions">
+                    <span class="pay-total-label">
+                        <%= deductions.totalLabel %>
+                    </span>
+                    <span class="pay-total-amount">
+                        <%= currency %>
+                            <%= deductions.totalAmount %>
+                    </span>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- NET PAY -->
+        <section class="net-pay">
+            <div class="net-pay-left">
+                <div class="net-pay-label">
+                    <%= netPay.label %>
+                </div>
+                <div class="net-pay-words">
+                    <%= netPay.words %>
+                </div>
+            </div>
+
+            <div class="net-pay-amount">
+                <span class="currency">
+                    <%= currency %>
+                </span>
+                <%= netPay.amount %>
+            </div>
+        </section>
+
+    </article>
+</body>
+
+</html>

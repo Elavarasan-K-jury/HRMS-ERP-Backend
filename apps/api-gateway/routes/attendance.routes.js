@@ -28,6 +28,31 @@ export default function registerAttendanceRoutes({ openapi }) {
     })
     .strict();
 
+  const createAttendanceSchema = z
+    .object({
+      organization_id: z.string(),
+      employee_id: z.string(),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be yyyy-mm-dd'),
+      check_in: z.string().optional(),
+      check_out: z.string().optional(),
+      location: z
+        .object({
+          latitude: z.number(),
+          longitude: z.number(),
+        })
+        .optional(),
+      gross_hours: z.number().optional(),
+      effective_hours: z.number().optional(),
+      late_arrival_minutes: z.number().int().optional(),
+      status: z
+        .enum(['PRESENT', 'ABSENT', 'HALF_DAY', 'HOLIDAY', 'LATE', 'PENDING'])
+        .optional(),
+      is_holiday: z.boolean().optional(),
+      notes: z.string().optional(),
+      mode: z.enum(['OFFICE', 'REMOTE', 'HYBRID']).optional(),
+    })
+    .strict();
+
   const orgAttendanceReportQuerySchema = z.object({
     organization_id: z.string(),
 
@@ -330,6 +355,76 @@ export default function registerAttendanceRoutes({ openapi }) {
               })),
             },
             400,
+          );
+        }
+
+        return c.json(
+          { error: error.message || 'Internal server error' },
+          500,
+        );
+      }
+    },
+  );
+
+  // ------------------ Create Attendance ------------------
+  openapi(
+    {
+      method: 'post',
+      path: '/attendance',
+      tags: ['Attendance'],
+      summary: 'Create manual attendance entry',
+      request: {
+        body: {
+          content: {
+            'application/json': {
+              schema: createAttendanceSchema,
+            },
+          },
+        },
+      },
+      responses: {
+        201: {
+          description: 'Attendance created',
+          content: {
+            'application/json': {
+              schema: attendanceObjectSchema,
+            },
+          },
+        },
+        400: { description: 'Validation error' },
+        409: { description: 'Attendance already exists for this date' },
+      },
+    },
+    async (c) => {
+      try {
+        const body = createAttendanceSchema.parse(await c.req.json());
+
+        const resp = await new Promise((resolve, reject) => {
+          attendanceClient.CreateAttendance(body, (err, res) => {
+            if (err) return reject(err);
+            resolve(res);
+          });
+        });
+
+        return c.json(resp, 201);
+      } catch (error) {
+        if (error instanceof ZodError) {
+          return c.json(
+            {
+              error: 'Validation failed',
+              details: error.errors.map((e) => ({
+                field: e.path.join('.'),
+                message: e.message,
+              })),
+            },
+            400,
+          );
+        }
+
+        if (error.code === grpc.status.ALREADY_EXISTS) {
+          return c.json(
+            { error: error.message || 'Attendance already exists for this date' },
+            409,
           );
         }
 

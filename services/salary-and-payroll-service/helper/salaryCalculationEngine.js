@@ -39,7 +39,7 @@ function normalizeTemplateComponents(components) {
         componentId: tc.componentId,
         componentKey: tc.component.key,
         componentName: tc.component.name,
-        kind: tc.kind,
+        kind: tc.component.type,
         priority: tc.priority,
         value: tc.value,
         formula: tc.formula || tc.component.defaultFormula,
@@ -61,6 +61,8 @@ export async function calculateSalaryStructure(structureId) {
             template: true,
         },
     });
+
+    console.log('salaryCalculationEngine.js @ Line 65:', structure);
 
     if (!structure) throw new Error("Salary structure not found");
 
@@ -94,15 +96,18 @@ export async function calculateSalaryStructure(structureId) {
     const finance = await loadFinanceConfig(structure.employee.organizationId);
 
     /* ---------------- SPLIT COMPONENTS ---------------- */
-    const earnings = templateComponents.filter(c => c.kind === "EARNING");
-    const employeeDeductions = templateComponents.filter(c => c.kind === "EMPLOYEE");
-    const employerContribs = templateComponents.filter(c => c.kind === "EMPLOYER");
+    const earnings = templateComponents.filter(c => c.kind?.toUpperCase() === "EARNING" || c.component?.type?.toUpperCase() === "EARNING");
+    const employeeDeductions = templateComponents.filter(c => c.kind?.toUpperCase() === "EMPLOYEE" || c.component?.type?.toUpperCase() === "EMPLOYEE");
+    const employerContribs = templateComponents.filter(c => c.kind?.toUpperCase() === "EMPLOYER" || c.component?.type?.toUpperCase() === "EMPLOYER");
 
     /* ---------------- CALCULATE GROSS (100%) ---------------- */
     const earningResult = calculateSalary({
         baseInput: { gross: grossMonthly },
         components: normalizeTemplateComponents(earnings),
     });
+
+    console.log('salaryCalculationEngine.js @ Line 113:', earningResult);
+
 
     const grossComputed = earningResult.totals.totalEarnings;
 
@@ -121,8 +126,9 @@ export async function calculateSalaryStructure(structureId) {
         })
         : { components: [], totals: { totalEmployer: 0 } };
 
+
     /* ---------------- FINAL TOTALS ---------------- */
-    const totalEarnings = earningResult.totals.totalEarnings;
+    const totalEarnings = earningResult.totals.totalEarnings || 0;
     const totalDeductions = deductionResult.totals.totalDeductions || 0;
     const totalEmployer = employerResult.totals.totalEmployer || 0;
 
@@ -140,32 +146,35 @@ export async function calculateSalaryStructure(structureId) {
         ...employerResult.components,
     ];
 
-    await prisma.structureComponent.createMany({
-        data: allComponents.map(c => ({
-            structureId,
-            componentId: c.componentId,
-            value: c.value,
-            formula: c.formula || null,
-            annualAmount: c.value * 12,
-            monthlyAmount: c.value,
-            isOverridden: false,
-        })),
-    });
+    console.log('salaryCalculationEngine.js @ Line 145:', allComponents);
+
+    // await prisma.structureComponent.createMany({
+    //     data: allComponents.map(c => ({
+    //         structureId,
+    //         componentId: c.componentId,
+    //         value: c.value,
+    //         formula: c.formula || null,
+    //         annualAmount: c.annualAmount,
+    //         monthlyAmount: c.monthlyAmount,
+    //         isOverridden: false,
+    //     })),
+    // });
 
     /* ---------------- UPDATE STRUCTURE TOTALS ---------------- */
-    await prisma.salaryStructure.update({
-        where: { id: structureId },
-        data: {
-            totalEarnings,
-            totalDeductions,
-            totalBenefits: totalEmployer,
-            inHandAnnual: inHandMonthly * 12,
-            inHandMonthly,
-            updatedAt: new Date(),
-        },
-    });
+    // await prisma.salaryStructure.update({
+    //     where: { id: structureId },
+    //     data: {
+    //         totalEarnings,
+    //         totalDeductions,
+    //         totalBenefits: totalEmployer,
+    //         inHandAnnual: inHandMonthly * 12,
+    //         inHandMonthly,
+    //         updatedAt: new Date(),
+    //     },
+    // });
 
     return {
+        ...structure,
         structureId,
         templateId: structure.templateId,
         rangeId: range.id,
@@ -204,7 +213,8 @@ export async function calculateSalaryStructureDryRun(templateId, grossAnnual) {
         orderBy: { priority: "asc" },
     });
 
-    return calculateSalary({
+
+    return await calculateSalary({
         baseInput: { gross: grossAnnual / 12 },
         components: normalizeTemplateComponents(components),
     });

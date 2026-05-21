@@ -46,12 +46,38 @@ import {
     GetRangeComponents,
     PreviewSalaryForEmployee,
 } from './handlers/SalaryRange.handler.js'
+import {
+    getEjsTemplateContent,
+    saveEjsTemplate,
+    renderEjsTemplate
+} from './handlers/PaySlipTemplate.handler.js'
+
+import {
+    registerExpense,
+    getMyExpenses,
+    updateExpense,
+    deleteExpense,
+    getAllExpenses,
+    updateExpenseStatus,
+    getExpenseDetails,
+    adminDeleteExpense,
+} from './handlers/expense.handler.js'
+
+import {
+    GetSystemPayroll,
+    CalculatePayroll,
+} from './handlers/Payroll.handler.js'
+
 const PORT = process.env.SALARY_PAYROLL_SERVICE_PORT || 5081;
 const ComponentDefinitionProto = loadProto('component_definition');
 const SalaryTemplateProto = loadProto('salary_template');
 const SalaryProto = loadProto('employee_salary');
 const FinanceProto = loadProto('finance');
 const SalaryRangeProto = loadProto('salary_range');
+const payslipProto = loadProto('payslip');
+const expenseProto = loadProto('expense');
+const payrollProto = loadProto('payroll');
+
 
 /* ------------------------------------------------------------------ */
 /* 🧩 Implementation                                                  */
@@ -101,11 +127,34 @@ const SalaryRangeImpl = {
     PreviewSalaryForEmployee: PreviewSalaryForEmployee,
 }
 
+const PayslipImpl = {
+    GetEjsTemplate: getEjsTemplateContent,
+    SaveEjsTemplate: saveEjsTemplate,
+    RenderEjsTemplate: renderEjsTemplate,
+}
+
+const ExpenseImpl = {
+    RegisterExpense: registerExpense,
+    GetMyExpenses: getMyExpenses,
+    UpdateExpense: updateExpense,
+    DeleteExpense: deleteExpense,
+    GetAllExpenses: getAllExpenses,
+    UpdateExpenseStatus: updateExpenseStatus,
+    GetExpenseDetails: getExpenseDetails,
+    AdminDeleteExpense: adminDeleteExpense,
+}
+
+const PayrollImpl = {
+    GetSystemPayroll,
+    CalculatePayroll,
+}
+
+
 /* ------------------------------------------------------------------ */
 /* 🧩 Graceful Server Setup                                            */
 /* ------------------------------------------------------------------ */
 async function main() {
-    await checkDbConnection('organization-service');
+    await checkDbConnection('salary-payroll-service');
     const server = new grpc.Server();
 
     server.addService(ComponentDefinitionProto.ComponentDefinitionService.service, ComponentDefinitionImpl);
@@ -113,6 +162,9 @@ async function main() {
     server.addService(SalaryProto.SalaryEngineService.service, EmployeeSalaryImpl);
     server.addService(FinanceProto.FinanceService.service, FinanceImpl);
     server.addService(SalaryRangeProto.SalaryRangeService.service, SalaryRangeImpl);
+    server.addService(payslipProto.PayslipService.service, PayslipImpl);
+    server.addService(expenseProto.ExpenseService.service, ExpenseImpl);
+    server.addService(payrollProto.PayrollService.service, PayrollImpl);
 
     await new Promise((resolve, reject) => {
         server.bindAsync(
@@ -122,26 +174,26 @@ async function main() {
         );
     });
 
-    console.log(`[organization-service] gRPC running on :${PORT}`);
+    console.log(`[salary-payroll-service] gRPC running on :${PORT}`);
 
     const shutdown = async (signal) => {
-        console.log(`\n[organization-service] Received ${signal}, shutting down gracefully...`);
+        console.log(`\n[salary-payroll-service] Received ${signal}, shutting down gracefully...`);
 
         try {
             server.tryShutdown((err) => {
                 if (err) {
-                    console.error('[organization-service] Force closing due to error:', err);
+                    console.error('[salary-payroll-service] Force closing due to error:', err);
                     server.forceShutdown();
                 } else {
-                    console.log('[organization-service] gRPC server stopped.');
+                    console.log('[salary-payroll-service] gRPC server stopped.');
                 }
             });
 
             await prisma.$disconnect();
-            console.log('[organization-service] Prisma disconnected.');
+            console.log('[salary-payroll-service] Prisma disconnected.');
             process.exit(0);
         } catch (e) {
-            console.error('[organization-service] Error during shutdown:', e);
+            console.error('[salary-payroll-service] Error during shutdown:', e);
             process.exit(1);
         }
     };
@@ -151,6 +203,6 @@ async function main() {
 }
 
 main().catch((err) => {
-    console.error('[organization-service] Fatal error:', err);
+    console.error('[salary-payroll-service] Fatal error:', err);
     process.exit(1);
 });

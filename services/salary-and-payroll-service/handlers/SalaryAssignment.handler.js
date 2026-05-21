@@ -365,7 +365,9 @@ export const previewTemplateCalculationFunc = async (call, callback) => {
     try {
         const { templateId, grossAnnual } = call.request;
         const computed = await calculateSalaryStructureDryRun(templateId, Number(grossAnnual));
-        return callback(null, { success: true, structure: computed });
+
+        console.log('SalaryAssignment.handler.js @ Line 369:', computed);
+        return callback(null, { success: true, structure: { ...computed, ...computed.totals }, });
     } catch (err) {
         return callback({ code: grpc.status.INTERNAL, message: err.message });
     }
@@ -438,6 +440,8 @@ export const getStructureByForEmployeeFunc = async (call, callback) => {
     try {
         const { employeeId, structureId } = call.request;
 
+        console.log('SalaryAssignment.handler.js @ Line 443:', employeeId, structureId);
+
         if (!employeeId || !structureId) {
             return callback({
                 code: grpc.status.INVALID_ARGUMENT,
@@ -449,7 +453,7 @@ export const getStructureByForEmployeeFunc = async (call, callback) => {
             where: {
                 id: structureId,
                 employeeId,
-                deletedAt: null,
+                // deletedAt: null,
             },
         });
 
@@ -460,6 +464,8 @@ export const getStructureByForEmployeeFunc = async (call, callback) => {
                 structure: null,
             });
         }
+
+        console.log('SalaryAssignment.handler.js @ Line 466:', structure);
 
         const computed = await calculateSalaryStructure(structure.id);
 

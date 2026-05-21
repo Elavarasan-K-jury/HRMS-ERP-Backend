@@ -627,6 +627,120 @@ const impl = {
   },
 
   // ----------------------
+  // CreateAttendance (Manual)
+  // ----------------------
+  CreateAttendance: async (call, callback) => {
+    try {
+      const data = call.request;
+
+      const {
+        organization_id,
+        employee_id,
+        date,
+        check_in,
+        check_out,
+        location,
+        gross_hours,
+        effective_hours,
+        late_arrival_minutes,
+        status,
+        is_holiday,
+        notes,
+        mode,
+      } = data;
+
+      if (!organization_id || organization_id.length !== 24) {
+        return callback({
+          code: grpc.status.INVALID_ARGUMENT,
+          message: "Invalid organization_id",
+        });
+      }
+
+      if (!employee_id || employee_id.length !== 24) {
+        return callback({
+          code: grpc.status.INVALID_ARGUMENT,
+          message: "Invalid employee_id",
+        });
+      }
+
+      if (!date) {
+        return callback({
+          code: grpc.status.INVALID_ARGUMENT,
+          message: "date is required",
+        });
+      }
+
+      const employee = await prisma.organizationEmployees.findUnique({
+        where: { id: employee_id },
+      });
+
+      if (!employee || employee.deletedAt) {
+        return callback({
+          code: grpc.status.NOT_FOUND,
+          message: "Employee not found",
+        });
+      }
+
+      const attendanceDate = startOfDay(parseDate(date));
+      if (!attendanceDate) {
+        return callback({
+          code: grpc.status.INVALID_ARGUMENT,
+          message: "Invalid date format",
+        });
+      }
+
+      const existingAttendance = await prisma.attendance.findFirst({
+        where: {
+          employeeId: employee_id,
+          date: attendanceDate,
+          deletedAt: null,
+        },
+      });
+
+      if (existingAttendance) {
+        return callback({
+          code: grpc.status.ALREADY_EXISTS,
+          message: "Attendance already exists for this date",
+        });
+      }
+
+      const attendance = await prisma.attendance.create({
+        data: {
+          organizationId: organization_id,
+          employeeId: employee_id,
+          date: attendanceDate,
+          checkIn: parseDate(check_in),
+          checkOut: parseDate(check_out),
+          location: location
+            ? { latitude: location.latitude, longitude: location.longitude }
+            : null,
+          grossHours: gross_hours ?? null,
+          effectiveHours: effective_hours ?? null,
+          lateArrivalMinutes: late_arrival_minutes ?? null,
+          status: status ?? "PENDING",
+          isHoliday: is_holiday ?? false,
+          notes: notes ?? null,
+          mode: mode ?? "OFFICE",
+          deletedAt: null,
+        },
+      });
+
+      return callback(null, {
+        attendance: mapAttendanceToProto(attendance),
+        success: true,
+        message: "Attendance created successfully",
+      });
+    } catch (e) {
+      console.error("[CreateAttendance Error]", e);
+      if (e.code && e.message) return callback(e);
+      callback({
+        code: grpc.status.INTERNAL,
+        message: e.message || "Internal error",
+      });
+    }
+  },
+
+  // ----------------------
   // RecomputeAttendance
   // ----------------------
   RecomputeAttendance: async (call, callback) => {

@@ -1,0 +1,497 @@
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= pageTitle %>
+    </title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --ink: #1a1a1a;
+            --mid: #555;
+            --muted: #999;
+            --rule: #e8e8e8;
+            --bg: #ffffff;
+            --accent: #1a3c6e;
+            --saffron: #e07b10;
+            --green: #186b36;
+            --sans: 'Inter', sans-serif;
+            --mono: 'JetBrains Mono', monospace;
+        }
+
+        body {
+            font-family: var(--sans);
+            background: var(--bg);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px 16px;
+        }
+
+        .slip {
+            background: #fff;
+            width: 700px;
+            box-shadow: 0 2px 16px rgba(0, 0, 0, .08);
+        }
+
+        .tricolor {
+            height: 4px;
+            background: linear-gradient(90deg, var(--saffron) 33.33%, #fff 33.33%, #fff 66.66%, var(--green) 66.66%);
+        }
+
+        .header {
+            padding: 20px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--rule);
+        }
+
+        .logo-wrap {
+            background: var(--accent);
+            padding: 6px 12px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            margin-right: 12px;
+        }
+
+        .logo-wrap img {
+            height: 28px;
+            width: auto;
+            display: block;
+        }
+
+        .co-left {
+            display: flex;
+            align-items: center;
+        }
+
+        .co-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        .co-sub {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        .hdr-right {
+            text-align: right;
+        }
+
+        .hdr-right .label {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .hdr-right .month {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--ink);
+            margin-top: 2px;
+        }
+
+        .hdr-right .docid {
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--muted);
+            margin-top: 3px;
+        }
+
+        .body {
+            padding: 24px 28px 28px;
+        }
+
+        .emp-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            border: 1px solid var(--rule);
+            margin-bottom: 20px;
+        }
+
+        .ef {
+            padding: 10px 14px;
+            border-right: 1px solid var(--rule);
+            border-bottom: 1px solid var(--rule);
+        }
+
+        .ef:nth-child(3n) {
+            border-right: none;
+        }
+
+        .ef:nth-last-child(-n+3) {
+            border-bottom: none;
+        }
+
+        .ef label {
+            display: block;
+            font-size: 9px;
+            font-weight: 600;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 3px;
+        }
+
+        .ef span {
+            font-size: 12.5px;
+            font-weight: 500;
+            color: var(--ink);
+        }
+
+        .ef span.mono {
+            font-family: var(--mono);
+            font-size: 11.5px;
+        }
+
+        .pay-wrap {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid var(--rule);
+            font-size: 13px;
+        }
+
+        thead tr th {
+            padding: 8px 12px;
+            text-align: left;
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+        }
+
+        thead tr th:last-child {
+            text-align: right;
+        }
+
+        .earn thead th {
+            background: #fff4e6;
+            color: var(--saffron);
+            border-bottom: 1px solid #fcd9a0;
+        }
+
+        .deduct thead th {
+            background: #eaf5ef;
+            color: var(--green);
+            border-bottom: 1px solid #b6dfc8;
+        }
+
+        tbody tr td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--rule);
+            color: var(--ink);
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        tbody tr td:last-child {
+            text-align: right;
+            font-family: var(--mono);
+            font-size: 12px;
+        }
+
+        tbody tr.dim td {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        tfoot tr td {
+            padding: 9px 12px;
+            font-weight: 700;
+            font-size: 13px;
+            background: #f8f8f8;
+            border-top: 2px solid;
+        }
+
+        tfoot tr td:last-child {
+            text-align: right;
+            font-family: var(--mono);
+        }
+
+        .earn tfoot td {
+            border-color: var(--saffron);
+        }
+
+        .deduct tfoot td {
+            border-color: var(--green);
+        }
+
+        .net {
+            background: var(--accent);
+            padding: 16px 22px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .net-label {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, .5);
+        }
+
+        .net-words {
+            font-size: 11.5px;
+            color: rgba(255, 255, 255, .55);
+            font-style: italic;
+            margin-top: 4px;
+        }
+
+        .net-amount {
+            font-family: var(--mono);
+            font-size: 28px;
+            font-weight: 500;
+            color: #fff;
+        }
+
+        .net-amount span {
+            font-size: 16px;
+            color: var(--saffron);
+            margin-right: 2px;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            border: 1px solid var(--rule);
+            margin-bottom: 20px;
+            font-size: 12px;
+        }
+
+        .sum-cell {
+            padding: 10px 12px;
+            border-right: 1px solid var(--rule);
+            text-align: center;
+        }
+
+        .sum-cell:last-child {
+            border-right: none;
+        }
+
+        .sum-cell label {
+            display: block;
+            font-size: 9px;
+            font-weight: 600;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 4px;
+        }
+
+        .sum-cell span {
+            font-family: var(--mono);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--ink);
+        }
+
+        .sum-cell span.b {
+            color: var(--accent);
+        }
+
+        .sum-cell span.o {
+            color: var(--saffron);
+        }
+
+        .footer {
+            border-top: 1px solid var(--rule);
+            padding-top: 16px;
+            display: flex;
+            /* justify-content: space-between; */
+            align-items: center;
+            font-size: 10.5px;
+            color: var(--muted);
+            line-height: 1.8;
+            width: 100%;
+        }
+
+        .footer strong {
+            display: block;
+            color: var(--mid);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            margin-bottom: 2px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="slip">
+        <div class="header">
+            <div class="co-left">
+                <div class="logo-wrap">
+                    <img src="<%= company.logo %>" alt="<%= company.logoAlt %>">
+                </div>
+                <div>
+                    <div class="co-name">
+                        <%= company.name %>
+                    </div>
+                    <div class="co-sub">
+                        <%= company.details %>
+                    </div>
+                </div>
+            </div>
+            <div class="hdr-right">
+                <div class="label">
+                    <%= slip.label %>
+                </div>
+                <div class="month">
+                    <%= slip.month %>
+                </div>
+                <div class="docid">
+                    <%= slip.docId %>
+                </div>
+            </div>
+        </div>
+
+        <div class="body">
+
+            <div class="emp-grid">
+                <% employeeFields.forEach(function(field) { %>
+                    <div class="ef">
+                        <label>
+                            <%= field.label %>
+                        </label>
+                        <span class="<%= field.isMono ? 'mono' : '' %>">
+                            <%= field.value %>
+                        </span>
+                    </div>
+                    <% }) %>
+            </div>
+
+            <div class="pay-wrap">
+                <table class="earn">
+                    <thead>
+                        <tr>
+                            <th>
+                                <%= earnings.title %>
+                            </th>
+                            <th>
+                                <%= earnings.amountTitle %>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% earnings.items.forEach(function(item) { %>
+                            <tr class="<%= item.isDim ? 'dim' : '' %>">
+                                <td>
+                                    <%= item.label %>
+                                        <% if (item.note) { %>
+                                            <small style="color:#bbb">
+                                                <%= item.note %>
+                                            </small>
+                                            <% } %>
+                                </td>
+                                <td>
+                                    <%= item.amount %>
+                                </td>
+                            </tr>
+                            <% }) %>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td>
+                                <%= earnings.totalLabel %>
+                            </td>
+                            <td>
+                                <%= earnings.totalAmount %>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <table class="deduct">
+                    <thead>
+                        <tr>
+                            <th>
+                                <%= deductions.title %>
+                            </th>
+                            <th>
+                                <%= deductions.amountTitle %>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% deductions.items.forEach(function(item) { %>
+                            <tr class="<%= item.isDim ? 'dim' : '' %>">
+                                <td>
+                                    <%= item.label %>
+                                        <% if (item.note) { %>
+                                            <small style="color:#bbb">
+                                                <%= item.note %>
+                                            </small>
+                                            <% } %>
+                                </td>
+                                <td>
+                                    <%= item.amount %>
+                                </td>
+                            </tr>
+                            <% }) %>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td>
+                                <%= deductions.totalLabel %>
+                            </td>
+                            <td>
+                                <%= deductions.totalAmount %>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="net">
+                <div>
+                    <div class="net-label">
+                        <%= netPay.label %>
+                    </div>
+                    <div class="net-words">
+                        <%= netPay.words %>
+                    </div>
+                </div>
+                <div class="net-amount"><span>
+                        <%= currency %>
+                    </span>
+                    <%= netPay.amount %>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</body>
+
+</html>

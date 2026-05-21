@@ -1,6 +1,7 @@
 import { grpc } from '@jury-hrms/proto';
 import { prisma } from '@jury-hrms/db/client.js';
 import { checkFinanceEnabled } from '../helper/checks.js';
+import { sendFinanceEnabledEmail } from '@jury-hrms/mailer';
 
 async function validateOrganization(organization_id) {
     if (!organization_id) {
@@ -56,6 +57,8 @@ async function enabledForTheFirstTime(organization_id) {
             deletedAt: null
         },
     });
+
+    sendFinanceEnabledEmail()
 }
 
 export const checkIfFinanceEnabledOrNot = async (call, callback) => {

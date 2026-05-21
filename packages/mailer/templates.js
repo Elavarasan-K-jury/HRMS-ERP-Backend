@@ -617,3 +617,458 @@ export function generateInvoiceEmail({
 </html>
 `;
 }
+
+export function financeEnabledHtml(userName = "there") {
+  const year = new Date().getFullYear();
+
+  return `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="UTF-8">
+    <style>
+      .body-wrap {
+        background-color: #f9fafb;
+        padding: 40px 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      .container {
+        max-width: 480px;
+        margin: 0 auto;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 40px;
+        text-align: left;
+      }
+      .label-top {
+        color: #6b7280;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 8px;
+        display: block;
+      }
+      .title {
+        color: #111827;
+        font-size: 22px;
+        font-weight: 600;
+        margin: 0 0 12px 0;
+        letter-spacing: -0.02em;
+      }
+      .description {
+        color: #374151;
+        font-size: 15px;
+        line-height: 1.5;
+        margin-bottom: 32px;
+      }
+      .feature-list {
+        background-color: #f3f4f6;
+        border-radius: 8px;
+        padding: 4px 24px;
+        margin-bottom: 32px;
+        list-style: none;
+      }
+      .feature-list li {
+        font-size: 14px;
+        color: #374151;
+        padding: 12px 0;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .feature-list li:last-child {
+        border-bottom: none;
+      }
+      .check {
+        color: #16a34a;
+        font-weight: 700;
+        font-size: 13px;
+        flex-shrink: 0;
+      }
+      .footer-text {
+        font-size: 13px;
+        color: #9ca3af;
+        line-height: 1.4;
+        border-top: 1px solid #f3f4f6;
+        padding-top: 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="body-wrap">
+      <div class="container">
+        <span class="label-top">Feature Update</span>
+        <h1 class="title">Finance Has Been Enabled</h1>
+        <p class="description">
+          Hi <strong>${userName}</strong>, the Finance module is now active on your
+          <strong>Jury HRMS</strong> account. You can start using all finance features right away.
+        </p>
+
+        <ul class="feature-list">
+          <li><span class="check">✓</span> Payroll processing and salary management</li>
+          <li><span class="check">✓</span> Employee expense claims and reimbursements</li>
+          <li><span class="check">✓</span> Departmental budget tracking and alerts</li>
+          <li><span class="check">✓</span> Financial reports and audit-ready exports</li>
+        </ul>
+
+        <div class="footer-text">
+          If you did not request this change, please contact your administrator immediately.
+          <br><br>
+          &copy; ${year} Jury HRMS
+        </div>
+      </div>
+    </div>
+  </body>
+  </html>
+  `;
+}
+
+export function expenseRequestHtml(expense) {
+  const employee = expense.employee;
+  const year = new Date().getFullYear();
+
+  const formatAmount = (amount) =>
+    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(amount);
+
+  const formatDate = (date) =>
+    new Date(date).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+
+  const typeLabel = {
+    OTHER: "Other",
+    TRAVEL: "Travel",
+    FOOD: "Food & Beverage",
+    ACCOMMODATION: "Accommodation",
+    EQUIPMENT: "Equipment",
+  }[expense.type] ?? expense.type;
+
+  return `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="UTF-8">
+    <style>
+      .body-wrap {
+        background-color: #f9fafb;
+        padding: 40px 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      .container {
+        max-width: 480px;
+        margin: 0 auto;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 40px;
+        text-align: left;
+      }
+      .label-top {
+        color: #6b7280;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 8px;
+        display: block;
+      }
+      .title {
+        color: #111827;
+        font-size: 22px;
+        font-weight: 600;
+        margin: 0 0 12px 0;
+        letter-spacing: -0.02em;
+      }
+      .description {
+        color: #374151;
+        font-size: 15px;
+        line-height: 1.5;
+        margin-bottom: 32px;
+      }
+      .details-box {
+        background-color: #f3f4f6;
+        border-radius: 8px;
+        padding: 4px 24px;
+        margin-bottom: 32px;
+        list-style: none;
+      }
+      .detail-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 14px;
+      }
+      .detail-row:last-child {
+        border-bottom: none;
+      }
+      .detail-label {
+        color: #6b7280;
+        font-weight: 500;
+      }
+      .detail-value {
+        color: #111827;
+        font-weight: 600;
+        text-align: right;
+      }
+      .amount-value {
+        color: #111827;
+        font-size: 16px;
+        font-weight: 700;
+      }
+      .status-badge {
+        display: inline-block;
+        background-color: #fef9c3;
+        color: #854d0e;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 3px 10px;
+        border-radius: 20px;
+      }
+      .footer-text {
+        font-size: 13px;
+        color: #9ca3af;
+        line-height: 1.4;
+        border-top: 1px solid #f3f4f6;
+        padding-top: 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="body-wrap">
+      <div class="container">
+        <span class="label-top">Expense Request</span>
+        <h1 class="title">New Expense Raised</h1>
+        <p class="description">
+          A new expense request has been submitted by <strong>${employee.fullName}</strong> 
+          and is awaiting your approval.
+        </p>
+
+        <div class="details-box">
+          <div class="detail-row">
+            <span class="detail-label">Employee</span>
+            <span class="detail-value">${employee.fullName} (${employee.employeeCode})</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Category</span>
+            <span class="detail-value">${typeLabel}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Amount</span>
+            <span class="detail-value amount-value">${formatAmount(expense.amount)}</span>
+          </div>
+          ${expense.description ? `
+          <div class="detail-row">
+            <span class="detail-label">Description</span>
+            <span class="detail-value">${expense.description}</span>
+          </div>` : ""}
+          <div class="detail-row">
+            <span class="detail-label">Submitted On</span>
+            <span class="detail-value">${formatDate(expense.createdAt)}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Status</span>
+            <span class="detail-value"><span class="status-badge">${expense.status}</span></span>
+          </div>
+        </div>
+
+        <div class="footer-text">
+          Please review and take action on this request at your earliest convenience.
+          <br><br>
+          &copy; ${year} Jury HRMS
+        </div>
+      </div>
+    </div>
+  </body>
+  </html>
+  `;
+}
+
+export function expenseStatusHtml(expense) {
+  const employee = expense.employee;
+  const approver = expense.approver;
+  const isApproved = expense.status === 'APPROVED';
+  const year = new Date().getFullYear();
+
+  const formatAmount = (amount) =>
+    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(amount);
+
+  const formatDate = (date) =>
+    new Date(date).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+
+  const typeLabel = {
+    OTHER: "Other",
+    TRAVEL: "Travel",
+    FOOD: "Food & Beverage",
+    ACCOMMODATION: "Accommodation",
+    EQUIPMENT: "Equipment",
+  }[expense.type] ?? expense.type;
+
+  const statusBadgeStyle = isApproved
+    ? "background-color:#dcfce7;color:#15803d;"
+    : "background-color:#fee2e2;color:#b91c1c;";
+
+  return `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="UTF-8">
+    <style>
+      .body-wrap {
+        background-color: #f9fafb;
+        padding: 40px 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      .container {
+        max-width: 480px;
+        margin: 0 auto;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 40px;
+        text-align: left;
+      }
+      .label-top {
+        color: #6b7280;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 8px;
+        display: block;
+      }
+      .title {
+        color: #111827;
+        font-size: 22px;
+        font-weight: 600;
+        margin: 0 0 12px 0;
+        letter-spacing: -0.02em;
+      }
+      .description {
+        color: #374151;
+        font-size: 15px;
+        line-height: 1.5;
+        margin-bottom: 32px;
+      }
+      .details-box {
+        background-color: #f3f4f6;
+        border-radius: 8px;
+        padding: 4px 24px;
+        margin-bottom: 32px;
+        list-style: none;
+      }
+      .detail-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 14px;
+      }
+      .detail-row:last-child {
+        border-bottom: none;
+      }
+      .detail-label {
+        color: #6b7280;
+        font-weight: 500;
+      }
+      .detail-value {
+        color: #111827;
+        font-weight: 600;
+        text-align: right;
+      }
+      .amount-value {
+        font-size: 16px;
+        font-weight: 700;
+      }
+      .status-badge {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 3px 10px;
+        border-radius: 20px;
+        ${statusBadgeStyle}
+      }
+      .footer-text {
+        font-size: 13px;
+        color: #9ca3af;
+        line-height: 1.4;
+        border-top: 1px solid #f3f4f6;
+        padding-top: 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="body-wrap">
+      <div class="container">
+        <span class="label-top">Expense Update</span>
+        <h1 class="title">Expense ${isApproved ? 'Approved' : 'Rejected'}</h1>
+        <p class="description">
+          Hi <strong>${employee.fullName}</strong>, your expense request has been
+          <strong>${isApproved ? 'approved' : 'rejected'}</strong>.
+          ${isApproved
+      ? 'The reimbursement will be processed in your next payroll cycle.'
+      : 'Please reach out to your manager or HR if you have any questions.'}
+        </p>
+
+        <div class="details-box">
+          <div class="detail-row">
+            <span class="detail-label">Category</span>
+            <span class="detail-value">${typeLabel}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Amount</span>
+            <span class="detail-value amount-value">${formatAmount(expense.amount)}</span>
+          </div>
+          ${expense.description ? `
+          <div class="detail-row">
+            <span class="detail-label">Description</span>
+            <span class="detail-value">${expense.description}</span>
+          </div>` : ''}
+          <div class="detail-row">
+            <span class="detail-label">Submitted On</span>
+            <span class="detail-value">${formatDate(expense.createdAt)}</span>
+          </div>
+          ${expense.approvedAt ? `
+          <div class="detail-row">
+            <span class="detail-label">${isApproved ? 'Approved' : 'Rejected'} On</span>
+            <span class="detail-value">${formatDate(expense.approvedAt)}</span>
+          </div>` : ''}
+          ${approver ? `
+          <div class="detail-row">
+            <span class="detail-label">${isApproved ? 'Approved' : 'Rejected'} By</span>
+            <span class="detail-value">${approver.fullName}</span>
+          </div>` : ''}
+          <div class="detail-row">
+            <span class="detail-label">Status</span>
+            <span class="detail-value">
+              <span class="status-badge">${expense.status}</span>
+            </span>
+          </div>
+        </div>
+
+        <div class="footer-text">
+          This is an automated notification from Jury HRMS. Please do not reply to this email.
+          <br><br>
+          &copy; ${year} Jury HRMS
+        </div>
+      </div>
+    </div>
+  </body>
+  </html>
+  `;
+}

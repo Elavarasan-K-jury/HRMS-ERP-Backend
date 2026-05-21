@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+package payslip;
+
+// =========================================================
+// Common Response Messages
+// =========================================================
+message DefaultResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// =========================================================
+// EJS Template Model
+// =========================================================
+message EjsTemplate {
+  string name = 1; // file name without extension
+  string path = 2; // full template path
+}
+
+// =========================================================
+// EJS Variable Model
+// =========================================================
+message EjsTemplateVariable {
+  string name = 1;  // readable label: Company Name
+  string key = 2;   // actual key: company.name
+  string value = 3; // default value
+  string type = 4;  // string, number, date, url, boolean
+}
+
+// =========================================================
+// FETCH — LIST TEMPLATES OR READ SINGLE TEMPLATE
+// =========================================================
+message GetEjsTemplateRequest {
+  string template_path = 1;
+}
+
+// If template_path is empty:
+// - templates will return available templates
+// - ejs_content will be empty
+// - variables will be empty
+//
+// If template_path is passed:
+// - template will return selected template details
+// - ejs_content will return EJS file content
+// - variables will return detected variables
+// - templates will be empty
+message GetEjsTemplateResponse {
+  bool success = 1;
+  string message = 2;
+
+  EjsTemplate template = 3;
+  repeated EjsTemplate templates = 4;
+
+  string ejs_content = 5;
+  repeated EjsTemplateVariable variables = 6;
+}
+
+
+// =========================================================
+// SAVE EJS TEMPLATE
+// =========================================================
+message DynamicTemplateField {
+  string name = 1;
+  string key = 2;
+  string value = 3;
+  string type = 4;
+  bool is_dynamic = 5; // true means fill from organization/runtime data
+}
+
+message SaveEjsTemplateRequest {
+  string organization_id = 1;
+  string name = 2;
+  string template_path = 3;
+  string ejs_content = 4;
+
+  repeated DynamicTemplateField variables = 5;
+}
+
+message SaveEjsTemplateResponse {
+  bool success = 1;
+  string message = 2;
+  string template_id = 3;
+}
+
+// =========================================================
+// RENDER SAVED EJS TEMPLATE
+// =========================================================
+message RenderEjsTemplateRequest {
+  string organization_id = 1;
+  string template_id = 2;
+}
+
+message RenderEjsTemplateResponse {
+  bool success = 1;
+  string message = 2;
+  string html_content = 3;
+  string template_path = 4;
+  string template_name = 5;
+  repeated DynamicTemplateField variables = 6;
+}
+
+// =========================================================
+// SERVICE — EJS Template
+// =========================================================
+service PayslipService {
+  rpc GetEjsTemplate(GetEjsTemplateRequest)
+      returns (GetEjsTemplateResponse);
+
+  rpc SaveEjsTemplate(SaveEjsTemplateRequest)
+      returns (SaveEjsTemplateResponse);
+
+  rpc RenderEjsTemplate(RenderEjsTemplateRequest)
+      returns (RenderEjsTemplateResponse);
+}

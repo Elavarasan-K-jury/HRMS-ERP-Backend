@@ -7,6 +7,9 @@ service AttendanceService {
   rpc CheckIn (CheckInRequest) returns (AttendanceResponse);
   rpc CheckOut (CheckOutRequest) returns (AttendanceResponse);
 
+  // Manual Attendance
+  rpc CreateAttendance (CreateAttendanceRequest) returns (AttendanceResponse);
+
   // Recompute attendance for a specific day
   rpc RecomputeAttendance (RecomputeRequest) returns (AttendanceResponse);
 
@@ -52,6 +55,27 @@ message CheckOutRequest {
   double latitude = 3;
   double longitude = 4;
   string source = 5;
+}
+
+message CreateAttendanceRequest {
+  string organization_id = 1;
+  string employee_id = 2;
+  string date = 3; // "2025-11-19"
+  string check_in = 4;
+  string check_out = 5;
+  Location location = 6;
+  double gross_hours = 7;
+  double effective_hours = 8;
+  int32 late_arrival_minutes = 9;
+  string status = 10; // PRESENT | ABSENT | HALF_DAY | HOLIDAY | LATE | PENDING
+  bool is_holiday = 11;
+  string notes = 12;
+  string mode = 13; // OFFICE | REMOTE | HYBRID
+}
+
+message Location {
+  double latitude = 1;
+  double longitude = 2;
 }
 
 message RecomputeRequest {

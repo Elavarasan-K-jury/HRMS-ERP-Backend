@@ -388,7 +388,7 @@ export const PreviewSalaryForEmployee = async (call, callback) => {
             componentId: c.componentId,
             componentKey: c.component.key,
             componentName: c.component.name,
-            kind: c.kind,
+            kind: c.component.type,
             formula: c.formula,
             value: c.value,
             priority: c.priority,
@@ -397,10 +397,18 @@ export const PreviewSalaryForEmployee = async (call, callback) => {
             condition: c.condition,
         }));
 
-        const result = calculateSalary({
+        console.log('SalaryTemplate.handler.js @ Line 405:', {
+            template_id: tpl.id,
+            range_id: picked.id,
+            components: engineComponents,
+        });
+
+        const result = await calculateSalary({
             baseInput: { gross: Number(gross) },
             components: engineComponents,
         });
+
+        console.log('SalaryTemplate.handler.js @ Line 405:', result);
 
         return callback(null, {
             success: true,
@@ -411,7 +419,7 @@ export const PreviewSalaryForEmployee = async (call, callback) => {
                 component_id: x.componentId,
                 key: x.componentKey,
                 name: x.componentName,
-                kind: x.kind || "",
+                componentType: x.kind || "",
                 value: x.value,
                 formula: x.formula || "",
                 priority: x.priority || 0,

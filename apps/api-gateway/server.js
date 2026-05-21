@@ -115,6 +115,9 @@ import registerSubscriptionPlanRoutes from './routes/subscription-plans.routes.j
 import registerInvoiceRoutes from './routes/invoices.routes.js';
 import registerOrganizationSubscriptionRoutes from './routes/organization-subscriptions.routes.js';
 import registerStorageRoutes from './routes/storage.routes.js';
+import registerPayslipRoutes from './routes/payslip.routes.js';
+import registerExpenseRoutes from './routes/expense.routes.js';
+import registerPayrollRoutes from './routes/payroll.routes.js';
 
 /* ------------------------------------------------------------------ */
 /* 🏗️  App Setup                                                       */
@@ -399,6 +402,9 @@ registerSubscriptionPlanRoutes({ openapi: wrapService('subscription_plan') });
 registerOrganizationSubscriptionRoutes({ openapi: wrapService('organization_subscription') });
 registerInvoiceRoutes({ openapi: wrapService('invoice') });
 registerStorageRoutes({ openapi: wrapService('storage') });
+registerPayslipRoutes({ openapi: wrapService('payslip') });
+registerExpenseRoutes({ openapi: wrapService('expense') });
+registerPayrollRoutes({ openapi: wrapService('payroll') });
 registerHealthRoutes({ openapi: wrapSystem });
 
 /* ------------------------------------------------------------------ */

@@ -1,0 +1,235 @@
+syntax = "proto3";
+
+package expense;
+
+// =========================================================
+// ENUMS
+// =========================================================
+enum ExpenseStatus {
+  ALL = 0;
+  PENDING = 1;
+  APPROVED = 2;
+  REJECTED = 3;
+}
+
+enum ExpenseType {
+  ALL = 0;
+  TRAVEL = 1;
+  FOOD = 2;
+  ACCOMMODATION = 3;
+  OTHER = 4;
+}
+
+// =========================================================
+// Common Response
+// =========================================================
+message DefaultResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// =========================================================
+// Expense Model
+// =========================================================
+message Expense {
+  string id = 1;
+  string organization_id = 2;
+  string employee_id = 3;
+
+  string employee_name = 4;
+  string employee_code = 5;
+
+  ExpenseType type = 6;
+  double amount = 7;
+  string description = 8;
+  string receipt_url = 9;
+
+  ExpenseStatus status = 10;
+
+  string approver_id = 11;
+  string approver_name = 12;
+  string approved_at = 13;
+
+  string created_at = 14;
+  string updated_at = 15;
+  string deleted_at = 16;
+}
+
+// =========================================================
+// Employee — Register Expense
+// =========================================================
+message RegisterExpenseRequest {
+  string organization_id = 1;
+  string employee_id = 2;
+
+  ExpenseType type = 3;
+  double amount = 4;
+  string description = 5;
+  string receipt_url = 6;
+}
+
+message RegisterExpenseResponse {
+  bool success = 1;
+  string message = 2;
+  Expense expense = 3;
+}
+
+// =========================================================
+// Employee — Fetch Expenses With Filters
+// =========================================================
+message GetMyExpensesRequest {
+  string organization_id = 1;
+  string employee_id = 2;
+
+  string from_date = 3;
+  string to_date = 4;
+
+  string search = 5; // search by description
+  ExpenseType type = 6;
+  ExpenseStatus status = 7;
+
+  int32 page = 8;
+  int32 limit = 9;
+}
+
+message GetMyExpensesResponse {
+  bool success = 1;
+  string message = 2;
+
+  repeated Expense expenses = 3;
+
+  int32 total_count = 4;
+  int32 page = 5;
+  int32 limit = 6;
+}
+
+// =========================================================
+// Employee — Update Expense Request
+// =========================================================
+message UpdateExpenseRequest {
+  string organization_id = 1;
+  string employee_id = 2;
+  string expense_id = 3;
+
+  ExpenseType type = 4;
+  double amount = 5;
+  string description = 6;
+  string receipt_url = 7;
+}
+
+message UpdateExpenseResponse {
+  bool success = 1;
+  string message = 2;
+  Expense expense = 3;
+}
+
+// =========================================================
+// Employee — Delete Expense Request
+// =========================================================
+message DeleteExpenseRequest {
+  string organization_id = 1;
+  string employee_id = 2;
+  string expense_id = 3;
+}
+
+// =========================================================
+// Admin — Fetch All Expenses With Filters
+// =========================================================
+message GetAllExpensesRequest {
+  string organization_id = 1;
+
+  string from_date = 2;
+  string to_date = 3;
+
+  string employee_id = 4;
+  ExpenseType type = 5;
+  ExpenseStatus status = 6;
+
+  string search = 7; // search by description or employee name
+
+  int32 page = 8;
+  int32 limit = 9;
+}
+
+message GetAllExpensesResponse {
+  bool success = 1;
+  string message = 2;
+
+  repeated Expense expenses = 3;
+
+  int32 total_count = 4;
+  int32 page = 5;
+  int32 limit = 6;
+}
+
+// =========================================================
+// Admin — Approve / Reject Expense
+// =========================================================
+message UpdateExpenseStatusRequest {
+  string organization_id = 1;
+  string expense_id = 2;
+
+  string approver_id = 3;
+  ExpenseStatus status = 4;
+
+  string rejection_reason = 5;
+}
+
+message UpdateExpenseStatusResponse {
+  bool success = 1;
+  string message = 2;
+  Expense expense = 3;
+}
+
+// =========================================================
+// Admin — View Expense Details
+// =========================================================
+message GetExpenseDetailsRequest {
+  string organization_id = 1;
+  string expense_id = 2;
+}
+
+message GetExpenseDetailsResponse {
+  bool success = 1;
+  string message = 2;
+  Expense expense = 3;
+}
+
+// =========================================================
+// Admin — Delete Expense
+// =========================================================
+message AdminDeleteExpenseRequest {
+  string organization_id = 1;
+  string expense_id = 2;
+}
+
+// =========================================================
+// SERVICE — Expense
+// =========================================================
+service ExpenseService {
+  // Employee APIs
+  rpc RegisterExpense(RegisterExpenseRequest)
+      returns (RegisterExpenseResponse);
+
+  rpc GetMyExpenses(GetMyExpensesRequest)
+      returns (GetMyExpensesResponse);
+
+  rpc UpdateExpense(UpdateExpenseRequest)
+      returns (UpdateExpenseResponse);
+
+  rpc DeleteExpense(DeleteExpenseRequest)
+      returns (DefaultResponse);
+
+  // Admin APIs
+  rpc GetAllExpenses(GetAllExpensesRequest)
+      returns (GetAllExpensesResponse);
+
+  rpc UpdateExpenseStatus(UpdateExpenseStatusRequest)
+      returns (UpdateExpenseStatusResponse);
+
+  rpc GetExpenseDetails(GetExpenseDetailsRequest)
+      returns (GetExpenseDetailsResponse);
+
+  rpc AdminDeleteExpense(AdminDeleteExpenseRequest)
+      returns (DefaultResponse);
+}

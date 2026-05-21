@@ -331,10 +331,10 @@ setInterval(async () => {
 /* -----------------------------------------------------
    START + SHUTDOWN
 ----------------------------------------------------- */
-httpServer.listen(PORT, () => {
-    console.log(`✅ Usage Report Realtime running on :${PORT}`);
-    console.log(`🔍 Health check at http://localhost:${PORT}/health`);
-});
+// httpServer.listen(PORT, () => {
+//     console.log(`✅ Usage Report Realtime running on :${PORT}`);
+//     console.log(`🔍 Health check at http://localhost:${PORT}/health`);
+// });
 
 function shutdown(signal) {
     console.log(`📴 ${signal} received`);

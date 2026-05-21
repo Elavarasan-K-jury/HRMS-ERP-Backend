@@ -315,7 +315,7 @@ export const PreviewSalaryForEmployee = async (call, callback) => {
             componentId: c.componentId,
             componentKey: c.component.key,
             componentName: c.component.name,
-            kind: c.kind,
+            kind: c.component.type,
             formula: c.formula,
             value: c.value,
             priority: c.priority,
@@ -324,7 +324,9 @@ export const PreviewSalaryForEmployee = async (call, callback) => {
             condition: c.condition,
         }));
 
-        const result = calculateSalary({
+        console.log('SalaryRange.handler.js @ Line 327:', engineComponents);
+
+        const result = await calculateSalary({
             baseInput: { gross: Number(gross) },
             components: engineComponents,
         });
