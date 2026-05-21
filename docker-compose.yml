@@ -56,6 +56,8 @@ services:
     build: .
     container_name: juryhrms-admin
     restart: unless-stopped
+    ports:
+      - "${ADMIN_SERVICE_PORT}:${ADMIN_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:admin
       - NODE_ENV=production
@@ -70,6 +72,8 @@ services:
     build: .
     container_name: juryhrms-org
     restart: unless-stopped
+    ports:
+      - "${ORG_SERVICE_PORT}:${ORG_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:org
       - NODE_ENV=production
@@ -84,6 +88,8 @@ services:
     build: .
     container_name: juryhrms-emp-cat
     restart: unless-stopped
+    ports:
+      - "${EMP_CAT_SERVICE_PORT}:${EMP_CAT_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:emp-cat
       - NODE_ENV=production
@@ -98,6 +104,8 @@ services:
     build: .
     container_name: juryhrms-emp
     restart: unless-stopped
+    ports:
+      - "${EMP_SERVICE_PORT}:${EMP_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:emp
       - NODE_ENV=production
@@ -112,6 +120,8 @@ services:
     build: .
     container_name: juryhrms-org-dep
     restart: unless-stopped
+    ports:
+      - "${ORG_DEPT_SERVICE_PORT}:${ORG_DEPT_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:org-dep
       - NODE_ENV=production
@@ -126,6 +136,8 @@ services:
     build: .
     container_name: juryhrms-org-desg
     restart: unless-stopped
+    ports:
+      - "${ORG_DESG_SERVICE_PORT}:${ORG_DESG_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:org-desg
       - NODE_ENV=production
@@ -140,6 +152,8 @@ services:
     build: .
     container_name: juryhrms-emp-dept
     restart: unless-stopped
+    ports:
+      - "${EMP_DEPT_SERVICE_PORT}:${EMP_DEPT_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:emp-dept
       - NODE_ENV=production
@@ -154,6 +168,8 @@ services:
     build: .
     container_name: juryhrms-emp-onboard-flow
     restart: unless-stopped
+    ports:
+      - "${EMP_ONBOARDING_FLOW_SERVICE_PORT}:${EMP_ONBOARDING_FLOW_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:emp-onboard-flow
       - NODE_ENV=production
@@ -168,6 +184,8 @@ services:
     build: .
     container_name: juryhrms-emp-onboard-step
     restart: unless-stopped
+    ports:
+      - "${EMP_ONBOARDING_STEP_SERVICE_PORT}:${EMP_ONBOARDING_STEP_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:emp-onboard-step
       - NODE_ENV=production
@@ -182,6 +200,8 @@ services:
     build: .
     container_name: juryhrms-emp-onboard-feature
     restart: unless-stopped
+    ports:
+      - "${EMP_ONBOARDING_FEATURE_SERVICE_PORT}:${EMP_ONBOARDING_FEATURE_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:emp-onboard-feature
       - NODE_ENV=production
@@ -196,6 +216,8 @@ services:
     build: .
     container_name: juryhrms-emp-onboard-progress
     restart: unless-stopped
+    ports:
+      - "${EMP_ONBOARDING_PROGRESS_SERVICE_PORT}:${EMP_ONBOARDING_PROGRESS_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:emp-onboard-progress
       - NODE_ENV=production
@@ -210,6 +232,8 @@ services:
     build: .
     container_name: juryhrms-atte
     restart: unless-stopped
+    ports:
+      - "${ATTENDANCE_SERVICE_PORT}:${ATTENDANCE_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:atte
       - NODE_ENV=production
@@ -224,6 +248,8 @@ services:
     build: .
     container_name: juryhrms-atte-log
     restart: unless-stopped
+    ports:
+      - "${ATTENDANCE_LOG_SERVICE_PORT}:${ATTENDANCE_LOG_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:atte-log
       - NODE_ENV=production
@@ -238,6 +264,8 @@ services:
     build: .
     container_name: juryhrms-attendance-regularisation
     restart: unless-stopped
+    ports:
+      - "${REGULARISATION_SERVICE_PORT}:${REGULARISATION_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:attendance-regularisation
       - NODE_ENV=production
@@ -252,6 +280,8 @@ services:
     build: .
     container_name: juryhrms-shift
     restart: unless-stopped
+    ports:
+      - "${SHIFT_SERVICE_PORT}:${SHIFT_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:shift
       - NODE_ENV=production
@@ -266,6 +296,8 @@ services:
     build: .
     container_name: juryhrms-shift-assignment
     restart: unless-stopped
+    ports:
+      - "${SHIFT_ASSIGNMENT_SERVICE_PORT}:${SHIFT_ASSIGNMENT_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:shift-assignment
       - NODE_ENV=production
@@ -280,6 +312,8 @@ services:
     build: .
     container_name: juryhrms-shift-policy
     restart: unless-stopped
+    ports:
+      - "${SHIFT_POLICY_SERVICE_PORT}:${SHIFT_POLICY_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:shift-policy
       - NODE_ENV=production
@@ -294,6 +328,8 @@ services:
     build: .
     container_name: juryhrms-holiday
     restart: unless-stopped
+    ports:
+      - "${HOLIDAY_SERVICE_PORT}:${HOLIDAY_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:holiday
       - NODE_ENV=production
@@ -308,6 +344,8 @@ services:
     build: .
     container_name: juryhrms-holiday-policy
     restart: unless-stopped
+    ports:
+      - "${HOLIDAY_POLICY_SERVICE_PORT}:${HOLIDAY_POLICY_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:holiday-policy
       - NODE_ENV=production
@@ -322,6 +360,8 @@ services:
     build: .
     container_name: juryhrms-approval
     restart: unless-stopped
+    ports:
+      - "${APPROVAL_SERVICE_PORT}:${APPROVAL_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:approval
       - NODE_ENV=production
@@ -336,6 +376,8 @@ services:
     build: .
     container_name: juryhrms-asst-cat
     restart: unless-stopped
+    ports:
+      - "${ASSET_CAT_SERVICE_PORT}:${ASSET_CAT_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:asst-cat
       - NODE_ENV=production
@@ -350,6 +392,8 @@ services:
     build: .
     container_name: juryhrms-asst-mod
     restart: unless-stopped
+    ports:
+      - "${ASSET_MOD_SERVICE_PORT}:${ASSET_MOD_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:asst-mod
       - NODE_ENV=production
@@ -364,6 +408,8 @@ services:
     build: .
     container_name: juryhrms-assets
     restart: unless-stopped
+    ports:
+      - "${ASSETS_SERVICE_PORT}:${ASSETS_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:assets
       - NODE_ENV=production
@@ -378,6 +424,8 @@ services:
     build: .
     container_name: juryhrms-asst-req
     restart: unless-stopped
+    ports:
+      - "${ASSET_REQ_SERVICE_PORT}:${ASSET_REQ_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:asst-req
       - NODE_ENV=production
@@ -392,6 +440,8 @@ services:
     build: .
     container_name: juryhrms-asst-assign
     restart: unless-stopped
+    ports:
+      - "${ASSET_ASSIGN_SERVICE_PORT}:${ASSET_ASSIGN_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:asst-assign
       - NODE_ENV=production
@@ -406,6 +456,8 @@ services:
     build: .
     container_name: juryhrms-asst-con
     restart: unless-stopped
+    ports:
+      - "${ASSET_CON_SERVICE_PORT}:${ASSET_CON_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:asst-con
       - NODE_ENV=production
@@ -420,6 +472,8 @@ services:
     build: .
     container_name: juryhrms-poll-post
     restart: unless-stopped
+    ports:
+      - "${POST_POLL_SERVICE_PORT}:${POST_POLL_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:poll-post
       - NODE_ENV=production
@@ -434,6 +488,8 @@ services:
     build: .
     container_name: juryhrms-leave-type
     restart: unless-stopped
+    ports:
+      - "${LEAVE_TYPE_SERVICE_PORT}:${LEAVE_TYPE_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:leave-type
       - NODE_ENV=production
@@ -448,6 +504,8 @@ services:
     build: .
     container_name: juryhrms-leave-request
     restart: unless-stopped
+    ports:
+      - "${LEAVE_REQUEST_SERVICE_PORT}:${LEAVE_REQUEST_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:leave-request
       - NODE_ENV=production
@@ -462,6 +520,8 @@ services:
     build: .
     container_name: juryhrms-salary-payroll
     restart: unless-stopped
+    ports:
+      - "${SALARY_PAYROLL_SERVICE_PORT}:${SALARY_PAYROLL_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:salary-payroll
       - NODE_ENV=production
@@ -476,6 +536,8 @@ services:
     build: .
     container_name: juryhrms-report
     restart: unless-stopped
+    ports:
+      - "${REPORT_SERVICE_PORT}:${REPORT_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:report
       - NODE_ENV=production
@@ -490,6 +552,8 @@ services:
     build: .
     container_name: juryhrms-traffic-reporting
     restart: unless-stopped
+    ports:
+      - "${TRAFFIC_REPORTING_PORT}:${TRAFFIC_REPORTING_PORT}"
     environment:
       - NPM_COMMAND=npm run start:traffic-reporting
       - NODE_ENV=production
@@ -504,6 +568,8 @@ services:
     build: .
     container_name: juryhrms-usage-reporting
     restart: unless-stopped
+    ports:
+      - "${USAGE_REPORT_PORT}:${USAGE_REPORT_PORT}"
     environment:
       - NPM_COMMAND=npm run start:usage-reporting
       - NODE_ENV=production
@@ -518,6 +584,8 @@ services:
     build: .
     container_name: juryhrms-subscription
     restart: unless-stopped
+    ports:
+      - "${SUBSCRIPTION_SERVICE_PORT}:${SUBSCRIPTION_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:subscription
       - NODE_ENV=production
@@ -538,6 +606,16 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET}
+      - JWT_ACCESS_EXPIRES_IN=${JWT_ACCESS_EXPIRES_IN}
+      - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - MAIL_FROM=${MAIL_FROM}
+      - FILE_STORAGE=${FILE_STORAGE}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
     depends_on:
       - mongodb
       - redis
@@ -546,6 +624,8 @@ services:
     build: .
     container_name: juryhrms-storage
     restart: unless-stopped
+    ports:
+      - "${STORAGE_SERVICE_PORT}:${STORAGE_SERVICE_PORT}"
     environment:
       - NPM_COMMAND=npm run start:storage
       - NODE_ENV=production
