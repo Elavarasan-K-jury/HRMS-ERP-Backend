@@ -11,8 +11,10 @@ RUN npm ci
 
 COPY . .
 
+RUN npm run prisma:generate
+
 ENV NODE_ENV=production
 
-EXPOSE 3000
+EXPOSE 50050
 
 CMD ["sh", "-c", "${NPM_COMMAND}"]
