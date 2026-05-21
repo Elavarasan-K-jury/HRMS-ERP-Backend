@@ -1,0 +1,561 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: juryhrms-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+
+  redis:
+    image: redis:7-alpine
+    container_name: juryhrms-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  gateway:
+    build: .
+    container_name: juryhrms-gateway
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NPM_COMMAND=npm run start:gateway
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ACCESS_EXPIRES_IN=${JWT_ACCESS_EXPIRES_IN}
+      - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - MAIL_FROM=${MAIL_FROM}
+      - FILE_STORAGE=${FILE_STORAGE}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+      - ALLOWED_IPS=${ALLOWED_IPS}
+      - ALLOWED_DOMAINS=${ALLOWED_DOMAINS}
+      - RATE_LIMIT_WINDOW=${RATE_LIMIT_WINDOW}
+      - RATE_LIMIT_MAX=${RATE_LIMIT_MAX}
+      - REQUEST_QUEUE_LIMIT=${REQUEST_QUEUE_LIMIT}
+      - CRON_FAST_MODE=${CRON_FAST_MODE}
+    depends_on:
+      - mongodb
+      - redis
+
+  admin:
+    build: .
+    container_name: juryhrms-admin
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:admin
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  org:
+    build: .
+    container_name: juryhrms-org
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:org
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  emp-cat:
+    build: .
+    container_name: juryhrms-emp-cat
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:emp-cat
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  emp:
+    build: .
+    container_name: juryhrms-emp
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:emp
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  org-dep:
+    build: .
+    container_name: juryhrms-org-dep
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:org-dep
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  org-desg:
+    build: .
+    container_name: juryhrms-org-desg
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:org-desg
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  emp-dept:
+    build: .
+    container_name: juryhrms-emp-dept
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:emp-dept
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  emp-onboard-flow:
+    build: .
+    container_name: juryhrms-emp-onboard-flow
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:emp-onboard-flow
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  emp-onboard-step:
+    build: .
+    container_name: juryhrms-emp-onboard-step
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:emp-onboard-step
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  emp-onboard-feature:
+    build: .
+    container_name: juryhrms-emp-onboard-feature
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:emp-onboard-feature
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  emp-onboard-progress:
+    build: .
+    container_name: juryhrms-emp-onboard-progress
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:emp-onboard-progress
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  atte:
+    build: .
+    container_name: juryhrms-atte
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:atte
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  atte-log:
+    build: .
+    container_name: juryhrms-atte-log
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:atte-log
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  attendance-regularisation:
+    build: .
+    container_name: juryhrms-attendance-regularisation
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:attendance-regularisation
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  shift:
+    build: .
+    container_name: juryhrms-shift
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:shift
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  shift-assignment:
+    build: .
+    container_name: juryhrms-shift-assignment
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:shift-assignment
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  shift-policy:
+    build: .
+    container_name: juryhrms-shift-policy
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:shift-policy
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  holiday:
+    build: .
+    container_name: juryhrms-holiday
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:holiday
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  holiday-policy:
+    build: .
+    container_name: juryhrms-holiday-policy
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:holiday-policy
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  approval:
+    build: .
+    container_name: juryhrms-approval
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:approval
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  asst-cat:
+    build: .
+    container_name: juryhrms-asst-cat
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:asst-cat
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  asst-mod:
+    build: .
+    container_name: juryhrms-asst-mod
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:asst-mod
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  assets:
+    build: .
+    container_name: juryhrms-assets
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:assets
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  asst-req:
+    build: .
+    container_name: juryhrms-asst-req
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:asst-req
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  asst-assign:
+    build: .
+    container_name: juryhrms-asst-assign
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:asst-assign
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  asst-con:
+    build: .
+    container_name: juryhrms-asst-con
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:asst-con
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  poll-post:
+    build: .
+    container_name: juryhrms-poll-post
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:poll-post
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  leave-type:
+    build: .
+    container_name: juryhrms-leave-type
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:leave-type
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  leave-request:
+    build: .
+    container_name: juryhrms-leave-request
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:leave-request
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  salary-payroll:
+    build: .
+    container_name: juryhrms-salary-payroll
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:salary-payroll
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  report:
+    build: .
+    container_name: juryhrms-report
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:report
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  traffic-reporting:
+    build: .
+    container_name: juryhrms-traffic-reporting
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:traffic-reporting
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  usage-reporting:
+    build: .
+    container_name: juryhrms-usage-reporting
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:usage-reporting
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  subscription:
+    build: .
+    container_name: juryhrms-subscription
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:subscription
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  invoice:
+    build: .
+    container_name: juryhrms-invoice
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:invoice
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+  storage:
+    build: .
+    container_name: juryhrms-storage
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:storage
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
+volumes:
+  mongodb_data:
+  redis_data:
