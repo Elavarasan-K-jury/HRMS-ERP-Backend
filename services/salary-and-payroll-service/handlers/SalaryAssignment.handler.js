@@ -116,7 +116,7 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
                 where: {
                     employeeId,
                     isCurrentActive: true,
-                    deletedAt: null,
+                    // deletedAt: null,
                 },
                 data: {
                     isCurrentActive: false,
