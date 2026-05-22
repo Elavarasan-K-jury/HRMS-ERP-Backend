@@ -100,6 +100,8 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
 
         let previous = null;
 
+        console.log('SalaryAssignment.handler.js @ Line 103:', makeActive);
+
         if (makeActive) {
             previous = await prisma.salaryStructure.findFirst({
                 where: {
@@ -123,6 +125,8 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
                 },
             });
         }
+
+        console.log('SalaryAssignment.handler.js @ Line 129:', previous);
 
         const structure = await prisma.salaryStructure.create({
             data: {
