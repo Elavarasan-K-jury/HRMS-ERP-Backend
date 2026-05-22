@@ -103,8 +103,9 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
             previous = await prisma.salaryRevision.findFirst({
                 where: {
                     employeeId,
-                    isCurrentActive: true,
-                    deletedAt: null,
+                    structure: {
+                        isCurrentActive: true,
+                    },
                 },
                 orderBy: { effectiveDate: "desc" },
             });
