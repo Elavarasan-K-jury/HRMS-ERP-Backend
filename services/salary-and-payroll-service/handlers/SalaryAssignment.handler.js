@@ -144,7 +144,7 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
 
         let revisionType = "INITIAL_ASSIGNMENT";
         let reason = "Initial salary assignment";
-
+        console.log('SalaryAssignment.handler.js @ Line 147:', grossAnnual, previous.grossAnnual || 0);
         if (previous) {
             if (previous.grossAnnual < grossAnnual) {
                 revisionType = "PROMOTION";
