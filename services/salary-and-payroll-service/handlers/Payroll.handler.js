@@ -274,16 +274,16 @@ export const CalculatePayroll = async (call, callback) => {
             where: employeeWhere,
             include: {
                 attendance: { where: { date: { gte: startDate, lte: endDate }, deletedAt: null } },
-                leaveRequests: {
-                    where: {
-                        OR: [
-                            { startDate: { gte: startDate, lte: endDate } },
-                            { endDate: { gte: startDate, lte: endDate } },
-                            { startDate: { lte: startDate }, endDate: { gte: endDate } }
-                        ],
-                        status: 'APPROVED'
-                    }
-                },
+                // leaveRequests: {
+                //     where: {
+                //         OR: [
+                //             { startDate: { gte: startDate, lte: endDate } },
+                //             { endDate: { gte: startDate, lte: endDate } },
+                //             { startDate: { lte: startDate }, endDate: { gte: endDate } }
+                //         ],
+                //         status: 'APPROVED'
+                //     }
+                // },
                 MyExpenses: { where: { createdAt: { gte: startDate, lte: endDate }, deletedAt: null } },
                 salaryStructures: {
                     where: { isCurrentActive: true, status: 'ACTIVE', deletedAt: null },
