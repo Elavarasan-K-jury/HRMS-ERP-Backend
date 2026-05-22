@@ -113,9 +113,7 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
             await prisma.salaryStructure.updateMany({
                 where: {
                     employeeId,
-                    structure: {
-                        isCurrentActive: true,
-                    },
+                    isCurrentActive: true,
                     deletedAt: null,
                 },
                 data: {
