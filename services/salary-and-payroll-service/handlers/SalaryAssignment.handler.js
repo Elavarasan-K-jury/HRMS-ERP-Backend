@@ -110,6 +110,8 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
                 orderBy: { effectiveDate: "desc" },
             });
 
+            console.log('SalaryAssignment.handler.js @ Line 113:', previous);
+
             await prisma.salaryStructure.updateMany({
                 where: {
                     employeeId,
@@ -123,7 +125,7 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
             });
         }
 
-        console.log('SalaryAssignment.handler.js @ Line 126:', previous);
+        console.log('SalaryAssignment.handler.js @ Line 128:', previous);
 
 
         const structure = await prisma.salaryStructure.create({
