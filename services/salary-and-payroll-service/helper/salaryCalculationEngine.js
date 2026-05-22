@@ -52,7 +52,7 @@ function normalizeTemplateComponents(components) {
 /* ============================================================
    1️⃣ CALCULATE SALARY STRUCTURE (DB WRITE)
 ============================================================ */
-export async function calculateSalaryStructure(structureId) {
+export async function calculateSalaryStructure(structureId, save = false) {
 
     const structure = await prisma.salaryStructure.findUnique({
         where: { id: structureId },
@@ -148,30 +148,32 @@ export async function calculateSalaryStructure(structureId) {
 
     // console.log('salaryCalculationEngine.js @ Line 145:', allComponents);
 
-    // await prisma.structureComponent.createMany({
-    //     data: allComponents.map(c => ({
-    //         structureId,
-    //         componentId: c.componentId,
-    //         value: c.value,
-    //         formula: c.formula || null,
-    //         annualAmount: c.annualAmount,
-    //         monthlyAmount: c.monthlyAmount,
-    //         isOverridden: false,
-    //     })),
-    // });
+    if (save) {
+        await prisma.structureComponent.createMany({
+            data: allComponents.map(c => ({
+                structureId,
+                componentId: c.componentId,
+                value: c.value,
+                formula: c.formula || null,
+                annualAmount: c.annualAmount,
+                monthlyAmount: c.monthlyAmount,
+                isOverridden: false,
+            })),
+        });
 
-    /* ---------------- UPDATE STRUCTURE TOTALS ---------------- */
-    // await prisma.salaryStructure.update({
-    //     where: { id: structureId },
-    //     data: {
-    //         totalEarnings,
-    //         totalDeductions,
-    //         totalBenefits: totalEmployer,
-    //         inHandAnnual: inHandMonthly * 12,
-    //         inHandMonthly,
-    //         updatedAt: new Date(),
-    //     },
-    // });
+        /* ---------------- UPDATE STRUCTURE TOTALS ---------------- */
+        await prisma.salaryStructure.update({
+            where: { id: structureId },
+            data: {
+                totalEarnings,
+                totalDeductions,
+                totalBenefits: totalEmployer,
+                inHandAnnual: inHandMonthly * 12,
+                inHandMonthly,
+                updatedAt: new Date(),
+            },
+        });
+    }
 
     return {
         ...structure,

@@ -136,7 +136,7 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
             },
         });
 
-        const computed = await calculateSalaryStructure(structure.id);
+        const computed = await calculateSalaryStructure(structure.id, true);
 
         let revisionType = "INITIAL_ASSIGNMENT";
         let reason = "Initial salary assignment";
@@ -161,11 +161,11 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
                 revisionDate: new Date(),
                 effectiveDate,
                 previousGross: Number(previous?.grossAnnual || 0),
-                newGross: Number(grossAnnual),
-                changeAmount: Number(grossAnnual) - Number(previous?.grossAnnual || 0),
+                newGross: Number(computed.grossAnnual),
+                changeAmount: Number(computed.grossAnnual) - Number(previous?.grossAnnual || 0),
                 changePercent:
                     previous?.grossAnnual
-                        ? ((grossAnnual - previous.grossAnnual) / previous.grossAnnual) * 100
+                        ? ((computed.grossAnnual - previous.grossAnnual) / previous.grossAnnual) * 100
                         : null,
                 structureId: structure.id,
                 employeeId,
