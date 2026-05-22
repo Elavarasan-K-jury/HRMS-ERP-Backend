@@ -109,7 +109,7 @@ function topoSort(components, baseKeys) {
 ============================================================ */
 export function calculateSalary({ baseInput, components }) {
 
-    console.log('🔢 Calculator Input:', { baseInput, componentCount: components.length });
+    // console.log('🔢 Calculator Input:', { baseInput, componentCount: components.length });
 
     // 1. Initialize Context
     const ctx = {
@@ -122,7 +122,7 @@ export function calculateSalary({ baseInput, components }) {
     const valid = components.filter(c => !!c.componentKey);
     const sorted = topoSort(valid, Object.keys(ctx));
 
-    console.log('📊 Evaluation Order:', sorted.map(c => c.componentKey));
+    // console.log('📊 Evaluation Order:', sorted.map(c => c.componentKey));
 
     const result = [];
     let totalEarnings = 0;
@@ -225,7 +225,7 @@ export function calculateSalary({ baseInput, components }) {
         grossAnnual: Math.round(totalEarnings * 12 * 100) / 100,
     };
 
-    console.log('💰 Totals:', totals);
+    // console.log('💰 Totals:', totals);
 
     return {
         inputs: ctx,

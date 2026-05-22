@@ -62,7 +62,7 @@ export async function calculateSalaryStructure(structureId) {
         },
     });
 
-    console.log('salaryCalculationEngine.js @ Line 65:', structure);
+    // console.log('salaryCalculationEngine.js @ Line 65:', structure);
 
     if (!structure) throw new Error("Salary structure not found");
 
@@ -106,7 +106,7 @@ export async function calculateSalaryStructure(structureId) {
         components: normalizeTemplateComponents(earnings),
     });
 
-    console.log('salaryCalculationEngine.js @ Line 113:', earningResult);
+    // console.log('salaryCalculationEngine.js @ Line 113:', earningResult);
 
 
     const grossComputed = earningResult.totals.totalEarnings;
@@ -146,7 +146,7 @@ export async function calculateSalaryStructure(structureId) {
         ...employerResult.components,
     ];
 
-    console.log('salaryCalculationEngine.js @ Line 145:', allComponents);
+    // console.log('salaryCalculationEngine.js @ Line 145:', allComponents);
 
     // await prisma.structureComponent.createMany({
     //     data: allComponents.map(c => ({

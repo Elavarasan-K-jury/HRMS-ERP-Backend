@@ -100,15 +100,13 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
         let previous = null;
 
         if (makeActive) {
-            previous = await prisma.salaryStructure.findFirst({
+            previous = await prisma.salaryRevision.findFirst({
                 where: {
                     employeeId,
-                    structure: {
-                        isCurrentActive: true,
-                    },
+                    isCurrentActive: true,
                     deletedAt: null,
                 },
-                orderBy: { effectiveFrom: "desc" },
+                orderBy: { effectiveDate: "desc" },
             });
 
             await prisma.salaryStructure.updateMany({
@@ -155,6 +153,8 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
                 reason = "Salary revision";
             }
         }
+
+        console.log('SalaryAssignment.handler.js @ Line 157:', computed);
 
         await prisma.salaryRevision.create({
             data: {
