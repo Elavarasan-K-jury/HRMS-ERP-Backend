@@ -123,6 +123,7 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
             });
         }
 
+
         const structure = await prisma.salaryStructure.create({
             data: {
                 employeeId,
@@ -140,10 +141,10 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
         let revisionType = "INITIAL_ASSIGNMENT";
         let reason = "Initial salary assignment";
         if (previous) {
-            if (previous.grossAnnual < grossAnnual) {
+            if (previous.newGross < grossAnnual) {
                 revisionType = "PROMOTION";
                 reason = "Promotion salary revision";
-            } else if (previous.grossAnnual > grossAnnual) {
+            } else if (previous.newGross > grossAnnual) {
                 revisionType = "DEMOTION";
                 reason = "Demotion salary revision";
             } else {
