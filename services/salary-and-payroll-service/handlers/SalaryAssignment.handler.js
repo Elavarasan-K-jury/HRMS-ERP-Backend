@@ -123,6 +123,8 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
             });
         }
 
+        console.log('SalaryAssignment.handler.js @ Line 126:', previous);
+
 
         const structure = await prisma.salaryStructure.create({
             data: {
