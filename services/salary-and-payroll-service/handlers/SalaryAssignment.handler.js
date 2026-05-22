@@ -92,6 +92,7 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
         }
 
         const effectiveDate = effectiveFrom ? new Date(effectiveFrom) : new Date();
+        console.log('SalaryAssignment.handler.js @ Line 95:', isCurrentActive, effectiveDate, new Date());
         const makeActive =
             typeof isCurrentActive === "boolean"
                 ? isCurrentActive
