@@ -92,7 +92,6 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
         }
 
         const effectiveDate = effectiveFrom ? new Date(effectiveFrom) : new Date();
-        console.log('SalaryAssignment.handler.js @ Line 95:', isCurrentActive, effectiveDate, new Date());
         const makeActive =
             typeof isCurrentActive === "boolean"
                 ? isCurrentActive
@@ -100,14 +99,14 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
 
         let previous = null;
 
-        console.log('SalaryAssignment.handler.js @ Line 103:', makeActive);
-
         if (makeActive) {
             previous = await prisma.salaryStructure.findFirst({
                 where: {
                     employeeId,
-                    // isCurrentActive: true,
-                    // deletedAt: null,
+                    structure: {
+                        isCurrentActive: true,
+                    },
+                    deletedAt: null,
                 },
                 orderBy: { effectiveFrom: "desc" },
             });
@@ -115,8 +114,10 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
             await prisma.salaryStructure.updateMany({
                 where: {
                     employeeId,
-                    isCurrentActive: true,
-                    // deletedAt: null,
+                    structure: {
+                        isCurrentActive: true,
+                    },
+                    deletedAt: null,
                 },
                 data: {
                     isCurrentActive: false,
@@ -125,8 +126,6 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
                 },
             });
         }
-
-        console.log('SalaryAssignment.handler.js @ Line 129:', previous);
 
         const structure = await prisma.salaryStructure.create({
             data: {
@@ -144,7 +143,6 @@ export const assignSalaryToEmployeeFunc = async (call, callback) => {
 
         let revisionType = "INITIAL_ASSIGNMENT";
         let reason = "Initial salary assignment";
-        console.log('SalaryAssignment.handler.js @ Line 147:', grossAnnual, previous.grossAnnual || 0);
         if (previous) {
             if (previous.grossAnnual < grossAnnual) {
                 revisionType = "PROMOTION";
