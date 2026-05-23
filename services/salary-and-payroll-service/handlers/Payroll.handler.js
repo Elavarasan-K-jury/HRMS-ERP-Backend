@@ -307,11 +307,13 @@ export const CalculatePayroll = async (call, callback) => {
         const calculations = [];
 
         for (const emp of employees) {
-            const activeStructure = emp.salaryStructures?.[0];
+            const activeStructure = emp.salaryStructures.find(e => e.isCurrentActive && e.status === 'ACTIVE');
             if (!activeStructure) {
                 console.log('[CalculatePayroll] No active structure for employee:', emp.id, emp.fullName);
                 continue;
             }
+
+            console.log('Payroll.handler.js @ Line 316:', activeStructure);
 
             console.log('[CalculatePayroll] Processing:', emp.id, emp.fullName);
 
@@ -323,7 +325,7 @@ export const CalculatePayroll = async (call, callback) => {
             const expenseSummary = calculateExpenseSummary(emp.MyExpenses || []);
 
             const totalDaysInMonth = new Date(yearNum, monthNum, 0).getDate();
-            const effectivePresentDays = attendanceSummary.present_days + (attendanceSummary.half_day_count * 0.5) + leaveSummary.total_leave_days;
+            const effectivePresentDays = attendanceSummary.present_days + leaveSummary.total_leave_days;
             const absentDays = Math.max(0, totalDaysInMonth - effectivePresentDays);
 
             let deductionForAbsences = 0;
