@@ -79,7 +79,7 @@ function calculateAttendanceSummary(attendanceRecords, startDate, endDate) {
                 itemDate.getMonth() == dt.getMonth() &&
                 itemDate.getDate() == dt.getDate();
         })
-        const status = (att.status || 'PENDING').toString().toUpperCase().trim();
+        const status = (att?.status || 'ABSENT').toString().toUpperCase().trim();
 
         if (status === 'PRESENT' || status === 'P') {
             presentDays++;
