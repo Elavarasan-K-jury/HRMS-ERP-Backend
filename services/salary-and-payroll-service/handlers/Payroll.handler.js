@@ -61,7 +61,6 @@ function calculateAttendanceSummary(attendanceRecords, startDate, endDate) {
     console.log('Payroll.handler.js @ Line 61:', attendanceRecords);
     let presentDays = 0;
     let absentDays = 0;
-    let halfDayCount = 0;
     let lateCount = 0;
     let holidayCount = 0;
     let weekoffCount = 0;
@@ -89,7 +88,7 @@ function calculateAttendanceSummary(attendanceRecords, startDate, endDate) {
         } else if (status === 'ABSENT' || status === 'A') {
             absentDays++;
         } else if (status === 'HALF_DAY' || status === 'HD' || status === 'HALF') {
-            halfDayCount = halfDayCount + 0.5;
+            presentDays = presentDays + 0.5;
             absentDays = absentDays + 0.5;
         } else if (status === 'LATE' || status === 'L') {
             lateCount++;
@@ -110,7 +109,6 @@ function calculateAttendanceSummary(attendanceRecords, startDate, endDate) {
         total_days: totalDays,
         present_days: presentDays,
         absent_days: absentDays,
-        half_day_count: halfDayCount,
         late_count: lateCount,
         holiday_count: holidayCount,
         weekoff_count: weekoffCount,
