@@ -394,9 +394,16 @@ export const CalculatePayroll = async (call, callback) => {
             }
 
 
-            const baseNet = totalEarnings - totalDeductions;
-            const netPay = Math.round((baseNet - deductionForAbsences + expenseSummary.total_approved) * 100) / 100;
-            const ctcMonthly = totalEarnings + totalBenefits;
+            // Calculate pro-rated earnings based on attendance
+            const effectiveWorkDays = attendanceSummary.present_days + (attendanceSummary.half_day_count * 0.5);
+            const attendanceRatio = effectiveWorkDays / totalDaysInMonth;
+            const proRatedEarnings = totalEarnings * attendanceRatio;
+
+            // Total deductions include both predefined deductions and absence deductions
+            const totalActualDeductions = totalDeductions + deductionForAbsences;
+
+            const netPay = Math.round((proRatedEarnings + expenseSummary.total_approved) * 100) / 100;
+            const ctcMonthly = totalEarnings + totalBenefits; // CTC remains based on full salary
 
             calculations.push({
                 employee_id: emp.id,
@@ -406,8 +413,8 @@ export const CalculatePayroll = async (call, callback) => {
                 leave: leaveSummary,
                 expenses: expenseSummary,
                 gross_monthly: Math.round(grossMonthly * 100) / 100,
-                total_earnings: Math.round(totalEarnings * 100) / 100,
-                total_deductions: Math.round(totalDeductions * 100) / 100,
+                total_earnings: Math.round(proRatedEarnings * 100) / 100,
+                total_deductions: Math.round(totalActualDeductions * 100) / 100,
                 total_benefits: Math.round(totalBenefits * 100) / 100,
                 expense_reimbursement: expenseSummary.total_approved,
                 net_pay: netPay,
