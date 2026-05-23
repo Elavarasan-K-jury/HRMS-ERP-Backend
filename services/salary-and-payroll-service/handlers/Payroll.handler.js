@@ -306,14 +306,14 @@ export const CalculatePayroll = async (call, callback) => {
             const leaveSummary = calculateLeaveSummary(emp.leaveRequests || [], yearNum, monthNum);
             const expenseSummary = calculateExpenseSummary(emp.MyExpenses || []);
 
-            const workingDaysInMonth = new Date(yearNum, monthNum, 0).getDate();
-            const totalPresentDays = attendanceSummary.present_days + attendanceSummary.half_day_count + leaveSummary.total_leave_days;
-            const absentDays = workingDaysInMonth - totalPresentDays;
+            const totalDaysInMonth = new Date(yearNum, monthNum, 0).getDate();
+            const effectivePresentDays = attendanceSummary.present_days + (attendanceSummary.half_day_count * 0.5) + leaveSummary.total_leave_days;
+            const absentDays = Math.max(0, totalDaysInMonth - effectivePresentDays);
 
             let deductionForAbsences = 0;
             if (absentDays > 0 && grossMonthly > 0) {
-                const dailyRate = grossMonthly / workingDaysInMonth;
-                deductionForAbsences = Math.round((attendanceSummary.half_day_count * (dailyRate * 0.5) + absentDays * dailyRate) * 100) / 100;
+                const dailyRate = grossMonthly / totalDaysInMonth;
+                deductionForAbsences = Math.round(absentDays * dailyRate * 100) / 100;
             }
 
             let totalEarnings = 0;
