@@ -97,9 +97,9 @@ function calculateAttendanceSummary(attendanceRecords, startDate, endDate) {
             absentDays++;
         }
 
-        totalWorkingHours += att.grossHours || 0;
-        effectiveHours += att.effectiveHours || 0;
-        lateArrivalMinutes += att.lateArrivalMinutes || 0;
+        totalWorkingHours += att?.grossHours || 0;
+        effectiveHours += att?.effectiveHours || 0;
+        lateArrivalMinutes += att?.lateArrivalMinutes || 0;
     }
 
     return {
