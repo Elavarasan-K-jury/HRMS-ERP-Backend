@@ -302,7 +302,7 @@ export const CalculatePayroll = async (call, callback) => {
             }
         });
 
-        console.log('[CalculatePayroll] Found employees:', employees.length);
+        console.log('[CalculatePayroll] Found employees:', employees);
 
         const calculations = [];
 
