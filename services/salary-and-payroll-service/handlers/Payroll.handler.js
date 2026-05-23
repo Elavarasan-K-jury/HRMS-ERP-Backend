@@ -79,6 +79,9 @@ function calculateAttendanceSummary(attendanceRecords, startDate, endDate) {
                 itemDate.getMonth() == dt.getMonth() &&
                 itemDate.getDate() == dt.getDate();
         })
+
+        console.log('Payroll.handler.js @ Line 83:', att);
+
         const status = (att?.status || 'ABSENT').toString().toUpperCase().trim();
 
         if (status === 'PRESENT' || status === 'P') {
