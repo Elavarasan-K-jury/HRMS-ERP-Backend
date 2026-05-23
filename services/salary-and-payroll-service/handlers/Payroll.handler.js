@@ -377,6 +377,7 @@ export const CalculatePayroll = async (call, callback) => {
                 });
             }
 
+
             const baseNet = totalEarnings - totalDeductions;
             const netPay = Math.round((baseNet - deductionForAbsences + expenseSummary.total_approved) * 100) / 100;
             const ctcMonthly = totalEarnings + totalBenefits;
