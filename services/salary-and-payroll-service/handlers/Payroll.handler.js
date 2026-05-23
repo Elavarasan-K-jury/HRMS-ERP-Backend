@@ -71,7 +71,7 @@ function calculateAttendanceSummary(attendanceRecords, startDate, endDate) {
     const totalDays = new Date(endDate).getDate() - new Date(startDate).getDate() + 1;
 
 
-    for (const date = 1; date <= totalDays; date++) {
+    for (let date = 1; date <= totalDays; date++) {
         const dt = new Date(new Date(startDate).setDate(date));
         const att = attendanceRecords.find(item => {
             const itemDate = new Date(item.date);
