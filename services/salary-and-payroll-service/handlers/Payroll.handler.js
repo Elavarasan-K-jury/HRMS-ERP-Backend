@@ -218,7 +218,7 @@ export const GetSystemPayroll = async (call, callback) => {
                 salaryStructures: { some: { effectiveFrom: { lte: startDate }, status: 'ACTIVE', isCurrentActive: true } }
             },
             include: {
-                // attendance: true,
+                attendance: true,
                 salaryStructures: true,
                 regularisations: { include: { attendance: { where: { date: { gte: startDate, lte: endDate } } } } },
                 leaveRequests: { where: { startDate: { gte: startDate, lte: endDate }, endDate: { gte: startDate, lte: endDate } } },
@@ -290,7 +290,7 @@ export const CalculatePayroll = async (call, callback) => {
                 salaryStructures: { some: { effectiveFrom: { lte: startDate }, status: 'ACTIVE', isCurrentActive: true } }
             },
             include: {
-                attendance: true,
+                // attendance: true,
                 salaryStructures: true,
                 regularisations: { include: { attendance: { where: { date: { gte: startDate, lte: endDate } } } } },
                 leaveRequests: { where: { startDate: { gte: startDate, lte: endDate }, endDate: { gte: startDate, lte: endDate } } },
