@@ -57,7 +57,7 @@ function getFullMonthAttendance(attendanceArray, year, month) {
     return report;
 }
 
-function calculateAttendanceSummary(attendanceRecords) {
+function calculateAttendanceSummary(attendanceRecords, startDate, endDate) {
     let presentDays = 0;
     let absentDays = 0;
     let halfDayCount = 0;
@@ -91,9 +91,11 @@ function calculateAttendanceSummary(attendanceRecords) {
         effectiveHours += att.effectiveHours || 0;
         lateArrivalMinutes += att.lateArrivalMinutes || 0;
     }
+    // Total days should be the number of days in the month
+    const totalDays = new Date(endDate).getDate() - new Date(startDate).getDate() + 1;
 
     return {
-        total_days: (attendanceRecords || []).length,
+        total_days: totalDays,
         present_days: presentDays,
         absent_days: absentDays,
         half_day_count: halfDayCount,
@@ -302,7 +304,7 @@ export const CalculatePayroll = async (call, callback) => {
             const grossAnnual = Number(activeStructure.grossAnnual) || 0;
             const grossMonthly = grossAnnual / 12;
 
-            const attendanceSummary = calculateAttendanceSummary(emp.attendance || []);
+            const attendanceSummary = calculateAttendanceSummary(emp.attendance || [], startDate, endDate);
             const leaveSummary = calculateLeaveSummary(emp.leaveRequests || [], yearNum, monthNum);
             const expenseSummary = calculateExpenseSummary(emp.MyExpenses || []);
 
