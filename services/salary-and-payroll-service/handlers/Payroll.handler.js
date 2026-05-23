@@ -294,7 +294,11 @@ export const CalculatePayroll = async (call, callback) => {
                         date: { gte: startDate, lte: endDate }
                     }
                 },
-                salaryStructures: true,
+                salaryStructures: {
+                    include: {
+                        components: true
+                    }
+                },
                 regularisations: { include: { attendance: { where: { date: { gte: startDate, lte: endDate } } } } },
                 leaveRequests: { where: { startDate: { gte: startDate, lte: endDate }, endDate: { gte: startDate, lte: endDate } } },
                 workrequests: { where: { startDate: { gte: startDate, lte: endDate }, endDate: { gte: startDate, lte: endDate } } },
@@ -316,9 +320,7 @@ export const CalculatePayroll = async (call, callback) => {
             console.log('Payroll.handler.js @ Line 316:', activeStructure);
 
             console.log('[CalculatePayroll] Processing:', emp.id, emp.fullName);
-
-            const grossAnnual = Number(activeStructure.grossAnnual) || 0;
-            const grossMonthly = grossAnnual / 12;
+            const grossMonthly = activeStructure.inHandMonthly;
 
             const attendanceSummary = calculateAttendanceSummary(emp.attendance || [], startDate, endDate);
             const leaveSummary = calculateLeaveSummary(emp.leaveRequests || [], yearNum, monthNum);
