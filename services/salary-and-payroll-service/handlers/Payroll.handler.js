@@ -72,12 +72,12 @@ function calculateAttendanceSummary(attendanceRecords, startDate, endDate) {
 
 
     for (const date = 1; date <= totalDays; date++) {
-        const date = new Date(new Date(startDate).setDate(date));
+        const dt = new Date(new Date(startDate).setDate(date));
         const att = attendanceRecords.find(item => {
             const itemDate = new Date(item.date);
-            return itemDate.getFullYear() == date.getFullYear() &&
-                itemDate.getMonth() == date.getMonth() &&
-                itemDate.getDate() == date.getDate();
+            return itemDate.getFullYear() == dt.getFullYear() &&
+                itemDate.getMonth() == dt.getMonth() &&
+                itemDate.getDate() == dt.getDate();
         })
         const status = (att.status || 'PENDING').toString().toUpperCase().trim();
 
