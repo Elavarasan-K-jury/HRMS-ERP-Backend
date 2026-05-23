@@ -86,7 +86,7 @@ function calculateAttendanceSummary(attendanceRecords, startDate, endDate) {
         } else if (status === 'ABSENT' || status === 'A') {
             absentDays++;
         } else if (status === 'HALF_DAY' || status === 'HD' || status === 'HALF') {
-            halfDayCount++;
+            halfDayCount += 0.5;
         } else if (status === 'LATE' || status === 'L') {
             lateCount++;
         } else if (status === 'HOLIDAY' || status === 'H') {
