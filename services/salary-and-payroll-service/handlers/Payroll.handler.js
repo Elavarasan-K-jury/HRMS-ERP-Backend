@@ -406,7 +406,7 @@ export const CalculatePayroll = async (call, callback) => {
             // Total deductions include both predefined deductions and absence deductions
             const totalActualDeductions = totalDeductions + deductionForAbsences;
 
-            const netPay = Math.round((proRatedEarnings + expenseSummary.total_approved) * 100) / 100;
+            const netPay = (grossMonthly - totalActualDeductions) + expenseSummary.total_approved;
             const ctcMonthly = totalEarnings + totalBenefits; // CTC remains based on full salary
 
             calculations.push({
