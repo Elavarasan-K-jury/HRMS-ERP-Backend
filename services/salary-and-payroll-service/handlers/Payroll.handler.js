@@ -58,6 +58,7 @@ function getFullMonthAttendance(attendanceArray, year, month) {
 }
 
 function calculateAttendanceSummary(attendanceRecords, startDate, endDate) {
+    console.log('Payroll.handler.js @ Line 61:', attendanceRecords);
     let presentDays = 0;
     let absentDays = 0;
     let halfDayCount = 0;
@@ -67,8 +68,17 @@ function calculateAttendanceSummary(attendanceRecords, startDate, endDate) {
     let totalWorkingHours = 0;
     let effectiveHours = 0;
     let lateArrivalMinutes = 0;
+    const totalDays = new Date(endDate).getDate() - new Date(startDate).getDate() + 1;
 
-    for (const att of attendanceRecords || []) {
+
+    for (const date = 1; date <= totalDays; date++) {
+        const date = new Date(new Date(startDate).setDate(date));
+        const att = attendanceRecords.find(item => {
+            const itemDate = new Date(item.date);
+            return itemDate.getFullYear() == date.getFullYear() &&
+                itemDate.getMonth() == date.getMonth() &&
+                itemDate.getDate() == date.getDate();
+        })
         const status = (att.status || 'PENDING').toString().toUpperCase().trim();
 
         if (status === 'PRESENT' || status === 'P') {
@@ -91,8 +101,6 @@ function calculateAttendanceSummary(attendanceRecords, startDate, endDate) {
         effectiveHours += att.effectiveHours || 0;
         lateArrivalMinutes += att.lateArrivalMinutes || 0;
     }
-    // Total days should be the number of days in the month
-    const totalDays = new Date(endDate).getDate() - new Date(startDate).getDate() + 1;
 
     return {
         total_days: totalDays,
