@@ -158,9 +158,9 @@ message CalculatePayrollRequest {
 
 message PayrollAttendanceSummary {
     int32 total_days = 1;
-    int32 present_days = 2;
-    int32 absent_days = 3;
-    int32 half_day_count = 4;
+    double present_days = 2;
+    double absent_days = 3;
+    double half_day_count = 4;
     int32 late_count = 5;
     int32 holiday_count = 6;
     int32 weekoff_count = 7;
