@@ -271,27 +271,18 @@ export const CalculatePayroll = async (call, callback) => {
         if (employee_id) employeeWhere.id = employee_id;
 
         const employees = await prisma.organizationEmployees.findMany({
-            where: employeeWhere,
+            where: {
+                organizationId: organization_id,
+                attendance: { some: { date: { gte: startDate, lte: endDate } } },
+                salaryStructures: { some: { effectiveFrom: { lte: startDate }, status: 'ACTIVE', isCurrentActive: true } }
+            },
             include: {
-                attendance: { where: { date: { gte: startDate, lte: endDate }, deletedAt: null } },
-                // leaveRequests: {
-                //     where: {
-                //         OR: [
-                //             { startDate: { gte: startDate, lte: endDate } },
-                //             { endDate: { gte: startDate, lte: endDate } },
-                //             { startDate: { lte: startDate }, endDate: { gte: endDate } }
-                //         ],
-                //         status: 'APPROVED'
-                //     }
-                // },
-                MyExpenses: { where: { createdAt: { gte: startDate, lte: endDate }, deletedAt: null } },
-                salaryStructures: {
-                    where: { isCurrentActive: true, status: 'ACTIVE', deletedAt: null },
-                    include: {
-                        template: { include: { ranges: { where: { deletedAt: null }, include: { components: { where: { deletedAt: null }, include: { component: true } } } } } },
-                        components: { include: { component: true } }
-                    }
-                }
+                attendance: true,
+                salaryStructures: true,
+                regularisations: { include: { attendance: { where: { date: { gte: startDate, lte: endDate } } } } },
+                leaveRequests: { where: { startDate: { gte: startDate, lte: endDate }, endDate: { gte: startDate, lte: endDate } } },
+                workrequests: { where: { startDate: { gte: startDate, lte: endDate }, endDate: { gte: startDate, lte: endDate } } },
+                MyExpenses: { where: { status: 'APPROVED', createdAt: { gte: startDate, lte: endDate } } }
             }
         });
 
