@@ -19,6 +19,7 @@ message CreateDepartmentRequest {
   string department_head_start_date = 5;  // ISO string, optional
   string description                = 6;
   string note                       = 7;
+  string parent_id                  = 8;  // optional, for sub-departments
 }
 
 message GetDepartmentRequest {
@@ -34,6 +35,7 @@ message UpdateDepartmentRequest {
   string department_head_start_date = 6;
   string description                = 7;
   string note                       = 8;
+  string parent_id                  = 9;  // optional
 }
 
 message DeleteDepartmentRequest {
@@ -78,6 +80,11 @@ message ListDepartmentsEmployeeResponse {
   string message = 3;
 }
 
+message DepartmentParent {
+  string id   = 1;
+  string name = 2;
+}
+
 message Department {
   string id                         = 1;
   string organization_id            = 2;
@@ -95,6 +102,9 @@ message Department {
   optional DepartmentHead department_head    = 13;
   int32 employee_count              = 14;
   string organization_name          = 15;
+  string parent_id                  = 16;
+  repeated Department children      = 17;
+  optional DepartmentParent parent  = 18;
 }
 
 message Organization {

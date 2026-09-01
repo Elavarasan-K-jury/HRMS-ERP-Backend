@@ -15,6 +15,7 @@
         "@hono/node-server": "^1.0.0",
         "@jury-hrms/proto": "*",
         "@jury-hrms/db": "*",
+        "@jury-hrms/auth": "*",
         "@jury-hrms/redis": "*"
     }
 }

@@ -57,8 +57,14 @@ export const AssignPlanToOrganizationFunc = async (call, callback) => {
         }
 
         const now = new Date();
-        const trialEndsAt = plan.trialDays
-            ? new Date(now.getTime() + plan.trialDays * 24 * 60 * 60 * 1000)
+        // Guard against corrupted trialDays values (e.g. negative/huge) that
+        // would produce an invalid Date and crash the subscription create.
+        const trialDays =
+            Number.isInteger(plan.trialDays) && plan.trialDays > 0
+                ? plan.trialDays
+                : 0;
+        const trialEndsAt = trialDays
+            ? new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000)
             : null;
 
         const subscription = await prisma.organizationSubscriptions.create({
@@ -66,7 +72,7 @@ export const AssignPlanToOrganizationFunc = async (call, callback) => {
                 organizationId: organization_id,
                 planId: plan.id,
                 billingInterval: interval,
-                status: plan.trialDays ? 'TRIAL' : 'ACTIVE',
+                status: trialDays ? 'TRIAL' : 'ACTIVE',
                 priceAtPurchase: price,
                 startDate: now,
                 trialEndsAt,
@@ -78,6 +84,10 @@ export const AssignPlanToOrganizationFunc = async (call, callback) => {
 
         await generateInvoiceForSubscription({
             subscriptionId: subscription.id,
+        }).catch((e) => {
+            // Billing/payment integration is not required for the subscription
+            // itself (e.g. Razorpay keys missing in dev). Don't fail the assign.
+            console.error('Invoice generation skipped:', e.message);
         });
 
         return callback(null, {

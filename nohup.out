@@ -1,0 +1,6 @@
+[dotenv@17.2.3] injecting env (113) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[probation-policy-service] gRPC running on :50069
+
+[probation-policy-service] Received SIGINT, shutting down gracefully...
+[probation-policy-service] gRPC server stopped.
+[probation-policy-service] Prisma disconnected.

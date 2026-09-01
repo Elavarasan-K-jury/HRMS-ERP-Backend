@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package expense_category;
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Expense Category Service — Organization-scoped, references UsageType
+// ─────────────────────────────────────────────────────────────────────────────
+service ExpenseCategoryService {
+  rpc CreateExpenseCategory (CreateExpenseCategoryRequest) returns (ExpenseCategoryResponse);
+  rpc GetExpenseCategory    (GetExpenseCategoryRequest)    returns (ExpenseCategoryResponse);
+  rpc ListExpenseCategories (ListExpenseCategoriesRequest) returns (ListExpenseCategoriesResponse);
+  rpc UpdateExpenseCategory (UpdateExpenseCategoryRequest) returns (ExpenseCategoryResponse);
+  rpc DeleteExpenseCategory (DeleteExpenseCategoryRequest) returns (DeleteExpenseCategoryResponse);
+  rpc UpdateExpenseCategoryStatus (UpdateExpenseCategoryStatusRequest) returns (ExpenseCategoryResponse);
+}
+
+message ExpenseCategory {
+  string id              = 1;
+  string organization_id = 2;
+  string name            = 3;
+  string expense_code    = 4;
+  string icon            = 5;
+  string description     = 6;
+  string usage_type_id   = 7;
+  string usage_type_name = 8;
+  bool   is_active       = 9;
+  string created_at      = 10;
+  string updated_at      = 11;
+}
+
+message CreateExpenseCategoryRequest {
+  string organization_id = 1;
+  string name            = 2;
+  string expense_code    = 3;
+  string icon            = 4;
+  string description     = 5;
+  string usage_type_id   = 6;
+  bool   is_active       = 7;
+}
+
+message GetExpenseCategoryRequest {
+  string id              = 1;
+  string organization_id = 2;
+}
+
+message ListExpenseCategoriesRequest {
+  string organization_id = 1;
+  int32  page            = 2;
+  int32  limit           = 3;
+  string search          = 4;
+  string sort_by         = 5;
+  string sort_order      = 6;
+  bool   is_active_only  = 7;
+}
+
+message UpdateExpenseCategoryRequest {
+  string id              = 1;
+  string organization_id = 2;
+  string name            = 3;
+  string expense_code    = 4;
+  string icon            = 5;
+  string description     = 6;
+  string usage_type_id   = 7;
+  bool   is_active       = 8;
+}
+
+message UpdateExpenseCategoryStatusRequest {
+  string id              = 1;
+  string organization_id = 2;
+  bool   is_active       = 3;
+}
+
+message DeleteExpenseCategoryRequest {
+  string id              = 1;
+  string organization_id = 2;
+}
+
+message ExpenseCategoryResponse {
+  ExpenseCategory expense_category = 1;
+  string message                   = 2;
+  bool   success                   = 3;
+}
+
+message ListExpenseCategoriesResponse {
+  repeated ExpenseCategory expense_categories = 1;
+  int32 total                                 = 2;
+  int32 page                                  = 3;
+  int32 limit                                 = 4;
+  int32 total_pages                           = 5;
+  bool  success                               = 6;
+  string message                              = 7;
+}
+
+message DeleteExpenseCategoryResponse {
+  bool   success = 1;
+  string message = 2;
+}

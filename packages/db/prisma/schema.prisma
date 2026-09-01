@@ -13,9 +13,14 @@ model Admins {
   phone        String
   accessToken  String?   @map("access_token")
   refreshToken String?   @map("refresh_token")
+  isSuperAdmin Boolean   @default(false) @map("is_super_admin")
   createdAt    DateTime  @map("created_at")
   updatedAt    DateTime  @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
+
+  roleAssignments AdminRoleAssignments[]
+  auditLogs       AdminAuditLog[]
+  configUpdates   SystemConfig[]
 }
 
 model Otps {
@@ -30,48 +35,92 @@ model Otps {
   deletedAt      DateTime? @map("deleted_at")
 }
 
+model Branches {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String        @map("organization_id") @db.ObjectId
+  name           String
+  code           String?
+  description    String?
+  isActive       Boolean       @default(true) @map("is_active")
+  organization   Organizations @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  deletedAt      DateTime?     @map("deleted_at")
+
+  employees OrganizationEmployees[]
+}
+
+model Locations {
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId   String    @map("organization_id") @db.ObjectId
+  entityType       String    @map("entity_type") // 'organization' | 'branch'
+  entityId         String?   @map("entity_id") @db.ObjectId
+  isHeadquarters   Boolean   @default(false) @map("is_headquarters")
+  name             String?
+  timezone         String?
+  country          String?
+  state            String?
+  address1         String?   @map("address_1")
+  address2         String?   @map("address_2")
+  city             String?
+  pincode          String?
+  description      String?
+  latitude         Float?
+  longitude        Float?
+  placeId          String?   @map("place_id")
+  formattedAddress String?   @map("formatted_address")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  employees OrganizationEmployees[]
+}
+
 model Organizations {
-  id                  String                     @id @default(auto()) @map("_id") @db.ObjectId
-  name                String
-  domain              String                     @unique
-  GSTNumber           String?                    @map("gst_number")
-  email               String?
-  contactPersonName   String?                    @map("contact_person_name")
-  contactPersonNumber String?                    @map("contact_person_number")
-  accessToken         String?                    @map("access_token")
-  refreshToken        String?                    @map("refresh_token")
-  note                String?
-  industry            String?
-  size                Int?
-  activeEmployee      Int?                       @default(0)
-  totalEmployee       Int?                       @default(0)
-  address             Json?
-  createdAt           DateTime                   @map("created_at")
-  updatedAt           DateTime                   @map("updated_at")
-  deletedAt           DateTime?                  @map("deleted_at")
-  attendance          Attendance[]
-  departments         OrganizationDepartments[]
-  designations        OrganizationDesignations[]
-  employees           OrganizationEmployees[]
-  categories          EmployeeCategories[]
-  onboardingFlows     EmployeeOnboardingFlows[]  @relation("OrganizationOnboardings")
-  shifts              Shifts[]
-  holidays            Holidays[]
-  leaveTypes          LeaveTypes[]
-  geoFences           GeoFences[]
-  attendancePolicies  AttendancePolicies[]
-  shiftPolicies       ShiftPolicies[]
-  holidayPolicies     HolidayPolicies[]
-  networkpolicies     NetworkPolicies[]
-  approvalLogs        ApprovalLogs[]
-  approvalInstances   ApprovalInstance[]
-  approvers           ApprovalFlowApprovers[]
-  leaveRequests       LeaveRequests[]
-  workrequests        WorkdayRequests[]
-  approvalflows       ApprovalFlows[]
-  posts               Posts[]
-  assetconditions     AssetCondition[]
-  assetRequests       AssetRequest[]
+  id                            String                          @id @default(auto()) @map("_id") @db.ObjectId
+  name                          String
+  domain                        String                          @unique
+  GSTNumber                     String?                         @map("gst_number")
+  email                         String?
+  contactPersonName             String?                         @map("contact_person_name")
+  contactPersonNumber           String?                         @map("contact_person_number")
+  accessToken                   String?                         @map("access_token")
+  refreshToken                  String?                         @map("refresh_token")
+  note                          String?
+  industry                      String?
+  size                          Int?
+  activeEmployee                Int?                            @default(0)
+  totalEmployee                 Int?                            @default(0)
+  address                       Json?
+  createdAt                     DateTime                        @map("created_at")
+  updatedAt                     DateTime                        @map("updated_at")
+  deletedAt                     DateTime?                       @map("deleted_at")
+  attendance                    Attendance[]
+  departments                   OrganizationDepartments[]
+  designations                  OrganizationDesignations[]
+  employees                     OrganizationEmployees[]
+  employeeNumberSeries          EmployeeNumberSeries[]
+  categories                    EmployeeCategories[]
+  onboardingFlows               EmployeeOnboardingFlows[]       @relation("OrganizationOnboardings")
+  shifts                        Shifts[]
+  holidays                      Holidays[]
+  leaveTypes                    LeaveTypes[]
+  geoFences                     GeoFences[]
+  attendancePolicies            AttendancePolicies[]
+  shiftPolicies                 ShiftPolicies[]
+  holidayPolicies               HolidayPolicies[]
+  probationPolicies             ProbationPolicies[]
+  probationEvaluationMilestones ProbationEvaluationMilestones[]
+  networkpolicies               NetworkPolicies[]
+  approvalLogs                  ApprovalLogs[]
+  approvalInstances             ApprovalInstance[]
+  approvers                     ApprovalFlowApprovers[]
+  leaveRequests                 LeaveRequests[]
+  workrequests                  WorkdayRequests[]
+  approvalflows                 ApprovalFlows[]
+  posts                         Posts[]
+  assetconditions               AssetCondition[]
+  assetRequests                 AssetRequest[]
 
   smsNotification      Boolean @default(false)
   emailNotification    Boolean @default(true)
@@ -97,6 +146,280 @@ model Organizations {
   files                     Files[]
   payslipTemplates          PayslipTemplates[]
   expenses                  Expenses[]
+  branches                  Branches[]
+  legalEntities             LegalEntities[]
+
+  adminRoles              AdminRoles[]
+  adminRoleAssignments    AdminRoleAssignments[]
+  employeeRoleAssignments EmployeeRoleAssignments[]
+  auditLogs               AdminAuditLog[]
+  costCenters             CostCenters[]
+  payGrades               PayGrades[]
+  bands                   Bands[]
+  noticePeriodPolicies NoticePeriodPolicy[]
+  usageTypes              UsageType[]
+  expenseCategories       ExpenseCategory[]
+  expensePolicies         ExpensePolicy[]
+   policyExpenseCategories PolicyExpenseCategory[]
+   expensePolicyEmployees  ExpensePolicyEmployee[]
+  employeeDocumentFolders EmployeeDocumentFolder[]
+  employeeDocumentAssignments EmployeeDocumentAssignment[]
+  employeeDocumentSubmissions EmployeeDocumentSubmission[]
+}
+
+model CostCenters {
+  id             String                  @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String                  @map("organization_id") @db.ObjectId
+  name           String
+  code           String
+  description    String?
+  isActive       Boolean                 @default(true) @map("is_active")
+  organization   Organizations           @relation(fields: [organizationId], references: [id])
+  employees      OrganizationEmployees[]
+  createdAt      DateTime                @map("created_at")
+  updatedAt      DateTime                @map("updated_at")
+  deletedAt      DateTime?               @map("deleted_at")
+
+  @@unique([organizationId, code])
+}
+
+model PayGrades {
+  id             String                  @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String                  @map("organization_id") @db.ObjectId
+  name           String
+  description    String?
+  organization   Organizations           @relation(fields: [organizationId], references: [id])
+  employees      OrganizationEmployees[]
+  createdAt      DateTime                @map("created_at")
+  updatedAt      DateTime                @map("updated_at")
+  deletedAt      DateTime?               @map("deleted_at")
+
+  @@unique([organizationId, name])
+}
+
+model NoticePeriodPolicy {
+  id             String            @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String            @map("organization_id") @db.ObjectId
+  title            String            
+  description      String?           
+  durationValue    Int               @default(0)
+  durationUnit     String            @default("DAYS")
+  isDefault        Boolean           @default(false)
+  status           String            @default("PENDING")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  deletedAt        DateTime?         @map("deleted_at")
+  organization     Organizations       @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, title])
+  @@index([organizationId])
+
+  employees NoticePeriodPolicyEmployee[]
+}
+
+
+
+model NoticePeriodPolicyEmployee {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String    @map("organization_id") @db.ObjectId
+  policyId        String    @map("policy_id") @db.ObjectId
+  employeeId      String    @map("employee_id") @db.ObjectId
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  policy          NoticePeriodPolicy   @relation(fields: [policyId], references: [id])
+  employee        OrganizationEmployees @relation(fields: [employeeId], references: [id])
+
+  @@unique([policyId, employeeId])
+  @@index([policyId])
+  @@index([employeeId])
+}
+
+model UsageType {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String   @map("organization_id") @db.ObjectId
+  name           String
+  description    String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization      Organizations     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  expenseCategories ExpenseCategory[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, isActive])
+}
+
+model ExpenseCategory {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String   @map("organization_id") @db.ObjectId
+  name           String
+  expenseCode    String   @map("expense_code")
+  icon           String?
+  description    String?
+  usageTypeId    String   @map("usage_type_id") @db.ObjectId
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organizations @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  usageType    UsageType     @relation(fields: [usageTypeId], references: [id])
+  policyCategories PolicyExpenseCategory[]
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, expenseCode])
+  @@index([organizationId, usageTypeId])
+}
+
+model ExpensePolicy {
+  id                      String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId          String   @map("organization_id") @db.ObjectId
+  name                    String
+  description             String?
+  baseCurrency            String   @map("base_currency")
+  payoutMode              String?  @map("payout_mode")
+  allowFutureDateClaims   Boolean  @default(false) @map("allow_future_date_claims")
+  approvalRequired        Boolean  @default(false) @map("approval_required")
+  approvalMode            String?  @map("approval_mode") // SAME_FOR_ALL | BY_CATEGORY
+  isActive                Boolean  @default(true) @map("is_active")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+  deletedAt               DateTime? @map("deleted_at")
+
+  organization            Organizations @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  approvalLevels          ExpensePolicyApprovalLevel[]
+  policyCategories        PolicyExpenseCategory[]
+  policyEmployees         ExpensePolicyEmployee[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, isActive])
+}
+
+model ExpensePolicyApprovalLevel {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  expensePolicyId  String   @map("expense_policy_id") @db.ObjectId
+  level            Int
+  approverType     String   @map("approver_type") // EMPLOYEE | ROLE
+  approverId       String   @map("approver_id") @db.ObjectId
+  approverName     String?  @map("approver_name")
+  autoApprove      Boolean  @default(false) @map("auto_approve")
+  autoApproveDays  Int?     @map("auto_approve_days")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  expensePolicy    ExpensePolicy @relation(fields: [expensePolicyId], references: [id], onDelete: Cascade)
+
+  @@index([expensePolicyId, level])
+}
+
+model PolicyExpenseCategory {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId     String   @map("organization_id") @db.ObjectId
+  expensePolicyId    String   @map("expense_policy_id") @db.ObjectId
+  expenseCategoryId  String   @map("expense_category_id") @db.ObjectId
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  organization       Organizations   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  expensePolicy      ExpensePolicy   @relation(fields: [expensePolicyId], references: [id], onDelete: Cascade)
+  expenseCategory    ExpenseCategory @relation(fields: [expenseCategoryId], references: [id], onDelete: Cascade)
+  approvalLevels     PolicyCategoryApprovalLevel[]
+  rules              ExpenseCategoryRule[]
+
+  @@unique([expensePolicyId, expenseCategoryId])
+  @@index([expensePolicyId])
+  @@index([expenseCategoryId])
+}
+
+model ExpensePolicyEmployee {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String    @map("organization_id") @db.ObjectId
+  expensePolicyId String    @map("expense_policy_id") @db.ObjectId
+  employeeId      String    @map("employee_id") @db.ObjectId
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  organization  Organizations        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  expensePolicy ExpensePolicy        @relation(fields: [expensePolicyId], references: [id], onDelete: Cascade)
+  employee      OrganizationEmployees @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([expensePolicyId, employeeId])
+  @@index([expensePolicyId])
+  @@index([employeeId])
+  @@index([organizationId])
+}
+
+model PolicyCategoryApprovalLevel {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  policyCategoryId   String   @map("policy_category_id") @db.ObjectId
+  level              Int
+  approverType       String   @map("approver_type")
+  approverId         String   @map("approver_id") @db.ObjectId
+  approverName       String?  @map("approver_name")
+  autoApprove        Boolean  @default(false) @map("auto_approve")
+  autoApproveDays    Int?     @map("auto_approve_days")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  policyCategory     PolicyExpenseCategory @relation(fields: [policyCategoryId], references: [id], onDelete: Cascade)
+
+  @@index([policyCategoryId, level])
+}
+
+model ExpenseCategoryRule {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  policyCategoryId   String   @map("policy_category_id") @db.ObjectId
+  amountCapEnabled   Boolean  @default(false) @map("amount_cap_enabled")
+  amountCapCurrency  String?  @map("amount_cap_currency")
+  amountCapAmount    Float?   @map("amount_cap_amount")
+  amountCapPeriod    String?  @map("amount_cap_period") // Day, Week, Month, Quarter, Half Year, Year, Tenure
+  combinationEnabled Boolean  @default(false) @map("combination_enabled")
+  combinationCategoryId String? @map("combination_category_id") @db.ObjectId
+  combinationPeriod  String?  @map("combination_period")
+  instancesEnabled   Boolean  @default(false) @map("instances_enabled")
+  maxInstances       Int?     @map("max_instances")
+  instancesPeriod    String?  @map("instances_period")
+  expiryEnabled      Boolean  @default(false) @map("expiry_enabled")
+  expiryDays         Int?     @map("expiry_days")
+  costCenterRequired Boolean  @default(false) @map("cost_center_required")
+  commentThresholdEnabled Boolean @default(false) @map("comment_threshold_enabled")
+  commentThresholdAmount Float?  @map("comment_threshold_amount")
+  receiptThresholdEnabled Boolean @default(false) @map("receipt_threshold_enabled")
+  receiptThresholdAmount Float?  @map("receipt_threshold_amount")
+  thresholdApprovalEnabled Boolean @default(false) @map("threshold_approval_enabled")
+  thresholdCurrency  String?  @map("threshold_currency")
+  thresholdAmount    Float?   @map("threshold_amount")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  policyCategory     PolicyExpenseCategory @relation(fields: [policyCategoryId], references: [id], onDelete: Cascade)
+
+  @@index([policyCategoryId])
+}
+
+model Bands {
+  id             String                  @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String                  @map("organization_id") @db.ObjectId
+  name           String
+  description    String?
+  order          Int                     @default(0)
+  organization   Organizations           @relation(fields: [organizationId], references: [id])
+  designations   OrganizationDesignations[]
+  employees      OrganizationEmployees[]
+  createdAt      DateTime                @map("created_at")
+  updatedAt      DateTime                @map("updated_at")
+  deletedAt      DateTime?               @map("deleted_at")
+
+  @@unique([organizationId, name])
 }
 
 model OrgaizationFinance {
@@ -125,6 +448,9 @@ model OrganizationDepartments {
   organizationId          String                     @map("organization_id") @db.ObjectId
   name                    String
   code                    String?
+  parentId                String?                    @map("parent_id") @db.ObjectId
+  parent                  OrganizationDepartments?   @relation("DepartmentHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children                OrganizationDepartments[]  @relation("DepartmentHierarchy")
   departmentHeadId        String?                    @map("department_head_id") @db.ObjectId
   departmentHeadStartDate DateTime?                  @map("department_head_start_date")
   departmentHead          OrganizationEmployees?     @relation("DepartmentHead", fields: [departmentHeadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -145,11 +471,13 @@ model OrganizationDesignations {
   id                String                   @id @default(auto()) @map("_id") @db.ObjectId
   organizationId    String                   @map("organization_id") @db.ObjectId
   departmentId      String?                  @map("department_id") @db.ObjectId
+  bandId            String?                  @map("band_id") @db.ObjectId
   name              String
   level             String?
   description       String?
   organization      Organizations            @relation(fields: [organizationId], references: [id])
   department        OrganizationDepartments? @relation(fields: [departmentId], references: [id])
+  band              Bands?                   @relation(fields: [bandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   employees         OrganizationEmployees[]  @relation("DesignationEmployees")
   createdAt         DateTime                 @map("created_at")
   updatedAt         DateTime                 @map("updated_at")
@@ -158,21 +486,14 @@ model OrganizationDesignations {
 }
 
 model EmployeeCategories {
-  id                 String  @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId     String  @map("organization_id") @db.ObjectId
-  name               String
-  code               String?
-  description        String?
-  idPrefix           String? @map("id_prefix")
-  isPermanent        Boolean @map("is_permanent")
-  benefitsApplicable Boolean @map("benefits_applciable")
-  isActive           Boolean @default(true) @map("is_active")
-  trainingRequired   Boolean @default(true) @map("training_required")
-  trainingMonths     Int     @default(6) @map("training_months")
-  probationRequired  Boolean @default(true) @map("probation_required")
-  probationMonths    Int     @default(3) @map("probation_months")
-  noticeRequired     Boolean @default(true) @map("notice_required")
-  noticeMonths       Int     @default(2) @map("notice_months")
+  id             String  @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String  @map("organization_id") @db.ObjectId
+  name           String
+  description    String?
+  isActive       Boolean @default(true) @map("is_active")
+
+  // Employment type: "PROBATION" | "INTERNSHIP" | "TRAINEE" | "CONTRACT" | "PERMANENT"
+  employmentType String @default("PROBATION") @map("employment_type")
 
   organization Organizations           @relation(fields: [organizationId], references: [id])
   employees    OrganizationEmployees[]
@@ -180,6 +501,25 @@ model EmployeeCategories {
   createdAt DateTime  @map("created_at")
   updatedAt DateTime  @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
+}
+
+model EmployeeNumberSeries {
+  id             String  @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String  @map("organization_id") @db.ObjectId
+  name           String
+  prefix         String  @default("")
+  digits         Int     @default(4)
+  suffix         String  @default("")
+  nextNumber     Int     @default(1) @map("next_number")
+  isActive       Boolean @default(true) @map("is_active")
+
+  // Policy type this series serves: "PROBATION" | "INTERNSHIP" | "TRAINEE" | "CONTRACT" | "PERMANENT"
+  policyType String @default("PROBATION") @map("policy_type")
+
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  deletedAt    DateTime?     @map("deleted_at")
+  organization Organizations @relation(fields: [organizationId], references: [id])
 }
 
 model EmployeeOnboardingFlows {
@@ -248,27 +588,71 @@ enum Gender {
 }
 
 model OrganizationEmployees {
-  id                 String                    @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId     String                    @map("organization_id") @db.ObjectId
-  categoryId         String?                   @map("category_id") @db.ObjectId
-  designationId      String?                   @map("designation_id") @db.ObjectId
-  firstName          String?                   @map("first_name")
-  lastName           String?                   @map("last_name")
-  fullName           String                    @map("full_name")
-  employeeCode       String?                   @map("employee_code")
-  accessToken        String?                   @map("access_token")
-  refreshToken       String?                   @map("refresh_token")
+  id                 String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId     String    @map("organization_id") @db.ObjectId
+  categoryId         String?   @map("category_id") @db.ObjectId
+  designationId      String?   @map("designation_id") @db.ObjectId
+  firstName          String?   @map("first_name")
+  lastName           String?   @map("last_name")
+  fullName           String    @map("full_name")
+  employeeCode       String?   @map("employee_code")
+  profileImage       String?   @map("profile_image")
+  profileImageFileId String?   @map("profile_image_file_id") @db.ObjectId
+  accessToken        String?   @map("access_token")
+  refreshToken       String?   @map("refresh_token")
   email              String?
   phone              String
-  isAdmin            Boolean                   @default(false)
-  altPhone           String?                   @map("alt_phone")
+  isAdmin            Boolean   @default(false)
+  isActive           Boolean   @default(true) @map("is_active")
+  altPhone           String?   @map("alt_phone")
   gender             Gender
-  dateOfBirth        DateTime                  @map("date_of_birth")
+  dateOfBirth        DateTime  @map("date_of_birth")
+  joiningDate        DateTime? @map("joining_date")
+
+  displayName           String? @map("display_name")
+  maritalStatus         String? @map("marital_status")
+  bloodGroup            String? @map("blood_group")
+  physicallyHandicapped Boolean @default(false) @map("physically_handicapped")
+  nationality           String?
+  personalEmail         String? @map("personal_email")
+  professionalSummary   String? @map("professional_summary")
+  currentAddress        Json?   @map("current_address")
+  permanentAddress      Json?   @map("permanent_address")
+
+  probationPolicyId         String?   @map("probation_policy_id") @db.ObjectId
+  probationStartDate        DateTime? @map("probation_start_date")
+  probationEndDate          DateTime? @map("probation_end_date")
+  probationExtendedByMonths Int?      @default(0) @map("probation_extended_by_months")
+  isPermanent               Boolean   @default(false) @map("is_permanent")
+
+  workerType String? @map("worker_type")
+
   reportingTo        EmployeeDepartments[]     @relation("reporting_to_employee")
-  headingDepartments OrganizationDepartments[] @relation("DepartmentHead") // ✅ matches new relation
+  headingDepartments OrganizationDepartments[] @relation("DepartmentHead")
+
+  costCenterId String?      @map("cost_center_id") @db.ObjectId
+  costCenter   CostCenters? @relation(fields: [costCenterId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  payGradeId String?    @map("pay_grade_id") @db.ObjectId
+  payGrade   PayGrades? @relation(fields: [payGradeId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  noticePeriodPolicies NoticePeriodPolicyEmployee[]
+  policyAssignments    ExpensePolicyEmployee[]
+
+  bandId String? @map("band_id") @db.ObjectId
+  band   Bands?  @relation(fields: [bandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  managerId  String?                 @map("manager_id") @db.ObjectId
+  manager    OrganizationEmployees?  @relation("ManagerEmployees", fields: [managerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reportees  OrganizationEmployees[] @relation("ManagerEmployees")
+  branchId   String?                 @map("branch_id") @db.ObjectId
+  branch     Branches?               @relation(fields: [branchId], references: [id])
+  locationId String?                 @map("location_id") @db.ObjectId
+  location   Locations?              @relation(fields: [locationId], references: [id])
 
   organization            Organizations              @relation(fields: [organizationId], references: [id])
   category                EmployeeCategories?        @relation(fields: [categoryId], references: [id])
+  probationPolicy         ProbationPolicies?         @relation(fields: [probationPolicyId], references: [id])
   designation             OrganizationDesignations?  @relation("DesignationEmployees", fields: [designationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   assetAssignment         AssetAssignments[]
   attendance              Attendance[]
@@ -286,6 +670,7 @@ model OrganizationEmployees {
   regularisations         AttendanceRegularisation[]
   leaveRequests           LeaveRequests[]
   workrequests            WorkdayRequests[]
+  loginLogs               LoginLogs[]
 
   createdAt               DateTime                    @default(now()) @map("created_at")
   updatedAt               DateTime                    @updatedAt @map("updated_at")
@@ -302,6 +687,25 @@ model OrganizationEmployees {
   files                   Files[]
   ExpenseApprovals        Expenses[]                  @relation("ExpenseApprover")
   MyExpenses              Expenses[]                  @relation("MyExpenses")
+  roleAssignments         EmployeeRoleAssignments[]   @relation("EmployeeRoleAssignments")
+  employeeDocumentAssignments EmployeeDocumentAssignment[]
+  employeeDocumentSubmissions EmployeeDocumentSubmission[]
+}
+
+model LoginLogs {
+  id                 String                 @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId         String?                @map("employee_id") @db.ObjectId
+  employee           OrganizationEmployees? @relation(fields: [employeeId], references: [id])
+  organizationId     String?                @map("organization_id") @db.ObjectId
+  status             String
+  issue              String?
+  authenticationType String?                @map("authentication_type")
+  email              String?
+  phone              String?
+  ipAddress          String?                @map("ip_address")
+  userAgent          String?                @map("user_agent")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  deletedAt          DateTime?              @map("deleted_at")
 }
 
 model EmployeeDepartments {
@@ -483,6 +887,7 @@ enum EntityType {
   LEAVE
   REGULARISATION
   WORKDAY
+  EXIT
 }
 
 model ApprovalInstance {
@@ -719,6 +1124,110 @@ model HolidayPolicies {
 
   organization Organizations @relation(fields: [organizationId], references: [id])
   holidays     Holidays[] // 👈 NEW
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+}
+
+model ProbationPolicies {
+  id                     String  @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId         String  @map("organization_id") @db.ObjectId
+  name                   String
+  description            String?
+  durationValue          Int     @map("duration_value")
+  durationUnit           String  @map("duration_unit") // "MONTHS" | "WEEKS" | "DAYS"
+  maxDurationValue       Int     @map("max_duration_value")
+  maxDurationUnit        String  @map("max_duration_unit") // "MONTHS" | "WEEKS" | "DAYS"
+  endDateAfterCompletion Boolean @default(false) @map("end_date_after_completion")
+  isActive               Boolean @default(true) @map("is_active")
+
+  // Policy type: "PROBATION" | "INTERNSHIP" | "TRAINEE" | "CONTRACT"
+  policyType String @default("PROBATION") @map("policy_type")
+
+  // Categories governed by this policy (M:N — stored directly on the policy).
+  categoryIds String[] @map("category_ids") @db.ObjectId
+
+  // ============ Evaluation configuration (Step 2) ============
+  // Each milestone carries its own auto-trigger (days after probation starts),
+  // so there is no policy-level trigger here.
+  evaluationRequired Boolean @default(false) @map("evaluation_required")
+
+  // ============ Feedback form settings (Step 2) ============
+  showFeedbackFormInReview       Boolean @default(false) @map("show_feedback_form_in_review")
+  shareFeedbackWithEmployee      Boolean @default(false) @map("share_feedback_with_employee")
+  employeeResponseAllowed        Boolean @default(false) @map("employee_response_allowed")
+  reviewerResponseAllowed        Boolean @default(false) @map("reviewer_response_allowed")
+  reviewerRecommendationsAllowed Boolean @default(false) @map("reviewer_recommendations_allowed")
+
+  // ============ Confirmation configuration (Step 3) ============
+  autoConfirmProbation           Boolean @default(false) @map("auto_confirm_probation")
+  autoGenerateConfirmationLetter Boolean @default(false) @map("auto_generate_confirmation_letter")
+
+  // Default policy for the organization (only one can be true).
+  isDefault Boolean @default(false) @map("is_default")
+
+  organization Organizations @relation(fields: [organizationId], references: [id])
+
+  employees            OrganizationEmployees[]
+  evaluationMilestones ProbationEvaluationMilestones[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+}
+
+// ============================================================================
+// 📊 Probation Evaluation Configuration
+// A policy can define multiple evaluation milestones. Each milestone contains a
+// sequence of evaluation levels. Each level can define evaluators (employee or
+// role based) plus reminder & completion-rule configuration.
+// ============================================================================
+
+model ProbationEvaluationMilestones {
+  id                      String  @id @default(auto()) @map("_id") @db.ObjectId
+  probationPolicyId       String  @map("probation_policy_id") @db.ObjectId
+  organizationId          String  @map("organization_id") @db.ObjectId
+  name                    String
+  order                   Int
+  isFinalMilestone        Boolean @default(false) @map("is_final_milestone")
+  automaticTriggerEnabled Boolean @default(false) @map("automatic_trigger_enabled")
+  triggerAfterDays        Int?    @map("trigger_after_days")
+  feedbackFormEnabled     Boolean @default(false) @map("feedback_form_enabled")
+
+  organization    Organizations               @relation(fields: [organizationId], references: [id])
+  probationPolicy ProbationPolicies           @relation(fields: [probationPolicyId], references: [id], onDelete: Cascade)
+  levels          ProbationEvaluationLevels[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+}
+
+model ProbationEvaluationLevels {
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  milestoneId       String  @map("milestone_id") @db.ObjectId
+  levelOrder        Int     @map("level_order")
+  completionRule    String  @default("ALL") @map("completion_rule") // "ALL" | "ANY"
+  reminderEnabled   Boolean @default(false) @map("reminder_enabled")
+  reminderAfterDays Int?    @map("reminder_after_days")
+
+  milestone  ProbationEvaluationMilestones   @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  evaluators ProbationEvaluationEvaluators[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+}
+
+model ProbationEvaluationEvaluators {
+  id             String  @id @default(auto()) @map("_id") @db.ObjectId
+  levelId        String  @map("level_id") @db.ObjectId
+  evaluatorType  String  @map("evaluator_type") // "EMPLOYEE" | "ROLE"
+  evaluatorRefId String  @map("evaluator_ref_id") // employee id or role id
+  evaluatorName  String? @map("evaluator_name") // snapshot for display
+
+  level ProbationEvaluationLevels @relation(fields: [levelId], references: [id], onDelete: Cascade)
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -1772,8 +2281,10 @@ model Files {
   id                       String                @id @default(auto()) @map("_id") @db.ObjectId
   folderId                 String?
   folder                   Folders?              @relation(fields: [folderId], references: [id])
-  fileUrl                  String
-  fileKey                  String
+  fileType                 String                @map("file_type")
+  storageKey               String                @map("storage_key")
+  fileName                 String                @map("file_name")
+  fileSize                 Int                   @map("file_size")
   folderStorageUsedInBytes Float                 @default(0)
   addedById                String
   addedBy                  OrganizationEmployees @relation(fields: [addedById], references: [id])
@@ -1782,6 +2293,137 @@ model Files {
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
   deletedAt                DateTime?
+}
+
+// ============================================================================
+// 🔐 ADMIN ROLES & PERMISSIONS (RBAC)
+// ============================================================================
+
+model AdminRoles {
+  id             String  @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String? @map("organization_id") @db.ObjectId
+  name           String
+  description    String?
+  isSystem       Boolean @default(false) @map("is_system")
+  isActive       Boolean @default(true) @map("is_active")
+
+  organization        Organizations?            @relation(fields: [organizationId], references: [id])
+  assignments         AdminRoleAssignments[]
+  employeeAssignments EmployeeRoleAssignments[] @relation("EmployeeRoleAssignments")
+  permissions         AdminRolePermissions[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+}
+
+model EmployeeRoleAssignments {
+  id             String  @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId     String  @map("employee_id") @db.ObjectId
+  roleId         String  @map("role_id") @db.ObjectId
+  organizationId String? @map("organization_id") @db.ObjectId
+
+  employee     OrganizationEmployees @relation("EmployeeRoleAssignments", fields: [employeeId], references: [id])
+  role         AdminRoles            @relation("EmployeeRoleAssignments", fields: [roleId], references: [id])
+  organization Organizations?        @relation(fields: [organizationId], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+}
+
+model AdminRoleAssignments {
+  id             String  @id @default(auto()) @map("_id") @db.ObjectId
+  adminId        String  @map("admin_id") @db.ObjectId
+  roleId         String  @map("role_id") @db.ObjectId
+  organizationId String? @map("organization_id") @db.ObjectId
+
+  admin        Admins         @relation(fields: [adminId], references: [id])
+  role         AdminRoles     @relation(fields: [roleId], references: [id])
+  organization Organizations? @relation(fields: [organizationId], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+}
+
+model AdminModule {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  key       String   @unique
+  name      String
+  icon      String?
+  scope     String   @default("organization") // "super_admin" | "organization"
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  parentId  String?  @map("parent_id") @db.ObjectId
+  actions   String[] @default(["create", "view", "edit", "delete", "manage"]) // permission actions enabled for this module
+
+  parent   AdminModule?  @relation("ModuleHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children AdminModule[] @relation("ModuleHierarchy")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+}
+
+model AdminPermission {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  key         String  @unique
+  name        String
+  group       String
+  description String?
+  isActive    Boolean @default(true) @map("is_active")
+
+  rolePermissions AdminRolePermissions[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+}
+
+model AdminRolePermissions {
+  id           String @id @default(auto()) @map("_id") @db.ObjectId
+  roleId       String @map("role_id") @db.ObjectId
+  permissionId String @map("permission_id") @db.ObjectId
+
+  role       AdminRoles      @relation(fields: [roleId], references: [id])
+  permission AdminPermission @relation(fields: [permissionId], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+}
+
+model AdminAuditLog {
+  id             String  @id @default(auto()) @map("_id") @db.ObjectId
+  adminId        String  @map("admin_id") @db.ObjectId
+  organizationId String? @map("organization_id") @db.ObjectId
+  action         String
+  entityType     String  @map("entity_type")
+  entityId       String? @map("entity_id")
+  changes        Json?
+  ipAddress      String? @map("ip_address")
+  userAgent      String? @map("user_agent")
+
+  admin        Admins         @relation(fields: [adminId], references: [id])
+  organization Organizations? @relation(fields: [organizationId], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+}
+
+model SystemConfig {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  key         String  @unique
+  value       Json
+  description String?
+  updatedById String? @map("updated_by_id") @db.ObjectId
+
+  updatedBy Admins? @relation(fields: [updatedById], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
 }
 
 model PayslipTemplates {
@@ -1831,4 +2473,233 @@ model Expenses {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+}
+
+model LegalEntities {
+  id                 String                   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId     String                   @map("organization_id") @db.ObjectId
+  name               String
+  legalName          String?                  @map("legal_name")
+  tradeName          String?                  @map("trade_name")
+  entityType         String?                  @map("entity_type")
+  cin                String?                  @map("cin")
+  registrationNumber String?                  @map("registration_number")
+  gstin              String?                  @map("gstin")
+  incorporationDate  DateTime?                @map("incorporation_date")
+  businessType       String?                  @map("business_type")
+  sector             String?
+  natureOfBusiness   String?                  @map("nature_of_business")
+  address1           String?
+  address2           String?
+  city               String?
+  state              String?
+  zip                String?
+  country            String?                  @default("India")
+  phone              String?
+  email              String?
+  website            String?
+  currency           String?                  @default("INR")
+  financialYear      String?                  @map("financial_year")
+  logo               String?
+  logoFileId         String?                  @map("logo_file_id") @db.ObjectId
+  isMain             Boolean                  @default(true) @map("is_main")
+  isActive           Boolean                  @default(true) @map("is_active")
+  organization       Organizations            @relation(fields: [organizationId], references: [id])
+  signatories        LegalEntitySignatories[]
+  banks              LegalEntityBanks[]
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
+  deletedAt          DateTime?                @map("deleted_at")
+
+  @@index([organizationId])
+}
+
+model LegalEntitySignatories {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  legalEntityId  String        @map("legal_entity_id") @db.ObjectId
+  fullName       String        @map("full_name")
+  fatherName     String?       @map("father_name")
+  motherName     String?       @map("mother_name")
+  spouseName     String?       @map("spouse_name")
+  gender         String?
+  designation    String?
+  email          String?
+  phone          String?
+  address1       String?
+  address2       String?
+  city           String?
+  state          String?
+  zip            String?
+  country        String?       @default("India")
+  aadharNumber   String?       @map("aadhar_number")
+  panNumber      String?       @map("pan_number")
+  passportNumber String?       @map("passport_number")
+  proofDocuments Json?
+  legalEntity    LegalEntities @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  deletedAt      DateTime?     @map("deleted_at")
+
+  @@index([legalEntityId])
+}
+
+model LegalEntityBanks {
+  id                String        @id @default(auto()) @map("_id") @db.ObjectId
+  legalEntityId     String        @map("legal_entity_id") @db.ObjectId
+  bankName          String        @map("bank_name")
+  accountNumber     String        @map("account_number")
+  accountType       String?       @map("account_type")
+  ifscCode          String?       @map("ifsc_code")
+  swiftCode         String?       @map("swift_code")
+  branch            String?
+  accountHolderName String?       @map("account_holder_name")
+  establishmentId   String?       @map("establishment_id")
+  proofDocuments    Json?
+  legalEntity       LegalEntities @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  deletedAt         DateTime?     @map("deleted_at")
+
+  @@index([legalEntityId])
+}
+
+enum EmployeeDocumentStatus {
+  PENDING
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+model EmployeeDocumentFolder {
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String           @map("organization_id") @db.ObjectId
+  name           String
+  description    String?
+  isConfidential Boolean          @default(false) @map("is_confidential")
+  isActive       Boolean          @default(true) @map("is_active")
+  permissions    Json?
+  createdById    String?          @map("created_by_id") @db.ObjectId
+  updatedById    String?          @map("updated_by_id") @db.ObjectId
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  deletedAt      DateTime?        @map("deleted_at")
+
+  organization   Organizations           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  documentTypes  EmployeeDocumentType[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, isActive])
+}
+
+model EmployeeDocumentType {
+  id                     String                  @id @default(auto()) @map("_id") @db.ObjectId
+  folderId               String                  @map("folder_id") @db.ObjectId
+  name                   String
+  description            String?
+  isMultiple             Boolean                 @default(false) @map("is_multiple")
+  isMandatory            Boolean                 @default(false) @map("is_mandatory")
+  isAppliableNA          Boolean                 @default(false) @map("is_applicable_na")
+  isFileUploadEnabled    Boolean                 @default(false) @map("is_file_upload_enabled")
+  isVerificationRequired Boolean                 @default(false) @map("is_verification_required")
+  askExpiryDate          Boolean                 @default(false) @map("ask_expiry_date")
+  expiryDays             Int?                    @map("expiry_days")
+  expiryPeriod           String?                 @map("expiry_period") // DAY | WEEK | MONTH | YEAR
+  allCountries           Boolean                 @default(true) @map("all_countries")
+  allowedCountries       String[]                @default([]) @map("allowed_countries")
+  displayOrder           Int                     @default(0) @map("display_order")
+  isActive               Boolean                 @default(true) @map("is_active")
+  createdById            String?                 @map("created_by_id") @db.ObjectId
+  updatedById            String?                 @map("updated_by_id") @db.ObjectId
+  createdAt              DateTime                @default(now()) @map("created_at")
+  updatedAt              DateTime                @updatedAt @map("updated_at")
+  deletedAt              DateTime?               @map("deleted_at")
+
+  folder       EmployeeDocumentFolder    @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  fields       EmployeeDocumentField[]
+  assignments  EmployeeDocumentAssignment[]
+  submissions  EmployeeDocumentSubmission[]
+
+  @@unique([folderId, name])
+  @@index([folderId, displayOrder])
+  @@index([folderId, isActive])
+}
+
+model EmployeeDocumentField {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  documentTypeId String    @map("document_type_id") @db.ObjectId
+  label          String
+  key            String
+  fieldType      String    @map("field_type") // TEXTBOX | NUMBER | DATE | TEXTAREA | DROPDOWN | FILE
+  options        Json?
+  isMandatory    Boolean   @default(false) @map("is_mandatory")
+  displayOrder   Int       @default(0) @map("display_order")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  documentType EmployeeDocumentType @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
+
+  @@index([documentTypeId, displayOrder])
+}
+
+model EmployeeDocumentAssignment {
+  id             String                  @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String                  @map("organization_id") @db.ObjectId
+  employeeId     String                  @map("employee_id") @db.ObjectId
+  documentTypeId String                  @map("document_type_id") @db.ObjectId
+  assignedById   String?                 @map("assigned_by_id") @db.ObjectId
+  assignedAt     DateTime?               @map("assigned_at")
+  status         EmployeeDocumentStatus  @default(PENDING)
+  createdAt      DateTime                @default(now()) @map("created_at")
+  updatedAt      DateTime                @updatedAt @map("updated_at")
+  deletedAt      DateTime?               @map("deleted_at")
+
+  organization Organizations           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     OrganizationEmployees    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  documentType EmployeeDocumentType     @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
+  submissions  EmployeeDocumentSubmission[]
+
+  @@unique([employeeId, documentTypeId])
+  @@index([employeeId])
+  @@index([documentTypeId])
+  @@index([organizationId])
+}
+
+model EmployeeDocumentSubmission {
+  id              String                  @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String                  @map("organization_id") @db.ObjectId
+  assignmentId    String                  @map("assignment_id") @db.ObjectId
+  employeeId      String                  @map("employee_id") @db.ObjectId
+  documentTypeId  String                  @map("document_type_id") @db.ObjectId
+  fileId          String?                 @map("file_id") @db.ObjectId
+  storageKey      String?                 @map("storage_key")
+  fileName        String?                 @map("file_name")
+  fileType        String?                 @map("file_type")
+  fieldValues     Json?                   @map("field_values")
+  isNA            Boolean                 @default(false) @map("is_na")
+  status          EmployeeDocumentStatus  @default(PENDING)
+  submittedById   String?                 @map("submitted_by_id") @db.ObjectId
+  submittedAt     DateTime?               @map("submitted_at")
+  verifiedById    String?                 @map("verified_by_id") @db.ObjectId
+  verifiedAt      DateTime?               @map("verified_at")
+  rejectedById    String?                 @map("rejected_by_id") @db.ObjectId
+  rejectedAt      DateTime?               @map("rejected_at")
+  rejectionReason String?                 @map("rejection_reason")
+  replacedBySubmissionId String?          @map("replaced_by_submission_id") @db.ObjectId
+  expiryDate      DateTime?               @map("expiry_date")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+  deletedAt       DateTime?               @map("deleted_at")
+
+  organization Organizations           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignment   EmployeeDocumentAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  employee     OrganizationEmployees    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  documentType EmployeeDocumentType     @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([documentTypeId])
+  @@index([assignmentId])
+  @@index([status])
+  @@index([replacedBySubmissionId])
 }

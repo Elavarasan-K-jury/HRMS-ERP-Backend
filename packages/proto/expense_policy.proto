@@ -1,0 +1,318 @@
+syntax = "proto3";
+
+package expense_policy;
+
+service ExpensePolicyService {
+  rpc CreateExpensePolicy (CreateExpensePolicyRequest) returns (ExpensePolicyResponse);
+  rpc GetExpensePolicy    (GetExpensePolicyRequest)    returns (ExpensePolicyResponse);
+  rpc ListExpensePolicies (ListExpensePoliciesRequest) returns (ListExpensePoliciesResponse);
+  rpc UpdateExpensePolicy (UpdateExpensePolicyRequest) returns (ExpensePolicyResponse);
+  rpc DeleteExpensePolicy (DeleteExpensePolicyRequest) returns (DeleteExpensePolicyResponse);
+  rpc UpdateExpensePolicyStatus (UpdateExpensePolicyStatusRequest) returns (ExpensePolicyResponse);
+  rpc AddPolicyCategories (AddPolicyCategoriesRequest) returns (AddPolicyCategoriesResponse);
+  rpc ListPolicyCategories (ListPolicyCategoriesRequest) returns (ListPolicyCategoriesResponse);
+  rpc RemovePolicyCategory (RemovePolicyCategoryRequest) returns (RemovePolicyCategoryResponse);
+  rpc GetCategoryRules (GetCategoryRulesRequest) returns (CategoryRulesResponse);
+  rpc UpdateCategoryRules (UpdateCategoryRulesRequest) returns (CategoryRulesResponse);
+  rpc GetCategoryApproval (GetCategoryApprovalRequest) returns (CategoryApprovalResponse);
+  rpc UpdateCategoryApproval (UpdateCategoryApprovalRequest) returns (CategoryApprovalResponse);
+  rpc ListPolicyEmployees (ListPolicyEmployeesRequest) returns (ListPolicyEmployeesResponse);
+  rpc AssignPolicyEmployees (AssignPolicyEmployeesRequest) returns (AssignPolicyEmployeesResponse);
+  rpc RemovePolicyEmployee (RemovePolicyEmployeeRequest) returns (RemovePolicyEmployeeResponse);
+}
+
+message ExpensePolicyApprovalLevel {
+  string id            = 1;
+  string expense_policy_id = 2;
+  int32  level         = 3;
+  string approver_type = 4; // EMPLOYEE | ROLE
+  string approver_id   = 5;
+  string approver_name = 6;
+  bool   auto_approve  = 7;
+  int32  auto_approve_days = 8;
+  string created_at    = 9;
+  string updated_at    = 10;
+}
+
+message ExpensePolicy {
+  string id                  = 1;
+  string organization_id     = 2;
+  string name                = 3;
+  string description         = 4;
+  string base_currency       = 5;
+  string payout_mode         = 6;
+  bool   allow_future_date_claims = 7;
+  bool   approval_required   = 8;
+  string approval_mode       = 9; // SAME_FOR_ALL | BY_CATEGORY
+  bool   is_active           = 10;
+  string created_at          = 11;
+  string updated_at          = 12;
+  repeated ExpensePolicyApprovalLevel approval_levels = 13;
+  int32  category_count      = 14;
+  int32  employee_count      = 15;
+}
+
+message CreateExpensePolicyRequest {
+  string organization_id     = 1;
+  string name                = 2;
+  string description         = 3;
+  string base_currency       = 4;
+  string payout_mode         = 5;
+  bool   allow_future_date_claims = 6;
+  bool   approval_required   = 7;
+  string approval_mode       = 8;
+  bool   is_active           = 9;
+  repeated ExpensePolicyApprovalLevel approval_levels = 10;
+}
+
+message GetExpensePolicyRequest {
+  string id              = 1;
+  string organization_id = 2;
+}
+
+message ListExpensePoliciesRequest {
+  string organization_id = 1;
+  int32  page            = 2;
+  int32  limit           = 3;
+  string search          = 4;
+  string sort_by         = 5;
+  string sort_order      = 6;
+  bool   is_active_only  = 7;
+}
+
+message UpdateExpensePolicyRequest {
+  string id              = 1;
+  string organization_id = 2;
+  string name            = 3;
+  string description     = 4;
+  string base_currency   = 5;
+  string payout_mode     = 6;
+  bool   allow_future_date_claims = 7;
+  bool   approval_required = 8;
+  string approval_mode   = 9;
+  bool   is_active       = 10;
+  repeated ExpensePolicyApprovalLevel approval_levels = 11;
+}
+
+message UpdateExpensePolicyStatusRequest {
+  string id              = 1;
+  string organization_id = 2;
+  bool   is_active       = 3;
+}
+
+message DeleteExpensePolicyRequest {
+  string id              = 1;
+  string organization_id = 2;
+}
+
+message ExpensePolicyResponse {
+  ExpensePolicy expense_policy = 1;
+  string message               = 2;
+  bool   success               = 3;
+}
+
+message ListExpensePoliciesResponse {
+  repeated ExpensePolicy expense_policies = 1;
+  int32 total                             = 2;
+  int32 page                              = 3;
+  int32 limit                             = 4;
+  int32 total_pages                       = 5;
+  bool  success                           = 6;
+  string message                          = 7;
+}
+
+message DeleteExpensePolicyResponse {
+  bool   success = 1;
+  string message = 2;
+}
+
+message PolicyCategory {
+  string id                  = 1;
+  string expense_policy_id   = 2;
+  string expense_category_id = 3;
+  string organization_id     = 4;
+  string name                = 5;
+  string expense_code        = 6;
+  string icon                = 7;
+  string description         = 8;
+  string usage_type_id       = 9;
+  string usage_type_name     = 10;
+  bool   is_active           = 11;
+  string created_at          = 12;
+  string updated_at          = 13;
+}
+
+message AddPolicyCategoriesRequest {
+  string expense_policy_id   = 1;
+  string organization_id     = 2;
+  repeated string expense_category_ids = 3;
+}
+
+message AddPolicyCategoriesResponse {
+  int32  added_count = 1;
+  bool   success     = 2;
+  string message     = 3;
+}
+
+message ListPolicyCategoriesRequest {
+  string expense_policy_id   = 1;
+  string organization_id     = 2;
+  int32  page                = 3;
+  int32  limit               = 4;
+  string search              = 5;
+}
+
+message ListPolicyCategoriesResponse {
+  repeated PolicyCategory policy_categories = 1;
+  int32 total                               = 2;
+  int32 page                                = 3;
+  int32 limit                               = 4;
+  int32 total_pages                         = 5;
+  bool  success                             = 6;
+  string message                            = 7;
+}
+
+message RemovePolicyCategoryRequest {
+  string expense_policy_id   = 1;
+  string expense_category_id = 2;
+  string organization_id     = 3;
+}
+
+message RemovePolicyCategoryResponse {
+  bool   success = 1;
+  string message = 2;
+}
+
+message ExpenseCategoryRule {
+  string id                  = 1;
+  string policy_category_id  = 2;
+  bool   amount_cap_enabled  = 3;
+  string amount_cap_currency = 4;
+  double amount_cap_amount   = 5;
+  string amount_cap_period   = 6;
+  bool   combination_enabled = 7;
+  string combination_category_id = 8;
+  string combination_period  = 9;
+  bool   instances_enabled   = 10;
+  int32  max_instances       = 11;
+  string instances_period    = 12;
+  bool   expiry_enabled      = 13;
+  int32  expiry_days         = 14;
+  bool   cost_center_required = 15;
+  bool   comment_threshold_enabled = 16;
+  double comment_threshold_amount = 17;
+  bool   receipt_threshold_enabled = 18;
+  double receipt_threshold_amount = 19;
+  bool   threshold_approval_enabled = 20;
+  string threshold_currency  = 21;
+  double threshold_amount    = 22;
+  string created_at          = 23;
+  string updated_at          = 24;
+}
+
+message GetCategoryRulesRequest {
+  string expense_policy_id   = 1;
+  string expense_category_id = 2;
+  string organization_id     = 3;
+}
+
+message UpdateCategoryRulesRequest {
+  string expense_policy_id   = 1;
+  string expense_category_id = 2;
+  string organization_id     = 3;
+  ExpenseCategoryRule rule   = 4;
+}
+
+message CategoryRulesResponse {
+  ExpenseCategoryRule rule = 1;
+  string message           = 2;
+  bool   success           = 3;
+}
+
+message PolicyCategoryApprovalLevel {
+  string id                  = 1;
+  string policy_category_id  = 2;
+  int32  level               = 3;
+  string approver_type       = 4;
+  string approver_id         = 5;
+  string approver_name       = 6;
+  bool   auto_approve        = 7;
+  int32  auto_approve_days   = 8;
+  string created_at          = 9;
+  string updated_at          = 10;
+}
+
+message GetCategoryApprovalRequest {
+  string expense_policy_id   = 1;
+  string expense_category_id = 2;
+  string organization_id     = 3;
+}
+
+message UpdateCategoryApprovalRequest {
+  string expense_policy_id   = 1;
+  string expense_category_id = 2;
+  string organization_id     = 3;
+  repeated PolicyCategoryApprovalLevel levels = 4;
+}
+
+message CategoryApprovalResponse {
+  repeated PolicyCategoryApprovalLevel levels = 1;
+  string message                             = 2;
+  bool   success                             = 3;
+}
+
+message PolicyEmployee {
+  string id               = 1;
+  string organization_id  = 2;
+  string expense_policy_id = 3;
+  string employee_id      = 4;
+  string employee_number  = 5;
+  string employee_name    = 6;
+  string department       = 7;
+  string job_title        = 8;
+  string reporting_to     = 9;
+  string location         = 10;
+  string created_at       = 11;
+}
+
+message ListPolicyEmployeesRequest {
+  string expense_policy_id = 1;
+  string organization_id   = 2;
+  string search            = 3;
+  int32  page              = 4;
+  int32  limit             = 5;
+}
+
+message ListPolicyEmployeesResponse {
+  repeated PolicyEmployee employees = 1;
+  int32 total                       = 2;
+  int32 page                        = 3;
+  int32 limit                       = 4;
+  int32 total_pages                 = 5;
+  bool  success                     = 6;
+  string message                    = 7;
+}
+
+message AssignPolicyEmployeesRequest {
+  string expense_policy_id   = 1;
+  string organization_id     = 2;
+  repeated string employee_ids = 3;
+}
+
+message AssignPolicyEmployeesResponse {
+  int32  added_count            = 1;
+  int32  already_assigned_count = 2;
+  bool   success                = 3;
+  string message                = 4;
+}
+
+message RemovePolicyEmployeeRequest {
+  string expense_policy_id = 1;
+  string employee_id       = 2;
+  string organization_id   = 3;
+}
+
+message RemovePolicyEmployeeResponse {
+  bool   success = 1;
+  string message = 2;
+}

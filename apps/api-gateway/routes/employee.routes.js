@@ -1,23 +1,151 @@
 import { z, ZodError } from 'zod';
+import { grpc } from '@jury-hrms/proto';
+import { getConnInfo } from '@hono/node-server/conninfo';
 import { employeeClient } from '../grpc/employee.client.js';
 
+function grpcToHttpStatus(code) {
+    switch (code) {
+        case grpc.status.INVALID_ARGUMENT: return 400;
+        case grpc.status.NOT_FOUND: return 404;
+        case grpc.status.ALREADY_EXISTS: return 409;
+        case grpc.status.PERMISSION_DENIED: return 403;
+        case grpc.status.FAILED_PRECONDITION: return 412;
+        case grpc.status.UNAVAILABLE: return 503;
+        default: return 500;
+    }
+}
+
+// 🔎 Pull the client IP from the connection info (falling back to proxy headers).
+function clientInfo(c) {
+    let ip = '';
+    try {
+        const info = getConnInfo(c);
+        ip = info?.remote?.address || '';
+    } catch { /* ignore */ }
+    ip = ip || c.req.header('x-forwarded-for')?.split(',')[0]?.trim() || c.req.header('x-real-ip') || '';
+    const userAgent = c.req.header('user-agent') || '';
+    return { ip_address: ip, user_agent: userAgent };
+}
+
 export default function registerEmployeeRoutes(app) {
+    const numberSeriesResponse = z.object({
+        id: z.string(), organization_id: z.string(), name: z.string(), prefix: z.string(),
+        digits: z.number(), suffix: z.string(), next_number: z.number(), is_active: z.boolean(),
+        policy_type: z.string().optional(),
+        preview: z.string(), created_at: z.string(), updated_at: z.string(),
+    });
+
+    app.openapi({
+        method: 'get', path: '/organizations/{organization_id}/employee-number-series', tags: ['Employee'],
+        summary: 'List employee number series',
+        request: { params: z.object({ organization_id: z.string() }) },
+        responses: { 200: { content: { 'application/json': { schema: z.object({ series: z.array(numberSeriesResponse), success: z.boolean(), message: z.string() }) } } } },
+    }, async (c) => {
+        try {
+            const { organization_id } = c.req.valid('param');
+            const response = await new Promise((resolve, reject) => employeeClient.ListEmployeeNumberSeries({ organization_id }, (err, data) => err ? reject(err) : resolve(data)));
+            return c.json(response, 200);
+        } catch (error) { return c.json({ error: error.message }, 500); }
+    });
+
+    const createNumberSeriesSchema = z.object({
+        name: z.string().min(1), prefix: z.string().optional().default(''),
+        digits: z.number().int().min(1).max(10), suffix: z.string().optional().default(''),
+        next_number: z.number().int().min(1).default(1),
+        policy_type: z.enum(['PROBATION', 'INTERNSHIP', 'TRAINEE', 'CONTRACT', 'PERMANENT']).optional().default('PROBATION'),
+    });
+
+    app.openapi({
+        method: 'post', path: '/organizations/{organization_id}/employee-number-series', tags: ['Employee'],
+        summary: 'Create employee number series',
+        request: { params: z.object({ organization_id: z.string() }), body: { content: { 'application/json': { schema: createNumberSeriesSchema } } } },
+        responses: { 201: { content: { 'application/json': { schema: z.object({ series: numberSeriesResponse, success: z.boolean(), message: z.string() }) } } } },
+    }, async (c) => {
+        try {
+            const { organization_id } = c.req.valid('param');
+            const body = createNumberSeriesSchema.parse(await c.req.json());
+            const response = await new Promise((resolve, reject) => employeeClient.CreateEmployeeNumberSeries({ organization_id, ...body }, (err, data) => err ? reject(err) : resolve(data)));
+            return c.json(response, 201);
+        } catch (error) { return c.json({ error: error.message }, error.code === 6 ? 409 : 500); }
+    });
+
+    app.openapi({
+        method: 'put', path: '/organizations/{organization_id}/employee-number-series/{series_id}', tags: ['Employee'],
+        summary: 'Update employee number series',
+        request: {
+            params: z.object({ organization_id: z.string(), series_id: z.string() }),
+            body: { content: { 'application/json': { schema: createNumberSeriesSchema.extend({ is_active: z.boolean().optional() }) } } },
+        },
+        responses: { 200: { content: { 'application/json': { schema: z.object({ series: numberSeriesResponse, success: z.boolean(), message: z.string() }) } } } },
+    }, async (c) => {
+        try {
+            const { organization_id, series_id } = c.req.valid('param');
+            const body = await c.req.json();
+            const response = await new Promise((resolve, reject) => employeeClient.UpdateEmployeeNumberSeries({ id: series_id, organization_id, ...body }, (err, data) => err ? reject(err) : resolve(data)));
+            return c.json(response, 200);
+        } catch (error) { return c.json({ error: error.message }, error.code === 6 ? 409 : 500); }
+    });
+
     // ✅ Schema for creating an employee
+    const addressSchema = z.object({
+        addressLine1: z.string().max(255).optional().nullable(),
+        addressLine2: z.string().max(255).optional().nullable(),
+        city: z.string().max(120).optional().nullable(),
+        state: z.string().max(120).optional().nullable(),
+        country: z.string().max(120).optional().nullable(),
+        postalCode: z.string().max(12).optional().nullable()
+            .refine(v => v == null || v === '' || /^[a-zA-Z0-9-]{3,12}$/.test(v), 'Postal code must be 3-12 alphanumeric characters'),
+    }).optional().nullable();
+
     const createEmployeeSchema = z.object({
         organizationId: z.string({ required_error: 'Organization ID is required' }),
-        categoryId: z.string({ required_error: 'Category ID is required' }),
-        designationId: z.string().optional(),               // ← NEW
-        firstName: z.string().min(2, 'First name must have at least 2 characters').optional(),
-        lastName: z.string().min(1, 'Last name must have at least 1 characters').optional(),
-        fullName: z.string().optional(),
-        email: z.string().email('Invalid email format').optional(),
+        categoryId: z.string().optional().nullable(),
+        designationId: z.string().optional(),
+        managerId: z.string().optional().nullable(),
+        branchId: z.string().optional().nullable(),
+        locationId: z.string().optional().nullable(),
+        firstName: z.string().min(2, 'First name must have at least 2 characters').optional().nullable(),
+        lastName: z.string().min(1, 'Last name must have at least 1 characters').optional().nullable(),
+        fullName: z.string().optional().nullable(),
+        email: z.string().email('Invalid email format').optional().nullable(),
         phone: z.string().regex(/^[0-9]{10}$/, 'Phone number must be 10 digits'),
-        altPhone: z.string().optional(),
+        altPhone: z.string().optional().nullable()
+            .refine(v => v == null || v === '' || /^[0-9]{6,15}$/.test(v), 'Work number must be 6-15 digits'),
         isAdmin: z.boolean().optional(),
-        gender: z.enum(['MALE', 'FEMALE', 'OTHER', 'UNKNOWN']).optional(),
-        dateOfBirth: z.string().refine(v => !isNaN(Date.parse(v)), {
+        isActive: z.boolean().optional(),
+        isPermanent: z.boolean().optional(),
+        workerType: z.enum(['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN', 'PERMANENT']).optional().nullable(),
+        gender: z.enum(['MALE', 'FEMALE', 'OTHER', 'UNKNOWN']).optional().nullable(),
+        dateOfBirth: z.string().refine(v => v === '' || !isNaN(Date.parse(v)), {
             message: 'dateOfBirth must be a valid ISO date',
-        }).optional(),
+        }).optional().nullable(),
+        joiningDate: z.string().refine(v => v === '' || !isNaN(Date.parse(v)), {
+            message: 'joiningDate must be a valid ISO date',
+        }).optional().nullable(),
+        probationPolicyId: z.string().optional().nullable(),
+        probationStartDate: z.string().refine(v => v === '' || !isNaN(Date.parse(v)), {
+            message: 'probationStartDate must be a valid ISO date',
+        }).optional().nullable(),
+        probationEndDate: z.string().refine(v => v === '' || !isNaN(Date.parse(v)), {
+            message: 'probationEndDate must be a valid ISO date',
+        }).optional().nullable(),
+        numberSeriesId: z.string().optional().nullable(),
+        employeeCode: z.string().optional().nullable(),
+        displayName: z.string().max(120).optional().nullable(),
+        maritalStatus: z.string().max(50).optional().nullable(),
+        bloodGroup: z.string().max(20).optional().nullable(),
+        physicallyHandicapped: z.boolean().optional(),
+        nationality: z.string().max(120).optional().nullable(),
+        personalEmail: z.string().email('Invalid personal email format').optional().nullable().or(z.literal('')),
+        professionalSummary: z.string().max(2000).optional().nullable(),
+        profileImage: z.string().max(500).optional().nullable(),
+        profileImageFileId: z.string().optional().nullable(),
+        costCenterId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid cost_center_id').optional().nullable(),
+        payGradeId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid pay_grade_id').optional().nullable(),
+        bandId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid band_id').optional().nullable(),
+        noticePeriodPolicyId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid notice_period_policy_id').optional().nullable(),
+        currentAddress: addressSchema,
+        permanentAddress: addressSchema,
     });
 
     // 🟢 Create Employee
@@ -79,17 +207,44 @@ export default function registerEmployeeRoutes(app) {
                 
                 const grpcPayload = {
                     organization_id: parsed.organizationId,
-                    category_id: parsed.categoryId,
+                    category_id: parsed.categoryId || '',
                     designation_id: parsed.designationId ?? null,
+                    manager_id: parsed.managerId || '',
+                    branch_id: parsed.branchId || '',
+                    location_id: parsed.locationId || '',
                     first_name: parsed.firstName ?? null,
                     last_name: parsed.lastName ?? null,
                     full_name: parsed.fullName ?? null,
                     is_admin: parsed.isAdmin ?? null,
+                    is_active: parsed.isActive !== undefined ? parsed.isActive : true,
+                    is_permanent: parsed.isPermanent ?? false,
+                    worker_type: parsed.workerType || '',
                     email: parsed.email ?? null,
                     phone: parsed.phone,
                     alt_phone: parsed.altPhone ?? null,
                     gender: parsed.gender,
                     date_of_birth: parsed.dateOfBirth ?? null,
+                    joining_date: parsed.joiningDate || '',
+                    probation_policy_id: parsed.probationPolicyId || '',
+                    probation_start_date: parsed.probationStartDate || '',
+                    probation_end_date: parsed.probationEndDate || '',
+                    number_series_id: parsed.numberSeriesId || '',
+                    employee_code: parsed.employeeCode || '',
+                    display_name: parsed.displayName || '',
+                    marital_status: parsed.maritalStatus || '',
+                    blood_group: parsed.bloodGroup || '',
+                    physically_handicapped: parsed.physicallyHandicapped ?? false,
+                    nationality: parsed.nationality || '',
+                    personal_email: parsed.personalEmail || '',
+                    professional_summary: parsed.professionalSummary || '',
+                    current_address: parsed.currentAddress ? JSON.stringify(parsed.currentAddress) : '',
+                    permanent_address: parsed.permanentAddress ? JSON.stringify(parsed.permanentAddress) : '',
+                    profile_image: parsed.profileImage || '',
+                    profile_image_file_id: parsed.profileImageFileId || '',
+                    cost_center_id: parsed.costCenterId || '',
+                    pay_grade_id: parsed.payGradeId || '',
+                    band_id: parsed.bandId || '',
+                    notice_period_policy_id: parsed.noticePeriodPolicyId || '',
                 };
 
                 const response = await new Promise((resolve, reject) => {
@@ -110,7 +265,7 @@ export default function registerEmployeeRoutes(app) {
                         }))
                     }, 400);
                 }
-                return c.json({ error: error.message }, 500);
+                return c.json({ error: error.message }, grpcToHttpStatus(error.code));
             }
         },
     );
@@ -188,6 +343,9 @@ export default function registerEmployeeRoutes(app) {
                 query: z.object({
                     organization_id: z.string().optional(),
                     department_id: z.string().optional(),
+                    location_id: z.string().optional(),
+                    probation_policy_id: z.string().optional(),
+                    only_active: z.string().optional(),
                 }),
             },
             responses: {
@@ -231,7 +389,10 @@ export default function registerEmployeeRoutes(app) {
                     employeeClient.ListAllEmployees(
                         {
                             organization_id: query.organization_id,
-                            department_id: query.department_id
+                            department_id: query.department_id,
+                            location_id: query.location_id,
+                            probation_policy_id: query.probation_policy_id,
+                            only_active: query.only_active?.toLowerCase() === 'true' ? true : false,
                         },
                         (err, resp) => {
                             if (err) return reject(err);
@@ -258,7 +419,10 @@ export default function registerEmployeeRoutes(app) {
                 query: z.object({
                     organization_id: z.string().optional(),
                     category_id: z.string().optional(),
-                    designation_id: z.string().optional(),   // ← NEW filter
+                    designation_id: z.string().optional(),
+                    department_id: z.string().optional(),
+                    branch_id: z.string().optional(),
+                    location_id: z.string().optional(),
                     search: z.string().optional(),
                     sort_by: z.string().optional().default('created_at'),
                     sort_order: z.enum(['asc', 'desc']).optional().default('desc'),
@@ -309,6 +473,9 @@ export default function registerEmployeeRoutes(app) {
                             organization_id: query.organization_id,
                             category_id: query.category_id,
                             designation_id: query.designation_id,
+                            department_id: query.department_id,
+                            branch_id: query.branch_id,
+                            location_id: query.location_id,
                             page: query.page,
                             limit: query.limit,
                             search: query.search,
@@ -365,15 +532,46 @@ export default function registerEmployeeRoutes(app) {
                     organization_id: parsed.organizationId,
                     category_id: parsed.categoryId,
                     designation_id: parsed.designationId,
+                    manager_id: parsed.managerId || '',
+                    branch_id: parsed.branchId || '',
+                    location_id: parsed.locationId || '',
                     first_name: parsed.firstName,
                     last_name: parsed.lastName,
                     full_name: parsed.fullName,
                     email: parsed.email,
                     is_admin: parsed.isAdmin,
+                    is_active: parsed.isActive !== undefined ? parsed.isActive : undefined,
                     phone: parsed.phone,
                     alt_phone: parsed.altPhone,
                     gender: parsed.gender,
                     date_of_birth: parsed.dateOfBirth,
+                    joining_date: parsed.joiningDate === undefined ? undefined : (parsed.joiningDate || ''),
+                    probation_policy_id: parsed.probationPolicyId || '',
+                    probation_start_date: parsed.probationStartDate === undefined ? undefined : (parsed.probationStartDate || ''),
+                    probation_end_date: parsed.probationEndDate === undefined ? undefined : (parsed.probationEndDate || ''),
+                    is_permanent: parsed.isPermanent !== undefined ? parsed.isPermanent : undefined,
+                    worker_type: parsed.workerType === undefined ? undefined : (parsed.workerType || ''),
+                    number_series_id: parsed.numberSeriesId === undefined ? undefined : (parsed.numberSeriesId || ''),
+                    employee_code: parsed.employeeCode === undefined ? undefined : (parsed.employeeCode || ''),
+                    display_name: parsed.displayName === undefined ? undefined : (parsed.displayName || ''),
+                    marital_status: parsed.maritalStatus === undefined ? undefined : (parsed.maritalStatus || ''),
+                    blood_group: parsed.bloodGroup === undefined ? undefined : (parsed.bloodGroup || ''),
+                    physically_handicapped: parsed.physicallyHandicapped === undefined ? undefined : Boolean(parsed.physicallyHandicapped),
+                    nationality: parsed.nationality === undefined ? undefined : (parsed.nationality || ''),
+                    personal_email: parsed.personalEmail === undefined ? undefined : (parsed.personalEmail || ''),
+                    professional_summary: parsed.professionalSummary === undefined ? undefined : (parsed.professionalSummary || ''),
+                    profile_image: parsed.profileImage === undefined ? undefined : (parsed.profileImage || ''),
+                    profile_image_file_id: parsed.profileImageFileId === undefined ? undefined : (parsed.profileImageFileId || ''),
+                    cost_center_id: parsed.costCenterId === undefined ? undefined : (parsed.costCenterId || ''),
+                    pay_grade_id: parsed.payGradeId === undefined ? undefined : (parsed.payGradeId || ''),
+                    band_id: parsed.bandId === undefined ? undefined : (parsed.bandId || ''),
+                    notice_period_policy_id: parsed.noticePeriodPolicyId === undefined ? undefined : (parsed.noticePeriodPolicyId || ''),
+                    current_address: parsed.currentAddress === undefined
+                        ? undefined
+                        : (parsed.currentAddress ? JSON.stringify(parsed.currentAddress) : ''),
+                    permanent_address: parsed.permanentAddress === undefined
+                        ? undefined
+                        : (parsed.permanentAddress ? JSON.stringify(parsed.permanentAddress) : ''),
                 };
 
                 const response = await new Promise((resolve, reject) => {
@@ -394,11 +592,10 @@ export default function registerEmployeeRoutes(app) {
                         }))
                     }, 400);
                 }
-                return c.json({ error: error.message }, 500);
+                return c.json({ error: error.message }, grpcToHttpStatus(error.code));
             }
         },
     );
-
 
     // 🔴 Delete Employee
     app.openapi(
@@ -436,6 +633,95 @@ export default function registerEmployeeRoutes(app) {
         }
     );
 
+    // 🔄 Extend employee probation by N months
+    app.openapi({
+        method: 'post', path: '/employees/{id}/probation/extend', tags: ['Employee'],
+        summary: 'Extend employee probation period',
+        request: {
+            params: z.object({ id: z.string() }),
+            body: {
+                content: {
+                    'application/json': {
+                        schema: z.object({
+                            organization_id: z.string().optional(),
+                            months: z.number().int().min(1, 'months must be a positive integer'),
+                        }),
+                    },
+                },
+            },
+        },
+        responses: {
+            200: { description: 'Probation extended successfully' },
+            400: { description: 'Validation error' },
+            404: { description: 'Employee not found' },
+        },
+    }, async (c) => {
+        try {
+            const id = c.req.param('id');
+            const body = await c.req.json();
+            const response = await new Promise((resolve, reject) => {
+                employeeClient.ExtendProbation({ id, ...body, ...clientInfo(c) }, (err, resp) => {
+                    if (err) return reject(err);
+                    resolve(resp);
+                });
+            });
+            return c.json(response, 200);
+        } catch (error) {
+            if (error instanceof ZodError) {
+                return c.json({
+                    error: 'Validation failed',
+                    details: error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+                }, 400);
+            }
+            const status = error.code === 5 ? 404 : (error.code === 8 ? 409 : 500);
+            return c.json({ error: error.message }, status);
+        }
+    });
+
+    // 🔁 Change an employee's probation policy
+    app.openapi({
+        method: 'post', path: '/employees/{id}/probation/policy', tags: ['Employee'],
+        summary: 'Change employee probation policy',
+        request: {
+            params: z.object({ id: z.string() }),
+            body: {
+                content: {
+                    'application/json': {
+                        schema: z.object({
+                            organization_id: z.string().optional(),
+                            probation_policy_id: z.string().optional().nullable(),
+                        }),
+                    },
+                },
+            },
+        },
+        responses: {
+            200: { description: 'Probation policy updated successfully' },
+            400: { description: 'Validation error' },
+            404: { description: 'Employee not found' },
+        },
+    }, async (c) => {
+        try {
+            const id = c.req.param('id');
+            const body = await c.req.json();
+            const response = await new Promise((resolve, reject) => {
+                employeeClient.ChangeProbationPolicy({ id, ...body, ...clientInfo(c) }, (err, resp) => {
+                    if (err) return reject(err);
+                    resolve(resp);
+                });
+            });
+            return c.json(response, 200);
+        } catch (error) {
+            if (error instanceof ZodError) {
+                return c.json({
+                    error: 'Validation failed',
+                    details: error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+                }, 400);
+            }
+            return c.json({ error: error.message }, error.code === 5 ? 404 : 500);
+        }
+    });
+
     app.openapi(
         {
             method: 'post',
@@ -459,7 +745,7 @@ export default function registerEmployeeRoutes(app) {
             responses: {
                 200: {
                     description: 'OTP sent',
-                    content: { 'application/json': { schema: z.object({ message: z.string() }) } }
+                    content: { 'application/json': { schema: z.object({ message: z.string(), authentication_type: z.enum(['Basic', 'Mobile OTP']) }) } }
                 },
                 404: { description: 'Admin not found' }
             }
@@ -468,7 +754,7 @@ export default function registerEmployeeRoutes(app) {
             try {
                 const body = await c.req.json();
                 const resp = await new Promise((resolve, reject) => {
-                    employeeClient.RequestLoginOtp(body, (err, r) => err ? reject(err) : resolve(r));
+                    employeeClient.RequestLoginOtp({ ...body, ...clientInfo(c) }, (err, r) => err ? reject(err) : resolve(r));
                 });
                 return c.json(resp, 200);
             } catch (error) {
@@ -506,7 +792,8 @@ export default function registerEmployeeRoutes(app) {
                             iat: z.string(),
                             exp: z.string(),
                             success: z.boolean(),
-                            message: z.string()
+                            message: z.string(),
+                            authentication_type: z.string().optional(),
                         })
                     }
                 }
@@ -561,6 +848,7 @@ export default function registerEmployeeRoutes(app) {
                                 refresh_token: z.string(),
                                 token_type: z.string(),
                                 expires_in: z.string(),
+                                authentication_type: z.enum(['Basic', 'Mobile OTP']),
                                 admin: z.object({
                                     id: z.string(),
                                     email: z.string(),
@@ -580,7 +868,7 @@ export default function registerEmployeeRoutes(app) {
             try {
                 const body = await c.req.json();
                 const resp = await new Promise((resolve, reject) => {
-                    employeeClient.VerifyLoginOtp(body, (err, r) => err ? reject(err) : resolve(r));
+                    employeeClient.VerifyLoginOtp({ ...body, ...clientInfo(c) }, (err, r) => err ? reject(err) : resolve(r));
                 });
                 return c.json(resp, 200);
             } catch (error) {
@@ -611,6 +899,161 @@ export default function registerEmployeeRoutes(app) {
                 return c.json(resp, 200);
             } catch (error) {
                 return c.json({ error: error.message }, error.code === 7 ? 403 : 500);
+            }
+        }
+    );
+
+    /* -------------------------------------------------------
+     🏢 Org Chart (Reporting Tree)
+    ------------------------------------------------------- */
+    const OrgChartNodeSchema = z.object({
+        id: z.string(),
+        full_name: z.string(),
+        email: z.string(),
+        phone: z.string(),
+        employee_code: z.string(),
+        designation: z.string(),
+        department: z.string(),
+        category: z.string(),
+        organization_id: z.string(),
+        manager_id: z.string(),
+        profile_image: z.string(),
+        date_of_birth: z.string(),
+        gender: z.string(),
+        department_head_of: z.array(z.string()),
+        reportees: z.array(z.any()),
+    });
+
+    const OrgChartResponseSchema = z.object({
+        organization_id: z.string(),
+        department_id: z.string(),
+        roots: z.array(OrgChartNodeSchema),
+        success: z.boolean(),
+        message: z.string(),
+    });
+
+    app.openapi(
+        {
+            method: 'get',
+            path: '/organizations/{organization_id}/org-chart',
+            tags: ['Employee'],
+            summary: 'Get organization chart as reporting tree',
+            description: 'Returns a recursive reporting tree of all employees, optionally filtered by department.',
+            request: {
+                params: z.object({
+                    organization_id: z.string({ required_error: 'Organization ID is required' }),
+                }),
+                query: z.object({
+                    department_id: z.string().optional(),
+                    branch_id: z.string().optional(),
+                }),
+            },
+            responses: {
+                200: {
+                    description: 'Organization chart tree',
+                    content: { 'application/json': { schema: OrgChartResponseSchema } },
+                },
+                400: { description: 'Invalid input' },
+                500: { description: 'Server error' },
+            },
+        },
+        async (c) => {
+            try {
+                const { organization_id } = c.req.valid('param');
+                const { department_id, branch_id } = c.req.valid('query');
+
+                const response = await new Promise((resolve, reject) => {
+                    employeeClient.GetOrgChart(
+                        { organization_id, department_id: department_id || '', branch_id: branch_id || '' },
+                        (err, resp) => {
+                            if (err) return reject(err);
+                            resolve(resp);
+                        },
+                    );
+                });
+
+                return c.json(response, 200);
+            } catch (error) {
+                console.error('OrgChart error:', error);
+                return c.json({ error: error.message || 'Internal error' }, 500);
+            }
+        }
+    );
+
+    // 🔐 Login Logs (audit trail for employee sign-ins)
+    const loginLogSchema = z.object({
+        id: z.string(),
+        employee_id: z.string(),
+        employee_code: z.string(),
+        employee_name: z.string(),
+        email: z.string(),
+        phone: z.string(),
+        organization_id: z.string(),
+        status: z.string(),
+        issue: z.string(),
+        authentication_type: z.string(),
+        ip_address: z.string(),
+        user_agent: z.string(),
+        created_at: z.string(),
+    });
+
+    app.openapi(
+        {
+            method: 'get',
+            path: '/organizations/{organization_id}/login-logs',
+            tags: ['Employee'],
+            summary: 'List employee login logs (history & failed attempts)',
+            description: 'Returns paginated login attempts for an organization. Filter by status (SUCCESS/FAILED) to separate login history from failed logins.',
+            request: {
+                params: z.object({
+                    organization_id: z.string({ required_error: 'Organization ID is required' }),
+                }),
+                query: z.object({
+                    status: z.enum(['SUCCESS', 'FAILED']).optional(),
+                    issue: z.string().optional(),
+                    page: z.coerce.number().int().min(1).optional().default(1),
+                    limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+                }),
+            },
+            responses: {
+                200: {
+                    description: 'List of login logs',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                logs: z.array(loginLogSchema),
+                                total: z.number(),
+                                page: z.number(),
+                                limit: z.number(),
+                                total_pages: z.number(),
+                                success: z.boolean(),
+                                message: z.string(),
+                            }),
+                        },
+                    },
+                },
+                500: { description: 'Server error' },
+            },
+        },
+        async (c) => {
+            try {
+                const { organization_id } = c.req.valid('param');
+                const { status, issue, page, limit } = c.req.valid('query');
+
+                const response = await new Promise((resolve, reject) => {
+                    employeeClient.ListLoginLogs(
+                        { organization_id, status: status || '', issue: issue || '', page, limit },
+                        (err, resp) => {
+                            if (err) return reject(err);
+                            resolve(resp);
+                        },
+                    );
+                });
+
+                return c.json(response, 200);
+            } catch (error) {
+                console.error('ListLoginLogs error:', error);
+                return c.json({ error: error.message || 'Internal error' }, 500);
             }
         }
     );

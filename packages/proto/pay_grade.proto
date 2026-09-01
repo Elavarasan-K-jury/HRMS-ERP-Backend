@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package pay_grade;
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Pay Grade Service – CRUD (Org Structure master, linked to Employees)
+// ─────────────────────────────────────────────────────────────────────────────
+service PayGradeService {
+  rpc CreatePayGrade (CreatePayGradeRequest) returns (PayGradeResponse);
+  rpc GetPayGrade    (GetPayGradeRequest)    returns (PayGradeResponse);
+  rpc ListPayGrades  (ListPayGradesRequest)  returns (ListPayGradesResponse);
+  rpc UpdatePayGrade (UpdatePayGradeRequest) returns (PayGradeResponse);
+  rpc DeletePayGrade (DeletePayGradeRequest) returns (DeletePayGradeResponse);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Request Messages
+// ─────────────────────────────────────────────────────────────────────────────
+message CreatePayGradeRequest {
+  string organization_id = 1;
+  string name            = 2;
+  string description     = 3;  // optional
+}
+
+message GetPayGradeRequest {
+  string id = 1;
+}
+
+message UpdatePayGradeRequest {
+  string id              = 1;
+  string organization_id = 2;
+  string name            = 3;
+  string description     = 4;
+}
+
+message DeletePayGradeRequest {
+  string id              = 1;
+  string organization_id = 2;
+}
+
+message ListPayGradesRequest {
+  string organization_id = 1;
+  int32  page            = 2;
+  int32  limit           = 3;
+  string search          = 4;
+  string sort_by         = 5;
+  string sort_order      = 6;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Response Messages
+// ─────────────────────────────────────────────────────────────────────────────
+message PayGrade {
+  string id              = 1;
+  string organization_id = 2;
+  string name            = 3;
+  string description     = 4;
+  int32  employee_count  = 5;
+  string created_at      = 6;
+  string updated_at      = 7;
+  string deleted_at      = 8;
+}
+
+message PayGradeResponse {
+  PayGrade pay_grade = 1;
+  string   message   = 2;
+  bool     success   = 3;
+}
+
+message ListPayGradesResponse {
+  repeated PayGrade pay_grades = 1;
+  int32 total                   = 2;
+  int32 page                    = 3;
+  int32 limit                   = 4;
+  int32 total_pages             = 5;
+  bool success                  = 6;
+  string message                = 7;
+}
+
+message DeletePayGradeResponse {
+  bool   success = 1;
+  string message = 2;
+}

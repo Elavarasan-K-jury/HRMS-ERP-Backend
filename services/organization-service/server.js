@@ -7,6 +7,120 @@ const PORT = process.env.ORG_SERVICE_PORT || 5051;
 const organizationProto = loadProto('organization');
 
 /* ------------------------------------------------------------------ */
+/* 🧩 Audit Log Helper                                                 */
+/* ------------------------------------------------------------------ */
+
+async function createAuditLog({ adminId, organizationId, action, entityType, entityId, changes, ipAddress, userAgent }) {
+    try {
+        await prisma.adminAuditLog.create({
+            data: {
+                adminId: adminId || null,
+                organizationId: organizationId || null,
+                action,
+                entityType,
+                entityId,
+                changes: changes ? JSON.stringify(changes) : null,
+                ipAddress: ipAddress || null,
+                userAgent: userAgent || null,
+            },
+        });
+    } catch (e) {
+        console.error('Audit log create failed:', e.message);
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* 🧩 Helpers                                                          */
+/* ------------------------------------------------------------------ */
+
+async function provisionOrgAdmin(organizationId, { email, phone }) {
+    const normEmail = (e) => (e || '').trim().toLowerCase();
+    const normPhone = (p) => (p || '').trim();
+
+    const e = normEmail(email);
+    const p = normPhone(phone);
+
+    if (!e && !p) return null;
+
+    // Reject duplicates across all admins
+    const existing = await prisma.admins.findFirst({
+        where: {
+            deletedAt: null,
+            OR: [...(e ? [{ email: e }] : []), ...(p ? [{ phone: p }] : [])],
+        },
+    });
+    if (existing) {
+        const err = new Error('An admin with this email or phone already exists');
+        err.code = grpc.status.ALREADY_EXISTS;
+        throw err;
+    }
+
+    // Org-scoped "Admin" role with every non-super permission (full org access)
+    const perms = await prisma.adminPermission.findMany({
+        where: { isActive: true, deletedAt: null },
+    });
+    const nonSuperPermIds = perms
+        .filter((perm) => !perm.key.startsWith('super.'))
+        .map((perm) => perm.id);
+
+    const role = await prisma.adminRoles.create({
+        data: {
+            organizationId,
+            name: 'Admin',
+            description: 'Full access within this organization',
+            isSystem: false,
+            isActive: true,
+        },
+    });
+
+    if (nonSuperPermIds.length) {
+        await prisma.adminRolePermissions.createMany({
+            data: nonSuperPermIds.map((permissionId) => ({ roleId: role.id, permissionId, deletedAt: null })),
+        });
+    }
+
+    const admin = await prisma.admins.create({
+        data: {
+            email: e || '',
+            phone: p || '',
+            accessToken: null,
+            refreshToken: null,
+            isSuperAdmin: false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            deletedAt: null,
+        },
+    });
+
+    await prisma.adminRoleAssignments.create({
+        data: {
+            adminId: admin.id,
+            roleId: role.id,
+            organizationId,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            deletedAt: null,
+        },
+    });
+
+    return { id: admin.id, email: admin.email, phone: admin.phone };
+}
+
+// Find the org's non-super admin (provisioned on org creation)
+async function findOrgAdmin(organizationId) {
+    const assignment = await prisma.adminRoleAssignments.findFirst({
+        where: {
+            organizationId,
+            deletedAt: null,
+            admin: { isSuperAdmin: false, deletedAt: null },
+        },
+        include: { admin: true },
+        orderBy: { createdAt: 'asc' },
+    });
+    return assignment?.admin ?? null;
+}
+
+/* ------------------------------------------------------------------ */
 /* 🧩 Implementation                                                  */
 /* ------------------------------------------------------------------ */
 const impl = {
@@ -362,7 +476,7 @@ const impl = {
                 industry: data.industry ?? null,
                 size: data.size ?? null,
                 address:
-                    typeof data.address === 'string'
+                    typeof data.address === 'string' && data.address.trim()
                         ? JSON.parse(data.address)
                         : data.address ?? null,
 
@@ -392,16 +506,46 @@ const impl = {
                     where: { id: domainExists.id },
                     data: mappedData,
                 });
+                const admin = await findOrgAdmin(domainExists.id);
                 return callback(null, {
-                    organization: mapOrg(restored),
+                    organization: mapOrg(restored, admin),
                     success: true,
                     message: 'Organization restored successfully',
                 });
             }
 
             const org = await prisma.organizations.create({ data: mappedData });
+
+            // 🔐 Provision the org admin's OTP login credentials
+            let admin = null;
+            try {
+                admin = await provisionOrgAdmin(org.id, {
+                    email: data.admin_email,
+                    phone: data.admin_phone,
+                });
+            } catch (adminErr) {
+                // Roll back the org so a failed provisioning doesn't leave a half-created tenant
+                await prisma.organizations.delete({ where: { id: org.id } }).catch(() => null);
+                return callback({
+                    code: adminErr.code || grpc.status.INTERNAL,
+                    message: adminErr.message,
+                });
+            }
+
+            await createAuditLog({
+                adminId: admin?.id || null,
+                organizationId: org.id,
+                action: 'create',
+                entityType: 'organization',
+                entityId: org.id,
+                changes: { name: data.name, domain: data.domain, admin_email: data.admin_email },
+            });
+
             callback(null, {
-                organization: mapOrg(org),
+                organization: mapOrg(org, admin),
+                admin: admin
+                    ? { id: admin.id, email: admin.email, phone: admin.phone }
+                    : null,
                 success: true,
                 message: 'Organization created successfully',
             });
@@ -436,7 +580,8 @@ const impl = {
                     message: 'Organization not found',
                 });
 
-            callback(null, { organization: mapOrg(org), success: true });
+            const admin = await findOrgAdmin(id);
+            callback(null, { organization: mapOrg(org, admin), success: true });
         } catch (e) {
             callback({ code: grpc.status.INTERNAL, message: e.message });
         }
@@ -496,8 +641,22 @@ const impl = {
 
             const totalPages = Math.ceil(total / limit);
 
+            // Batch-load org admins to avoid N+1 lookups
+            const assignments = await prisma.adminRoleAssignments.findMany({
+                where: {
+                    organizationId: { in: orgs.map((o) => o.id) },
+                    deletedAt: null,
+                    admin: { isSuperAdmin: false, deletedAt: null },
+                },
+                include: { admin: true },
+            });
+            const adminByOrg = {};
+            for (const a of assignments) {
+                if (!adminByOrg[a.organizationId]) adminByOrg[a.organizationId] = a.admin;
+            }
+
             callback(null, {
-                organizations: orgs.map(mapOrg),
+                organizations: orgs.map((o) => mapOrg(o, adminByOrg[o.id] ?? null)),
                 total,
                 page,
                 limit,
@@ -533,41 +692,134 @@ const impl = {
             const updated = await prisma.organizations.update({
                 where: { id: data.id },
                 data: {
-                    name: data.name ?? existing.name,
-                    domain: data.domain ?? existing.domain,
-                    GSTNumber: data.gst_number ?? existing.GSTNumber,
-                    email: data.email ?? existing.email,
+                    // proto3 sends ""/0 for unset fields, so treat them as
+                    // "not provided" to avoid wiping existing values on partial updates
+                    name: data.name && data.name.length ? data.name : existing.name,
+                    domain: data.domain && data.domain.length ? data.domain : existing.domain,
+                    GSTNumber:
+                        data.gst_number && data.gst_number.length
+                            ? data.gst_number
+                            : existing.GSTNumber,
+                    email: data.email && data.email.length ? data.email : existing.email,
                     contactPersonName:
-                        data.contact_person_name ?? existing.contactPersonName,
+                        data.contact_person_name && data.contact_person_name.length
+                            ? data.contact_person_name
+                            : existing.contactPersonName,
                     contactPersonNumber:
-                        data.contact_person_number ?? existing.contactPersonNumber,
-                    note: data.note ?? existing.note,
-                    industry: data.industry ?? existing.industry,
-                    size: data.size ?? existing.size,
+                        data.contact_person_number && data.contact_person_number.length
+                            ? data.contact_person_number
+                            : existing.contactPersonNumber,
+                    note: data.note && data.note.length ? data.note : existing.note,
+                    industry:
+                        data.industry && data.industry.length
+                            ? data.industry
+                            : existing.industry,
+                    size:
+                        Number.isFinite(data.size) && data.size > 0
+                            ? data.size
+                            : existing.size,
                     address:
-                        typeof data.address === 'string'
+                        typeof data.address === 'string' && data.address.trim()
                             ? JSON.parse(data.address)
-                            : data.address ?? existing.address,
+                            : existing.address,
 
                     // ✅ updated fields
-                    maxEmployees: data.max_employees ?? existing.maxEmployees,
-                    maxStorageInGB: data.max_storage_in_gb ?? existing.maxStorageInGB,
+                    maxEmployees:
+                        Number.isFinite(data.max_employees) && data.max_employees > 0
+                            ? data.max_employees
+                            : existing.maxEmployees,
+                    maxStorageInGB:
+                        Number.isFinite(data.max_storage_in_gb) && data.max_storage_in_gb > 0
+                            ? data.max_storage_in_gb
+                            : existing.maxStorageInGB,
                     maxApiRatePerMin:
-                        data.max_api_rate_per_minute ?? existing.maxApiRatePerMin,
+                        Number.isFinite(data.max_api_rate_per_minute) &&
+                        data.max_api_rate_per_minute > 0
+                            ? data.max_api_rate_per_minute
+                            : existing.maxApiRatePerMin,
                     maxPayrollRunsPerMonth:
-                        data.max_payroll_runs_per_month ??
-                        existing.maxPayrollRunsPerMonth,
+                        Number.isFinite(data.max_payroll_runs_per_month) &&
+                        data.max_payroll_runs_per_month > 0
+                            ? data.max_payroll_runs_per_month
+                            : existing.maxPayrollRunsPerMonth,
                     maxLeavePolicies:
-                        data.max_leave_policies ?? existing.maxLeavePolicies,
+                        Number.isFinite(data.max_leave_policies) &&
+                        data.max_leave_policies > 0
+                            ? data.max_leave_policies
+                            : existing.maxLeavePolicies,
                     maxAdminAccounts:
-                        data.max_admin_accounts ?? existing.maxAdminAccounts,
+                        Number.isFinite(data.max_admin_accounts) &&
+                        data.max_admin_accounts > 0
+                            ? data.max_admin_accounts
+                            : existing.maxAdminAccounts,
 
                     updatedAt: new Date(),
                 },
             });
 
+            // 🔐 Update org admin login credentials when provided
+            let admin = await findOrgAdmin(data.id);
+            const wantsCreds =
+                data.admin_email !== undefined || data.admin_phone !== undefined;
+
+            if (wantsCreds) {
+                const newEmail = (data.admin_email ?? '').trim().toLowerCase();
+                const newPhone = (data.admin_phone ?? '').trim();
+
+                if (!admin && (newEmail || newPhone)) {
+                    // Org has no admin yet → provision one
+                    await provisionOrgAdmin(data.id, {
+                        email: data.admin_email,
+                        phone: data.admin_phone,
+                    });
+                    admin = await findOrgAdmin(data.id);
+                } else if (admin && (newEmail || newPhone)) {
+                    // Duplicate check against other admins
+                    const dup = await prisma.admins.findFirst({
+                        where: {
+                            deletedAt: null,
+                            id: { not: admin.id },
+                            OR: [
+                                ...(newEmail ? [{ email: newEmail }] : []),
+                                ...(newPhone ? [{ phone: newPhone }] : []),
+                            ],
+                        },
+                    });
+                    if (dup) {
+                        return callback({
+                            code: grpc.status.ALREADY_EXISTS,
+                            message: 'An admin with this email or phone already exists',
+                        });
+                    }
+
+                    admin = await prisma.admins.update({
+                        where: { id: admin.id },
+                        data: {
+                            email: newEmail || admin.email,
+                            phone: newPhone || admin.phone,
+                            updatedAt: new Date(),
+                        },
+                    });
+                }
+            }
+
+            await createAuditLog({
+                adminId: call.request.admin_id || null,
+                organizationId: data.id,
+                action: 'update',
+                entityType: 'organization',
+                entityId: data.id,
+                changes: {
+                    name: data.name,
+                    domain: data.domain,
+                    email: data.email,
+                    admin_email: data.admin_email,
+                    admin_phone: data.admin_phone,
+                },
+            });
+
             callback(null, {
-                organization: mapOrg(updated),
+                organization: mapOrg(updated, admin),
                 success: true,
                 message: 'Organization updated successfully',
             });
@@ -597,6 +849,14 @@ const impl = {
                 data: { deletedAt: new Date() },
             });
 
+            await createAuditLog({
+                adminId: call.request.admin_id || null,
+                organizationId: id,
+                action: 'delete',
+                entityType: 'organization',
+                entityId: id,
+            });
+
             callback(null, {
                 success: true,
                 message: 'Organization soft-deleted successfully',
@@ -610,7 +870,7 @@ const impl = {
 /* ------------------------------------------------------------------ */
 /* 🧭 Mapper                                                          */
 /* ------------------------------------------------------------------ */
-function mapOrg(org) {
+function mapOrg(org, admin) {
     return {
         id: org.id,
         name: org.name,
@@ -634,6 +894,10 @@ function mapOrg(org) {
         max_payroll_runs_per_month: org.maxPayrollRunsPerMonth ?? 1,
         max_leave_policies: org.maxLeavePolicies ?? 5,
         max_admin_accounts: org.maxAdminAccounts ?? 3,
+
+        // 🔐 Org admin OTP login credentials
+        admin_email: admin?.email ?? '',
+        admin_phone: admin?.phone ?? '',
     };
 }
 

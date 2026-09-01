@@ -114,7 +114,7 @@ const impl = {
                 data: mappedData,
                 include: {
                     reporting: true,
-                    department: true,
+                    department: { include: { parent: true } },
                     employee: true
                 }
             });
@@ -147,6 +147,11 @@ const impl = {
 
             const assignment = await prisma.employeeDepartments.findUnique({
                 where: { id },
+                include: {
+                    department: { include: { parent: true } },
+                    employee: true,
+                    reporting: true
+                }
             });
 
             if (!assignment)
@@ -211,7 +216,7 @@ const impl = {
 
             const assignments = await prisma.employeeDepartments.findMany({
                 where,
-                include: { department: { select: { name: true } } },
+                include: { department: { include: { parent: true } } },
                 orderBy: { [sortField]: order },
                 skip,
                 take: limit,
@@ -326,7 +331,7 @@ const impl = {
                 data: updateData,
                 include: {
                     reporting: true,
-                    department: true,
+                    department: { include: { parent: true } },
                     employee: true
                 }
             });
@@ -425,6 +430,10 @@ function mapDepartment(dept = {}) {
         organization_id: dept.organizationId ?? '',
         name: dept.name ?? '',
         code: dept.code ?? '',
+        parent_id: dept.parentId ?? null,
+        parent: dept.parent
+            ? { id: dept.parent.id, name: dept.parent.name }
+            : null,
         department_head_id: dept.departmentHeadId ?? '',
         department_head_start_date: dept.departmentHeadStartDate
             ? formatDate(dept.departmentHeadStartDate)

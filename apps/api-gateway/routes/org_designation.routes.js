@@ -1,13 +1,27 @@
 import { z, ZodError } from 'zod';
+import { grpc } from '@jury-hrms/proto';
 import { orgDesignationClient } from '../grpc/org_designation.client.js';
+
+function grpcToHttpStatus(code) {
+    switch (code) {
+        case grpc.status.INVALID_ARGUMENT: return 400;
+        case grpc.status.NOT_FOUND: return 404;
+        case grpc.status.ALREADY_EXISTS: return 409;
+        case grpc.status.PERMISSION_DENIED: return 403;
+        case grpc.status.FAILED_PRECONDITION: return 412;
+        case grpc.status.UNAVAILABLE: return 503;
+        default: return 500;
+    }
+}
 
 export default function registerorgDesignationRoutes({ openapi }) {
     const createSchema = z.object({
         organization_id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid organization_id'),
         department_id: z.string().regex(/^[0-9a-fA-F]{24}$/).optional().nullable(),
+        band_id: z.string().regex(/^[0-9a-fA-F]{24}$/).optional().nullable(),
         name: z.string().min(2, 'Name must be at least 2 characters'),
-        level: z.string().optional(),
-        description: z.string().optional(),
+        level: z.string().optional().nullable(),
+        description: z.string().optional().nullable(),
     }).strict();
 
     // POST /designations
@@ -32,6 +46,7 @@ export default function registerorgDesignationRoutes({ openapi }) {
                 const payload = {
                     organization_id: parsed.organization_id,
                     department_id: parsed.department_id ?? null,
+                    band_id: parsed.band_id ?? null,
                     name: parsed.name,
                     level: parsed.level ?? null,
                     description: parsed.description ?? null,
@@ -49,7 +64,7 @@ export default function registerorgDesignationRoutes({ openapi }) {
                 if (error instanceof ZodError) {
                     return c.json({ error: 'Validation failed', details: error.errors.map(e => ({ field: e.path.join('.'), message: e.message })) }, 400);
                 }
-                return c.json({ error: error.message }, 500);
+                return c.json({ error: error.message }, grpcToHttpStatus(error.code));
             }
         }
     );
@@ -75,7 +90,7 @@ export default function registerorgDesignationRoutes({ openapi }) {
                 if (!res) return c.json({ error: 'Not found' }, 404);
                 return c.json(res);
             } catch (error) {
-                return c.json({ error: error.message }, 500);
+                return c.json({ error: error.message }, grpcToHttpStatus(error.code));
             }
         }
     );
@@ -104,7 +119,7 @@ export default function registerorgDesignationRoutes({ openapi }) {
                 });
                 return c.json(res);
             } catch (error) {
-                return c.json({ error: error.message }, 500);
+                return c.json({ error: error.message }, grpcToHttpStatus(error.code));
             }
         }
     );
@@ -139,7 +154,7 @@ export default function registerorgDesignationRoutes({ openapi }) {
                 });
                 return c.json(res);
             } catch (error) {
-                return c.json({ error: error.message }, 500);
+                return c.json({ error: error.message }, grpcToHttpStatus(error.code));
             }
         }
     );
@@ -167,6 +182,7 @@ export default function registerorgDesignationRoutes({ openapi }) {
                     id: parsed.id,
                     organization_id: parsed.organization_id ?? null,
                     department_id: parsed.department_id ?? null,
+                    band_id: parsed.band_id ?? null,
                     name: parsed.name ?? null,
                     level: parsed.level ?? null,
                     description: parsed.description ?? null,
@@ -182,7 +198,7 @@ export default function registerorgDesignationRoutes({ openapi }) {
                 return c.json(res);
             } catch (error) {
                 if (error instanceof ZodError) return c.json({ error: 'Validation failed', details: error.errors.map(e => ({ field: e.path.join('.'), message: e.message })) }, 400);
-                return c.json({ error: error.message }, 500);
+                return c.json({ error: error.message }, grpcToHttpStatus(error.code));
             }
         }
     );
@@ -207,7 +223,7 @@ export default function registerorgDesignationRoutes({ openapi }) {
                 });
                 return c.json(res);
             } catch (error) {
-                return c.json({ error: error.message }, 500);
+                return c.json({ error: error.message }, grpcToHttpStatus(error.code));
             }
         }
     );

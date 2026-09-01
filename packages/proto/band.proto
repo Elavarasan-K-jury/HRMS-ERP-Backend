@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package band;
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Band Service – CRUD (Org Structure master, maps to Designations & Employees)
+// ─────────────────────────────────────────────────────────────────────────────
+service BandsService {
+  rpc CreateBand (CreateBandRequest) returns (BandResponse);
+  rpc GetBand    (GetBandRequest)    returns (BandResponse);
+  rpc ListBands  (ListBandsRequest)  returns (ListBandsResponse);
+  rpc ListAllBands (ListAllBandsRequest) returns (ListAllBandsResponse);
+  rpc UpdateBand (UpdateBandRequest) returns (BandResponse);
+  rpc DeleteBand (DeleteBandRequest) returns (DeleteBandResponse);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Request Messages
+// ─────────────────────────────────────────────────────────────────────────────
+message CreateBandRequest {
+  string organization_id = 1;
+  string name            = 2;
+  string description     = 3;  // optional
+  int32  order           = 4;
+}
+
+message GetBandRequest {
+  string id              = 1;
+  string organization_id = 2;
+}
+
+message UpdateBandRequest {
+  string id              = 1;
+  string organization_id = 2;
+  string name            = 3;
+  string description     = 4;
+  int32  order           = 5;
+}
+
+message DeleteBandRequest {
+  string id              = 1;
+  string organization_id = 2;
+}
+
+message ListBandsRequest {
+  string organization_id = 1;
+  int32  page            = 2;
+  int32  limit           = 3;
+  string search          = 4;
+  string sort_by         = 5;
+  string sort_order      = 6;
+}
+
+message ListAllBandsRequest {
+  string organization_id = 1;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Response Messages
+// ─────────────────────────────────────────────────────────────────────────────
+message Band {
+  string id              = 1;
+  string organization_id = 2;
+  string name            = 3;
+  string description     = 4;
+  int32  order           = 5;
+  string created_at      = 6;
+  string updated_at      = 7;
+  string deleted_at      = 8;
+  int32  designation_count = 9;
+  int32  employee_count    = 10;
+}
+
+// Lightweight payload for Designation/Employee dropdowns
+message BandOnly {
+  string id              = 1;
+  string name            = 2;
+  string description     = 3;
+  int32  order           = 4;
+}
+
+message BandResponse {
+  Band   band    = 1;
+  string message = 2;
+  bool   success = 3;
+}
+
+message ListBandsResponse {
+  repeated Band bands      = 1;
+  int32 total              = 2;
+  int32 page               = 3;
+  int32 limit              = 4;
+  int32 total_pages        = 5;
+  bool success             = 6;
+  string message           = 7;
+}
+
+message ListAllBandsResponse {
+  repeated BandOnly bands = 1;
+  bool success            = 2;
+  string message          = 3;
+}
+
+message DeleteBandResponse {
+  bool   success = 1;
+  string message = 2;
+}

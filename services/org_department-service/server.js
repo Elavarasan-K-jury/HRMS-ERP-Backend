@@ -51,10 +51,24 @@ const impl = {
                     });
                 }
             }
+            // Validate parent if provided
+            if (data.parent_id) {
+                const parent = await prisma.organizationDepartments.findFirst({
+                    where: { id: data.parent_id, organizationId: data.organization_id, deletedAt: null },
+                });
+                if (!parent) {
+                    return callback({
+                        code: grpc.status.NOT_FOUND,
+                        message: 'Parent department not found in the organization.',
+                    });
+                }
+            }
+
             const mappedData = {
                 organizationId: data.organization_id,
                 name: data.name,
                 code: data.code || null,
+                parentId: data.parent_id || null,
                 departmentHeadId: data.department_head_id || null,
                 departmentHeadStartDate: data.department_head_start_date
                     ? new Date(data.department_head_start_date)
@@ -70,7 +84,7 @@ const impl = {
                 data: mappedData,
                 include: {
                     organization: true,
-                    departmentHead: true, // ✅ also return head immediately
+                    departmentHead: true,
                 }
             });
 
@@ -103,6 +117,8 @@ const impl = {
                 where: { id, deletedAt: null },
                 include: {
                     organization: true,
+                    parent: true,
+                    children: { where: { deletedAt: null } },
                     DepartmentDesignation: {
                         where: { deletedAt: null },
                         select: { id: true, name: true }
@@ -187,7 +203,9 @@ const impl = {
                 include: {
                     DepartmentEmployees: true,
                     organization: true,
-                    departmentHead: true
+                    departmentHead: true,
+                    parent: true,
+                    children: { where: { deletedAt: null }, select: { id: true, name: true } },
                 },
                 orderBy: { [sortField]: order },
                 ...paginate
@@ -231,6 +249,7 @@ const impl = {
                     message: 'Department not found',
                 });
             }
+
             const head = departmentExists.departmentHead;
             const employees = await prisma.employeeDepartments.findMany({
                 where: {
@@ -256,8 +275,8 @@ const impl = {
                 usedIds.push(emp.employee.id);
                 return {
                     ...mapDepartmentHead(emp.employee),
-                    reporting: emp.reporting ? mapDepartmentHead(emp.reporting) : mapDepartmentHead(head),
-                    isHead: emp.employee.id === head.id,
+                    reporting: emp.reporting ? mapDepartmentHead(emp.reporting) : null,
+                    isHead: head ? emp.employee.id === head.id : false,
                 }
             })
 
@@ -351,11 +370,25 @@ const impl = {
                 }
             }
 
+            // Validate parent if provided
+            if (data.parent_id) {
+                const parent = await prisma.organizationDepartments.findFirst({
+                    where: { id: data.parent_id, organizationId: data.organization_id || existing.organizationId, deletedAt: null },
+                });
+                if (!parent) {
+                    return callback({
+                        code: grpc.status.NOT_FOUND,
+                        message: 'Parent department not found in the organization.',
+                    });
+                }
+            }
+
             const updateData = {
                 organizationId: data.organization_id || existing.organizationId,
                 name: data.name || existing.name,
                 code: data.code ?? existing.code,
-                departmentHeadId: data.department_head_id ?? existing.departmentHeadId,
+                parentId: data.parent_id || existing.parentId,
+                departmentHeadId: data.department_head_id || existing.departmentHeadId,
                 departmentHeadStratDate: data.department_head_start_date
                     ? new Date(data.department_head_start_date)
                     : existing.departmentHeadStratDate,
@@ -396,12 +429,20 @@ const impl = {
 
             const dept = await prisma.organizationDepartments.findFirst({
                 where: { id, deletedAt: null },
+                include: { children: { where: { deletedAt: null } } },
             });
 
             if (!dept) {
                 return callback({
                     code: grpc.status.NOT_FOUND,
                     message: 'Department not found',
+                });
+            }
+
+            if (dept.children.length > 0) {
+                return callback({
+                    code: grpc.status.FAILED_PRECONDITION,
+                    message: 'Cannot delete department with sub-departments. Remove or reassign sub-departments first.',
                 });
             }
 
@@ -482,12 +523,23 @@ function mapDepartment(dept) {
         organization_id: dept.organizationId,
         name: dept.name,
         code: dept.code ?? '',
-        department_head_id: dept.departmentHeadId ?? '',
+        parent_id: dept.parentId ?? null,
+        parent: dept.parent ? {
+            id: dept.parent.id,
+            name: dept.parent.name,
+        } : null,
+        department_head_id: dept.departmentHeadId ?? null,
         department_head_start_date: dept.departmentHeadStratDate?.toISOString() ?? '',
         description: dept.description ?? '',
         note: dept.note ?? '',
         department_head: dept.departmentHead && mapDepartmentHead(dept.departmentHead),
         organization: dept.organization && mapOrg(dept.organization),
+        children: dept.children ? dept.children.map(c => ({
+            id: c.id,
+            name: c.name,
+            code: c.code ?? '',
+            parent_id: c.parentId ?? '',
+        })) : [],
         created_at: dept.createdAt?.toISOString() ?? '',
         updated_at: dept.updatedAt?.toISOString() ?? '',
         deleted_at: dept.deletedAt?.toISOString() ?? '',

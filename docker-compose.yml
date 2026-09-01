@@ -318,6 +318,20 @@ services:
       - mongodb
       - redis
 
+  probation-policy:
+    build: .
+    container_name: juryhrms-probation-policy
+    restart: unless-stopped
+    environment:
+      - NPM_COMMAND=npm run start:probation-policy
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+
   approval:
     build: .
     container_name: juryhrms-approval

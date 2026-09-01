@@ -14,10 +14,17 @@ service EmployeeService {
   rpc DeleteEmployee(DeleteEmployeeRequest) returns (DeleteEmployeeResponse);
   rpc ListAllEmployees(ListAllEmployeesRequest)
       returns (ListAllEmployeesResponse);
+  rpc GetOrgChart(OrgChartRequest) returns (OrgChartResponse);
   rpc RequestLoginOtp(RequestLoginOtpRequest) returns (RequestLoginOtpResponse);
   rpc VerifyLoginOtp(VerifyLoginOtpRequest) returns (AuthResponse);
   rpc RefreshTokens(RefreshTokensRequest) returns (AuthResponse);
   rpc VerifyToken(VerifyTokenRequest) returns (VerifyTokenResponse);
+  rpc ListEmployeeNumberSeries(ListEmployeeNumberSeriesRequest) returns (ListEmployeeNumberSeriesResponse);
+  rpc CreateEmployeeNumberSeries(CreateEmployeeNumberSeriesRequest) returns (EmployeeNumberSeriesResponse);
+  rpc UpdateEmployeeNumberSeries(UpdateEmployeeNumberSeriesRequest) returns (EmployeeNumberSeriesResponse);
+  rpc ListLoginLogs(ListLoginLogsRequest) returns (ListLoginLogsResponse);
+  rpc ExtendProbation(ExtendProbationRequest) returns (EmployeeResponse);
+  rpc ChangeProbationPolicy(ChangeProbationPolicyRequest) returns (EmployeeResponse);
 }
 
 /* ──────────────────────────────
@@ -28,6 +35,8 @@ message VerifyLoginOtpRequest {
   string email = 1; // OR phone (fill one)
   string phone = 2;
   string otp = 3;
+  string ip_address = 4;
+  string user_agent = 5;
 }
 
 message RefreshTokensRequest { string refresh_token = 1; }
@@ -39,6 +48,9 @@ message AuthResponse {
   string expires_in = 4; // seconds for access token
   Employee employee = 5;
   string success = 6;
+  repeated string permission_keys = 7;
+  repeated string module_keys = 8;
+  string authentication_type = 9; // Basic (email) or Mobile OTP (phone)
 }
 message RequestLoginOtpRequest {
   // one of: email or phone (if phone provided, OTP is still emailed to the
@@ -46,11 +58,14 @@ message RequestLoginOtpRequest {
   string email = 1;
   string phone = 2;
   string purpose = 3; // e.g. "login" (optional)
+  string ip_address = 4;
+  string user_agent = 5;
 }
 
 message RequestLoginOtpResponse {
   string message = 1; // "OTP sent to registered email"
   string success = 2;
+  string authentication_type = 3; // Basic (email) or Mobile OTP (phone)
 }
 
 message VerifyTokenRequest {
@@ -67,6 +82,9 @@ message VerifyTokenResponse {
   string success = 7; // true/false
   string message = 8; // Status message
   Employee user = 9;  // Token scope
+  repeated string permission_keys = 10;
+  repeated string module_keys = 11;
+  string authentication_type = 12;
 }
 
 message Employee {
@@ -78,6 +96,12 @@ message Employee {
   // primary department (first assignment)
   string department_id = 5;
 
+  // Flat display names (derived from assignments / relations)
+  string department_name = 36;
+  string sub_department_name = 37;
+  string location_name = 38;
+  ReportingManager reporting_manager = 39;
+
   string employee_code = 6;
 
   string first_name = 7;
@@ -88,6 +112,16 @@ message Employee {
   string alt_phone = 12;
   string gender = 13;
   string date_of_birth = 14;
+  string joining_date = 30;
+
+  // Direct probation policy assignment (overrides category-derived policy)
+  string probation_policy_id = 31;
+  string probation_start_date = 32;
+  string probation_end_date = 33;
+  int32  probation_extended_by_months = 34;
+
+  // Derived probation preview (from employee probation policy + dates)
+  Probation probation = 35;
 
   string created_at = 15;
   string updated_at = 16;
@@ -97,10 +131,54 @@ message Employee {
   Category category = 19;
   Designation designation = 20;
 
-  // 🔥 NEW: department assignment array
+  // department assignment array
   repeated DepartmentAssignment departments = 21;
 
   bool admin_of_organization = 22;
+
+  // reporting manager
+  string manager_id = 23;
+  string profile_image = 24;
+  string profile_image_file_id = 52;
+  string branch_id = 25;
+  bool is_active = 26;
+  string login_status = 27;
+  string login_registered_at = 28;
+  string location_id = 29;
+  bool is_permanent = 40;
+
+  // Worker type: "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERN" | "PERMANENT"
+  string worker_type = 51;
+
+  // Derived employment status: "PERMANENT" | "PROBATION" | "INTERNSHIP" | "TRAINEE" | "CONTRACT"
+  string employment_status = 41;
+
+  // Personal / profile details
+  string display_name = 42;
+  string marital_status = 43;
+  string blood_group = 44;
+  bool physically_handicapped = 45;
+  string nationality = 46;
+  string personal_email = 47;
+  string professional_summary = 48;
+  string current_address = 49;   // JSON string
+  string permanent_address = 50; // JSON string
+
+  string cost_center_id = 53;
+  string cost_center_name = 54;
+
+  string pay_grade_id = 55;
+  string pay_grade_name = 56;
+
+  string band_id = 57;
+  string band_name = 58;
+  Band band = 59;
+
+  // Notice Period Policy assignment
+  string notice_period_policy_id = 60;
+  string notice_period_policy_name = 61;
+  string notice_period_duration_value = 62;
+  string notice_period_duration_unit = 63;
 }
 
 /* ──────────────────────────────
@@ -142,6 +220,16 @@ message Department {
   string created_at = 9;
   string updated_at = 10;
   string deleted_at = 11;
+}
+
+/* ──────────────────────────────
+   🧩 Nested: Reporting Manager
+──────────────────────────────── */
+
+message ReportingManager {
+  string id = 1;
+  string full_name = 2;
+  string employee_code = 3;
 }
 
 /* ──────────────────────────────
@@ -198,6 +286,9 @@ message Category {
   bool notice_required = 14;
   int32 notice_months = 15;
 
+  // Employment type: "PROBATION" | "INTERNSHIP" | "TRAINEE" | "CONTRACT" | "PERMANENT"
+  string employment_type = 19;
+
   string created_at = 16;
   string updated_at = 17;
   string deleted_at = 18;
@@ -220,6 +311,18 @@ message Designation {
 }
 
 /* ──────────────────────────────
+   🧩 Nested: Band
+──────────────────────────────── */
+
+message Band {
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  string description = 4;
+  int32  order = 5;
+}
+
+/* ──────────────────────────────
    🧩 Create / Update / Basic
 ──────────────────────────────── */
 
@@ -238,24 +341,168 @@ message CreateEmployeeRequest {
   string gender = 11;
   bool is_admin = 12;
   string date_of_birth = 13;
+  string manager_id = 14;
+  string branch_id = 15;
+  bool is_active = 16;
+  string number_series_id = 17;
+  string employee_code = 18;
+  string location_id = 19;
+  string joining_date = 20;
+  string probation_policy_id = 21;
+  bool is_permanent = 22;
+  string probation_start_date = 23;
+  string probation_end_date = 24;
+
+  // Worker type: "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERN" | "PERMANENT"
+  string worker_type = 34;
+
+  // Personal / profile details
+  string display_name = 25;
+  string marital_status = 26;
+  string blood_group = 27;
+  bool physically_handicapped = 28;
+  string nationality = 29;
+  string personal_email = 30;
+  string professional_summary = 31;
+  string current_address = 32;   // JSON string
+  string permanent_address = 33; // JSON string
+  string profile_image = 35;     // uploaded avatar / photo url
+  string profile_image_file_id = 36; // Files.id reference
+string cost_center_id = 37;    // CostCenters.id reference
+  string pay_grade_id = 38;      // PayGrades.id reference
+  string band_id = 39;           // Bands.id reference
+  string notice_period_policy_id = 40; // NoticePeriodPolicy.id reference
+}
+
+message Probation {
+  string policy_id = 1;
+  string policy_name = 2;
+  int32  duration_value = 3;
+  string duration_unit = 4;
+  bool   end_date_after_completion = 5;
+  string joining_date = 6;
+  string start_date = 7;
+  string end_date = 8;
+  string status = 9;
+  bool   in_progress = 10;
+  bool   extended = 11;
+  int32  extended_by_months = 12;
+  int32  max_duration_value = 13;
+  string max_duration_unit = 14;
+}
+
+message EmployeeNumberSeries {
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  string prefix = 4;
+  int32 digits = 5;
+  string suffix = 6;
+  int32 next_number = 7;
+  bool is_active = 8;
+  string preview = 9;
+  string created_at = 10;
+  string updated_at = 11;
+  string policy_type = 12;
+}
+
+message ListEmployeeNumberSeriesRequest { string organization_id = 1; }
+message ListEmployeeNumberSeriesResponse {
+  repeated EmployeeNumberSeries series = 1;
+  bool success = 2;
+  string message = 3;
+}
+message CreateEmployeeNumberSeriesRequest {
+  string organization_id = 1;
+  string name = 2;
+  string prefix = 3;
+  int32 digits = 4;
+  string suffix = 5;
+  int32 next_number = 6;
+  string policy_type = 7;
+}
+message UpdateEmployeeNumberSeriesRequest {
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  string prefix = 4;
+  int32 digits = 5;
+  string suffix = 6;
+  int32 next_number = 7;
+  bool is_active = 8;
+  string policy_type = 9;
+}
+message EmployeeNumberSeriesResponse {
+  EmployeeNumberSeries series = 1;
+  bool success = 2;
+  string message = 3;
 }
 
 message UpdateEmployeeRequest {
   string id = 1;
-  string organization_id = 2;
-  string category_id = 3;
-  string designation_id = 4;
-  string department_id = 5;
+  optional string organization_id = 2;
+  optional string category_id = 3;
+  optional string designation_id = 4;
+  optional string department_id = 5;
 
-  string first_name = 6;
-  string last_name = 7;
-  string full_name = 8;
-  string email = 9;
-  string phone = 10;
-  string alt_phone = 11;
-  string gender = 12;
-  string date_of_birth = 13;
-  bool is_admin = 14;
+  optional string first_name = 6;
+  optional string last_name = 7;
+  optional string full_name = 8;
+  optional string email = 9;
+  optional string phone = 10;
+  optional string alt_phone = 11;
+  optional string gender = 12;
+  optional string date_of_birth = 13;
+  optional bool is_admin = 14;
+  optional string manager_id = 15;
+  optional string branch_id = 16;
+  optional bool is_active = 17;
+  optional string number_series_id = 18;
+  optional string employee_code = 19;
+  optional string location_id = 20;
+  optional string joining_date = 21;
+  optional string probation_policy_id = 22;
+  optional bool is_permanent = 23;
+  optional string probation_start_date = 24;
+  optional string probation_end_date = 25;
+
+  // Worker type: "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERN" | "PERMANENT"
+  optional string worker_type = 38;
+
+  // Personal / profile details
+  optional string display_name = 26;
+  optional string marital_status = 27;
+  optional string blood_group = 28;
+  optional bool physically_handicapped = 29;
+  optional string nationality = 30;
+  optional string personal_email = 31;
+  optional string professional_summary = 32;
+  optional string current_address = 33;   // JSON string
+  optional string permanent_address = 34; // JSON string
+  optional string profile_image = 35;     // uploaded avatar / photo url
+  optional string profile_image_file_id = 36; // Files.id reference
+  optional string cost_center_id = 37;    // CostCenters.id reference
+  optional string pay_grade_id = 39;      // PayGrades.id reference
+  optional string band_id = 40;           // Bands.id reference
+  optional string notice_period_policy_id = 41; // NoticePeriodPolicy.id reference
+}
+
+message ExtendProbationRequest {
+  string id = 1;
+  string organization_id = 2;
+  int32  months = 3;
+  string admin_id = 4;
+  string ip_address = 5;
+  string user_agent = 6;
+}
+
+message ChangeProbationPolicyRequest {
+  string id = 1;
+  string organization_id = 2;
+  string probation_policy_id = 3;
+  string admin_id = 4;
+  string ip_address = 5;
+  string user_agent = 6;
 }
 
 message GetEmployeeRequest { string id = 1; }
@@ -275,6 +522,9 @@ message ListEmployeesRequest {
   string search = 6;
   string sort_by = 7;
   string sort_order = 8;
+  string department_id = 9;
+  string branch_id = 10;
+  string location_id = 11;
 }
 
 message EmployeeResponse {
@@ -305,10 +555,91 @@ message DeleteEmployeeResponse {
 message ListAllEmployeesRequest {
   string organization_id = 1;
   string department_id = 2;
+  string location_id = 3;
+  string probation_policy_id = 4; // filter employees assigned to this probation policy
+  bool   only_active          = 5; // only return active employees
 }
 
 message ListAllEmployeesResponse {
   repeated Employee employees = 1;
   bool success = 2;
   string message = 3;
+}
+
+/* ──────────────────────────────
+   🏢 Org Chart (Reporting Tree)
+──────────────────────────────── */
+
+message OrgChartRequest {
+  string organization_id = 1;
+  string department_id = 2;
+  string branch_id = 3;
+}
+
+message OrgChartNode {
+  string id = 1;
+  string full_name = 2;
+  string email = 3;
+  string phone = 4;
+  string employee_code = 5;
+  string designation = 6;
+  string department = 7;
+  string category = 8;
+  string organization_id = 9;
+  repeated OrgChartNode reportees = 10;
+  string manager_id = 11;
+  string profile_image = 12;
+  string date_of_birth = 13;
+  string gender = 14;
+  repeated string department_head_of = 15;
+}
+
+message OrgChartResponse {
+  string organization_id = 1;
+  string department_id = 2;
+  repeated OrgChartNode roots = 3;
+  bool success = 4;
+  string message = 5;
+}
+
+/* ──────────────────────────────
+   🔐 Login Logs (audit trail)
+──────────────────────────────── */
+
+message ListLoginLogsRequest {
+  string organization_id = 1;
+  string status = 2; // SUCCESS | FAILED (empty = all)
+  string issue = 3;  // optional failure issue filter
+  int32 page = 4;    // 1-based (default 1)
+  int32 limit = 5;   // default 20
+}
+
+message LoginLog {
+  string id = 1;
+  string employee_id = 2;
+  string employee_code = 3;
+  string employee_name = 4;
+  string email = 5;
+  string phone = 6;
+  string organization_id = 7;
+  string status = 8; // SUCCESS | FAILED
+  string issue = 9;  // failure reason (e.g. Invalid OTP, OTP expired, Employee not found)
+  string authentication_type = 10;
+  string ip_address = 11;
+  string user_agent = 12;
+  string created_at = 13;
+  string department = 14;
+  string sub_department = 15;
+  string designation = 16;
+  string business_unit = 17;
+}
+
+message ListLoginLogsResponse {
+  repeated LoginLog logs = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  bool success = 6;
+  string message = 7;
 }

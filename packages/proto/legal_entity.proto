@@ -1,0 +1,276 @@
+syntax = "proto3";
+
+package legal_entity;
+
+service LegalEntityService {
+  rpc CreateLegalEntity (CreateLegalEntityRequest) returns (LegalEntityResponse);
+  rpc GetLegalEntity    (GetLegalEntityRequest)    returns (LegalEntityResponse);
+  rpc ListLegalEntities (ListLegalEntitiesRequest) returns (ListLegalEntitiesResponse);
+  rpc UpdateLegalEntity (UpdateLegalEntityRequest) returns (LegalEntityResponse);
+  rpc DeleteLegalEntity (DeleteLegalEntityRequest) returns (DeleteLegalEntityResponse);
+
+  rpc CreateSignatory  (CreateSignatoryRequest)  returns (SignatoryResponse);
+  rpc ListSignatories  (ListSignatoriesRequest)  returns (ListSignatoriesResponse);
+  rpc UpdateSignatory  (UpdateSignatoryRequest)  returns (SignatoryResponse);
+  rpc DeleteSignatory  (DeleteSignatoryRequest)  returns (DeleteSignatoryResponse);
+
+  rpc CreateBankDetail (CreateBankDetailRequest) returns (BankDetailResponse);
+  rpc ListBankDetails  (ListBankDetailsRequest)  returns (ListBankDetailsResponse);
+  rpc UpdateBankDetail (UpdateBankDetailRequest) returns (BankDetailResponse);
+  rpc DeleteBankDetail (DeleteBankDetailRequest) returns (DeleteBankDetailResponse);
+}
+
+/* ------------------------------------------------------------------ */
+/* Legal Entity                                                        */
+/* ------------------------------------------------------------------ */
+
+message LegalEntity {
+  string id                  = 1;
+  string organization_id     = 2;
+  string name                = 3;
+  string legal_name          = 4;
+  string country             = 5;
+  string cin                 = 6;
+  string incorporation_date  = 7;
+  string business_type       = 8;
+  string sector              = 9;
+  string nature_of_business  = 10;
+  string address1            = 11;
+  string address2            = 12;
+  string city                = 13;
+  string state               = 14;
+  string zip                 = 15;
+  string currency            = 16;
+  string financial_year      = 17;
+  string logo                = 18;
+  bool   is_main             = 19;
+  bool   is_active           = 20;
+  string created_at          = 21;
+  string updated_at          = 22;
+  string deleted_at          = 23;
+  repeated Signatory signatories = 24;
+  repeated BankDetail banks      = 25;
+  string logo_file_id        = 26;
+}
+
+message CreateLegalEntityRequest {
+  string organization_id    = 1;
+  string name               = 2;
+  string legal_name         = 3;
+  string country            = 4;
+  string cin                = 5;
+  string incorporation_date = 6;
+  string business_type      = 7;
+  string sector             = 8;
+  string nature_of_business = 9;
+  string address1           = 10;
+  string address2           = 11;
+  string city               = 12;
+  string state              = 13;
+  string zip                = 14;
+  string currency           = 15;
+  string financial_year     = 16;
+  string logo               = 17;
+  string logo_file_id       = 18;
+}
+
+message GetLegalEntityRequest {
+  string id = 1;
+}
+
+message ListLegalEntitiesRequest {
+  string organization_id = 1;
+  int32  page = 2;
+  int32  limit = 3;
+  string search = 4;
+  string sort_by = 5;
+  string sort_order = 6;
+}
+
+message UpdateLegalEntityRequest {
+  string id                   = 1;
+  optional string organization_id = 2;
+  optional string name            = 3;
+  optional string legal_name      = 4;
+  optional string country         = 5;
+  optional string cin             = 6;
+  optional string incorporation_date = 7;
+  optional string business_type   = 8;
+  optional string sector          = 9;
+  optional string nature_of_business = 10;
+  optional string address1        = 11;
+  optional string address2        = 12;
+  optional string city            = 13;
+  optional string state           = 14;
+  optional string zip             = 15;
+  optional string currency        = 16;
+  optional string financial_year  = 17;
+  optional string logo            = 18;
+  optional bool   is_main         = 19;
+  optional bool   is_active       = 20;
+  optional string logo_file_id    = 21;
+}
+
+message DeleteLegalEntityRequest {
+  string id = 1;
+}
+
+message DeleteLegalEntityResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message LegalEntityResponse {
+  LegalEntity legal_entity = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message ListLegalEntitiesResponse {
+  repeated LegalEntity legal_entities = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  bool success = 6;
+  string message = 7;
+}
+
+/* ------------------------------------------------------------------ */
+/* Signatories                                                         */
+/* ------------------------------------------------------------------ */
+
+message Signatory {
+  string id = 1;
+  string legal_entity_id = 2;
+  string full_name = 3;
+  string email = 4;
+  string designation = 5;
+  string father_name = 6;
+  string address1 = 7;
+  string address2 = 8;
+  string city = 9;
+  string state = 10;
+  string zip = 11;
+  string country = 12;
+  string created_at = 13;
+  string updated_at = 14;
+  string deleted_at = 15;
+}
+
+message CreateSignatoryRequest {
+  string legal_entity_id = 1;
+  string full_name = 2;
+  string email = 3;
+  string designation = 4;
+  string father_name = 5;
+  string address1 = 6;
+  string address2 = 7;
+  string city = 8;
+  string state = 9;
+  string zip = 10;
+  string country = 11;
+}
+
+message ListSignatoriesRequest {
+  string legal_entity_id = 1;
+}
+
+message UpdateSignatoryRequest {
+  string id = 1;
+  string legal_entity_id = 2;
+  optional string full_name = 3;
+  optional string email = 4;
+  optional string designation = 5;
+  optional string father_name = 6;
+  optional string address1 = 7;
+  optional string address2 = 8;
+  optional string city = 9;
+  optional string state = 10;
+  optional string zip = 11;
+  optional string country = 12;
+}
+
+message DeleteSignatoryRequest {
+  string id = 1;
+  string legal_entity_id = 2;
+}
+
+message DeleteSignatoryResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message SignatoryResponse {
+  Signatory signatory = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message ListSignatoriesResponse {
+  repeated Signatory signatories = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+/* ------------------------------------------------------------------ */
+/* Bank Details                                                        */
+/* ------------------------------------------------------------------ */
+
+message BankDetail {
+  string id = 1;
+  string legal_entity_id = 2;
+  string bank_name = 3;
+  string account_number = 4;
+  string ifsc_code = 5;
+  string branch = 6;
+  string establishment_id = 7;
+  string created_at = 8;
+  string updated_at = 9;
+  string deleted_at = 10;
+}
+
+message CreateBankDetailRequest {
+  string legal_entity_id = 1;
+  string bank_name = 2;
+  string account_number = 3;
+  string ifsc_code = 4;
+  string branch = 5;
+  string establishment_id = 6;
+}
+
+message ListBankDetailsRequest {
+  string legal_entity_id = 1;
+}
+
+message UpdateBankDetailRequest {
+  string id = 1;
+  string legal_entity_id = 2;
+  optional string bank_name = 3;
+  optional string account_number = 4;
+  optional string ifsc_code = 5;
+  optional string branch = 6;
+  optional string establishment_id = 7;
+}
+
+message DeleteBankDetailRequest {
+  string id = 1;
+  string legal_entity_id = 2;
+}
+
+message DeleteBankDetailResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message BankDetailResponse {
+  BankDetail bank_detail = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message ListBankDetailsResponse {
+  repeated BankDetail bank_details = 1;
+  bool success = 2;
+  string message = 3;
+}

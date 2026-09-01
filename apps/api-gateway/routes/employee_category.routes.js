@@ -6,18 +6,9 @@ export default function registerEmployeeCategoryRoutes(app) {
     const createEmployeeCategorySchema = z.object({
         organization_id: z.string({ required_error: 'Organization ID is required' }),
         name: z.string({ required_error: 'Category name is required' }).min(2, 'Name must have at least 2 characters'),
-        code: z.string().optional(),
-        description: z.string().optional(),
-        id_prefix: z.string().optional(),
-        is_permanent: z.boolean({ required_error: 'is_permanent is required' }),
-        benefits_applicable: z.boolean({ required_error: 'benefits_applicable is required' }),
+        description: z.string().optional().nullable(),
         is_active: z.boolean().default(true),
-        training_required: z.boolean().default(true),
-        training_months: z.number().int().min(0).default(6),
-        probation_required: z.boolean().default(true),
-        probation_months: z.number().int().min(0).default(3),
-        notice_required: z.boolean().default(true),
-        notice_months: z.number().int().min(0).default(2)
+        employment_type: z.enum(['PROBATION', 'INTERNSHIP', 'TRAINEE', 'CONTRACT', 'PERMANENT']).optional().default('PROBATION'),
     });
 
     // 🟢 Create Employee Category
@@ -92,7 +83,8 @@ export default function registerEmployeeCategoryRoutes(app) {
             tags: ['Employee Categories'],
             summary: 'Get an employee category by ID',
             request: {
-                params: z.object({ id: z.string({ required_error: 'ID is required' }) })
+                params: z.object({ id: z.string({ required_error: 'ID is required' }) }),
+                query: z.object({ organization_id: z.string().optional() })
             },
             responses: {
                 200: {
@@ -113,9 +105,10 @@ export default function registerEmployeeCategoryRoutes(app) {
         async (c) => {
             try {
                 const id = c.req.param('id');
+                const { organization_id } = c.req.query();
 
                 const response = await new Promise((resolve, reject) => {
-                    employeeClient.GetEmployeeCategory({ id }, (err, resp) => {
+                    employeeClient.GetEmployeeCategory({ id, organization_id }, (err, resp) => {
                         if (err) return reject(err);
                         resolve(resp);
                     });
@@ -143,22 +136,21 @@ export default function registerEmployeeCategoryRoutes(app) {
                 })
             },
             responses: {
-                200: {
-                    description: 'List of employee categories',
-                    content: {
-                        'application/json': {
-                            schema: z.array(
-                                z.object({
-                                    id: z.string(),
-                                    name: z.string(),
-                                    code: z.string().optional(),
-                                    organization_id: z.string()
-                                })
-                            )
+                    200: {
+                        description: 'List of employee categories',
+                        content: {
+                            'application/json': {
+                                schema: z.array(
+                                    z.object({
+                                        id: z.string(),
+                                        name: z.string(),
+                                        organization_id: z.string()
+                                    })
+                                )
+                            }
                         }
                     }
                 }
-            }
         },
 
 
@@ -212,22 +204,21 @@ export default function registerEmployeeCategoryRoutes(app) {
                 })
             },
             responses: {
-                200: {
-                    description: 'List of employee categories',
-                    content: {
-                        'application/json': {
-                            schema: z.array(
-                                z.object({
-                                    id: z.string(),
-                                    name: z.string(),
-                                    code: z.string().optional(),
-                                    organization_id: z.string()
-                                })
-                            )
+                    200: {
+                        description: 'List of employee categories',
+                        content: {
+                            'application/json': {
+                                schema: z.array(
+                                    z.object({
+                                        id: z.string(),
+                                        name: z.string(),
+                                        organization_id: z.string()
+                                    })
+                                )
+                            }
                         }
                     }
                 }
-            }
         },
         async (c) => {
             try {
@@ -317,7 +308,7 @@ export default function registerEmployeeCategoryRoutes(app) {
                 const body = await c.req.json();
 
                 const categoryExists = await new Promise((resolve, reject) => {
-                    employeeClient.GetEmployeeCategory({ id }, (err, resp) => {
+                    employeeClient.GetEmployeeCategory({ id, organization_id: body.organization_id }, (err, resp) => {
                         if (err) return reject(err);
                         resolve(resp.category);
                     });
@@ -369,7 +360,8 @@ export default function registerEmployeeCategoryRoutes(app) {
             request: {
                 params: z.object({
                     id: z.string({ required_error: 'Category ID is required' })
-                })
+                }),
+                query: z.object({ organization_id: z.string().optional() })
             },
             responses: {
                 200: {
@@ -391,9 +383,10 @@ export default function registerEmployeeCategoryRoutes(app) {
         async (c) => {
             try {
                 const { id } = c.req.param();
+                const { organization_id } = c.req.query();
 
                 const categoryExists = await new Promise((resolve, reject) => {
-                    employeeClient.GetEmployeeCategory({ id }, (err, resp) => {
+                    employeeClient.GetEmployeeCategory({ id, organization_id }, (err, resp) => {
                         if (err) return reject(err);
                         resolve(resp.category);
                     });
@@ -402,7 +395,7 @@ export default function registerEmployeeCategoryRoutes(app) {
                 if (!categoryExists) return c.json({ error: 'Category not found' }, 404);
 
                 const response = await new Promise((resolve, reject) => {
-                    employeeClient.DeleteEmployeeCategory({ id }, (err, resp) => {
+                    employeeClient.DeleteEmployeeCategory({ id, organization_id }, (err, resp) => {
                         if (err) return reject(err);
                         resolve(resp);
                     });

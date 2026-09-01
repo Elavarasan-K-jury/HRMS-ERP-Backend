@@ -1,11 +1,18 @@
 // storage-service.js
+import "dotenv/config"; // load .env BEFORE @jury-hrms/files evaluates its lazy config
 import { grpc, loadProto } from "@jury-hrms/proto";
 import { prisma, checkDbConnection } from "@jury-hrms/db/client.js";
-import { FileService } from "@jury-hrms/files";
-import dotenv from "dotenv";
-dotenv.config();
+import { FileService, storageService, validateFile, validateStorePath, ValidationError } from "@jury-hrms/files";
 
 const PORT = Number(process.env.STORAGE_SERVICE_PORT || 5081);
+
+// Fail fast on storage misconfiguration (e.g. FILE_STORAGE=s3 without creds).
+try {
+    storageService.mode;
+} catch (e) {
+    console.error("❌ Storage misconfiguration:", e.message);
+    process.exit(1);
+}
 
 // ✅ change this to your actual proto package name (like you did: loadProto("organization"))
 // e.g. const storageProto = loadProto("files");
@@ -15,6 +22,28 @@ const storageProto = loadProto("storage");
 /* ✅ Helpers                                                         */
 /* ------------------------------------------------------------------ */
 const isObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+
+async function getAdminOrganizationId(adminId) {
+    if (!adminId || !isObjectId(adminId)) return null;
+    const assignment = await prisma.adminRoleAssignments.findFirst({
+        where: { adminId, deletedAt: null },
+        include: { role: { select: { organizationId: true } } },
+    });
+    return assignment?.role?.organizationId || assignment?.organizationId || null;
+}
+
+async function assertFileOrgAccess(file, { organization_id, admin_id }) {
+    if (organization_id && isObjectId(organization_id)) {
+        if (file.organizationId !== organization_id) {
+            throw Object.assign(new Error('File does not belong to this organization'), { code: grpc.status.PERMISSION_DENIED });
+        }
+        return;
+    }
+    const adminOrg = await getAdminOrganizationId(admin_id);
+    if (adminOrg && file.organizationId !== adminOrg) {
+        throw Object.assign(new Error('File does not belong to this organization'), { code: grpc.status.PERMISSION_DENIED });
+    }
+}
 
 function toISO(d) {
     return d ? d.toISOString() : "";
@@ -40,10 +69,17 @@ function mapFolder(folder) {
 function mapFile(file) {
     return {
         id: file.id,
-        folder_name: file.folder?.name ?? "",
+        file_id: file.id,
         folder_id: file.folderId ?? "",
-        file_url: file.fileUrl,
-        file_key: file.fileKey,
+        file_name: file.fileName ?? "",
+        file_type: file.fileType ?? "",
+        file_size: file.fileSize || 0,
+        storage_key: file.storageKey ?? "",
+        file_key: file.storageKey ?? "",
+        // Old modules display files through file_url; route them through the
+        // centralized /file/{id} endpoint so local/S3 is transparent.
+        file_url: file.id ? `/file/${file.id}` : "",
+        folder_name: file.folder?.name ?? "",
         added_by_id: file.addedById,
         size: file.folderStorageUsedInBytes || 0,
         organization_id: file.organizationId,
@@ -77,18 +113,20 @@ async function uploadFolderImageAndCreateFileRow({
     addedById,
     buffer,
     originalName,
+    folderId = null,
+    mimeType,
 }) {
-    const uploaded = await FileService.upload(buffer, originalName, "folder-images");
-    // uploaded: { url, key } (your FileService returns this for s3), or local saveLocal output
-    // We'll normalize:
-    const fileUrl = uploaded?.url || uploaded?.fileUrl || uploaded?.path || "";
-    const fileKey = uploaded?.key || uploaded?.fileKey || uploaded?.filename || "";
+    const { mime, size } = validateFile({ buffer, fileName: originalName, mimeType });
+    const storageKey = `organizations/${organizationId}/folder-images/${Date.now()}_${uuidv4()}_${sanitizeFileName(originalName)}`;
+    await storageService.upload(buffer, { storageKey, contentType: mime });
 
     const fileRow = await tx.files.create({
         data: {
-            folderId: null,
-            fileUrl,
-            fileKey,
+            folderId,
+            fileType: mime,
+            storageKey,
+            fileName: originalName,
+            fileSize: size,
             addedById,
             organizationId,
             createdAt: new Date(),
@@ -97,7 +135,15 @@ async function uploadFolderImageAndCreateFileRow({
         },
     });
 
-    return { fileRow, fileUrl, fileKey };
+    return { fileRow, storageKey };
+}
+
+function uuidv4() {
+    return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function sanitizeFileName(name) {
+    return String(name || "file").replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
 /* ------------------------------------------------------------------ */
@@ -362,7 +408,7 @@ const impl = {
                         });
                         if (oldImg && !oldImg.deletedAt) {
                             try {
-                                await FileService.delete(oldImg.fileKey);
+                                await storageService.delete(oldImg.storageKey);
                             } catch (err) {
                                 // don't fail entire update if storage delete fails
                                 console.warn("Old folder image delete failed:", err?.message || err);
@@ -467,7 +513,7 @@ const impl = {
 
                 for (const f of files) {
                     try {
-                        await FileService.delete(f.fileKey);
+                        await storageService.delete(f.storageKey);
                     } catch (err) {
                         console.warn("DeleteFolder storage delete failed:", err?.message || err);
                     }
@@ -483,7 +529,7 @@ const impl = {
                     const img = await tx.files.findUnique({ where: { id: folder.folderImageId } });
                     if (img && !img.deletedAt) {
                         try {
-                            await FileService.delete(img.fileKey);
+                            await storageService.delete(img.storageKey);
                         } catch (err) {
                             console.warn("DeleteFolder image storage delete failed:", err?.message || err);
                         }
@@ -553,18 +599,29 @@ const impl = {
             }
 
             const buf = Buffer.from(data.file_buffer);
-            const storePath = folder_id ? `org-${organization_id}/folders/${folder_id}` : `org-${organization_id}/misc`;
 
-            const uploaded = await FileService.upload(buf, data.file_name, storePath);
-            const fileUrl = uploaded?.url || uploaded?.fileUrl || uploaded?.path || "";
-            const fileKey = uploaded?.key || uploaded?.fileKey || uploaded?.filename || "";
+            const { mime, size } = validateFile({
+                buffer: buf,
+                fileName: data.file_name,
+                mimeType: data.mime_type || undefined,
+            });
+
+            const storePath = folder_id
+                ? `organizations/${organization_id}/folders/${folder_id}`
+                : `organizations/${organization_id}/misc`;
+            validateStorePath(storePath);
+
+            const storageKey = `${storePath}/${Date.now()}_${uuidv4()}_${sanitizeFileName(data.file_name)}`;
+            await storageService.upload(buf, { storageKey, contentType: mime });
 
             const created = await prisma.$transaction(async (tx) => {
                 const fileRow = await tx.files.create({
                     data: {
                         folderId: folder_id,
-                        fileUrl,
-                        fileKey,
+                        fileType: mime,
+                        storageKey,
+                        fileName: data.file_name,
+                        fileSize: size,
                         addedById: added_by_id,
                         folderStorageUsedInBytes: buf.length,
                         organizationId: organization_id,
@@ -595,6 +652,9 @@ const impl = {
             });
         } catch (e) {
             console.error("UploadFileToFolder Error:", e);
+            if (e instanceof ValidationError) {
+                return callback({ code: grpc.status.INVALID_ARGUMENT, message: e.message });
+            }
             return callback({ code: grpc.status.INTERNAL, message: e.message });
         }
     },
@@ -656,7 +716,7 @@ const impl = {
     /* ------------------------------------------------------------------ */
     DeleteFile: async (call, callback) => {
         try {
-            const { id } = call.request;
+            const { id, organization_id } = call.request;
 
             if (!id || !isObjectId(id)) {
                 return callback({ code: grpc.status.INVALID_ARGUMENT, message: "Invalid file id" });
@@ -670,9 +730,15 @@ const impl = {
                 return callback({ code: grpc.status.NOT_FOUND, message: "File not found" });
             }
 
+            try {
+                await assertFileOrgAccess(file, { organization_id, admin_id: call.request.admin_id });
+            } catch (err) {
+                return callback({ code: err.code || grpc.status.PERMISSION_DENIED, message: err.message });
+            }
+
             // best-effort delete from storage
             try {
-                await FileService.delete(file.fileKey);
+                await storageService.delete(file.storageKey);
             } catch (err) {
                 console.warn("DeleteFile storage delete failed:", err?.message || err);
             }
@@ -859,6 +925,120 @@ const impl = {
             return callback({ code: grpc.status.INTERNAL, message: e.message });
         }
     },
+
+    /* ------------------------------------------------------------------ */
+    /* 🚀 Centralized File Upload (used by /file/upload)                   */
+    /* - validates file + storePath                                        */
+    /* - uploads via StorageService (local | s3)                           */
+    /* - stores metadata only (storage_key, never content)                 */
+    /* ------------------------------------------------------------------ */
+    UploadFile: async (call, callback) => {
+        try {
+            const data = call.request;
+
+            const organization_id = data.organization_id;
+            const added_by_id = data.added_by_id;
+            const store_path = data.store_path;
+
+            if (!organization_id || !isObjectId(organization_id)) {
+                return callback({ code: grpc.status.INVALID_ARGUMENT, message: "organization_id is required and must be a valid ObjectId" });
+            }
+            if (!added_by_id || !isObjectId(added_by_id)) {
+                return callback({ code: grpc.status.INVALID_ARGUMENT, message: "added_by_id is required and must be a valid ObjectId" });
+            }
+            if (!data.file_buffer?.length || !data.file_name) {
+                return callback({ code: grpc.status.INVALID_ARGUMENT, message: "file_buffer and file_name are required" });
+            }
+
+            const safeStorePath = validateStorePath(store_path);
+            // Ensure org matches the requested storePath: organizations/{org}/...
+            if (!safeStorePath.startsWith(`organizations/${organization_id}/`)) {
+                return callback({ code: grpc.status.INVALID_ARGUMENT, message: "storePath must belong to the provided organization" });
+            }
+
+            const buf = Buffer.from(data.file_buffer);
+
+            const { mime, size } = validateFile({
+                buffer: buf,
+                fileName: data.file_name,
+                mimeType: data.mime_type || undefined,
+            });
+
+            const storageKey = `${safeStorePath}/${Date.now()}_${uuidv4()}_${sanitizeFileName(data.file_name)}`;
+            await storageService.upload(buf, { storageKey, contentType: mime });
+
+            const fileRow = await prisma.files.create({
+                data: {
+                    folderId: null,
+                    fileType: mime,
+                    storageKey,
+                    fileName: data.file_name,
+                    fileSize: size,
+                    addedById: added_by_id,
+                    organizationId: organization_id,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    deletedAt: null,
+                },
+            });
+
+            return callback(null, {
+                file: mapFile(fileRow),
+                success: true,
+                message: "File uploaded successfully",
+            });
+        } catch (e) {
+            console.error("UploadFile Error:", e);
+            if (e instanceof ValidationError) {
+                return callback({ code: grpc.status.INVALID_ARGUMENT, message: e.message });
+            }
+            return callback({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
+
+    /* ------------------------------------------------------------------ */
+    /* 🔵 Centralized File Read (used by GET /file/{id})                   */
+    /* - org-isolated                                                      */
+    /* - streams bytes from local disk or S3                               */
+    /* ------------------------------------------------------------------ */
+    GetFile: async (call, callback) => {
+        try {
+            const { id, organization_id } = call.request;
+
+            if (!id || !isObjectId(id)) {
+                return callback({ code: grpc.status.INVALID_ARGUMENT, message: "Invalid file id" });
+            }
+
+            const file = await prisma.files.findUnique({
+                where: { id, deletedAt: null },
+            });
+
+            if (!file) {
+                return callback({ code: grpc.status.NOT_FOUND, message: "File not found" });
+            }
+
+            try {
+                await assertFileOrgAccess(file, { organization_id, admin_id: call.request.admin_id });
+            } catch (err) {
+                return callback({ code: err.code || grpc.status.PERMISSION_DENIED, message: err.message });
+            }
+
+            const { buffer } = await storageService.download(file.storageKey);
+
+            return callback(null, {
+                file: mapFile(file),
+                content: buffer,
+                success: true,
+                message: "File fetched successfully",
+            });
+        } catch (e) {
+            console.error("GetFile Error:", e);
+            if (e?.message?.includes("not found")) {
+                return callback({ code: grpc.status.NOT_FOUND, message: "File not found" });
+            }
+            return callback({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
 };
 
 /* ------------------------------------------------------------------ */
@@ -866,7 +1046,10 @@ const impl = {
 /* ------------------------------------------------------------------ */
 async function main() {
     await checkDbConnection("storage-service");
-    const server = new grpc.Server();
+    const server = new grpc.Server({
+        'grpc.max_send_message_length': 50 * 1024 * 1024,
+        'grpc.max_receive_message_length': 50 * 1024 * 1024,
+    });
 
     // ✅ Change this service name to your proto service:
     // server.addService(storageProto.StorageService.service, impl);

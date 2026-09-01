@@ -1,0 +1,109 @@
+syntax = "proto3";
+
+package location;
+
+service LocationService {
+  rpc CreateLocation(CreateLocationRequest) returns (LocationResponse);
+  rpc GetLocation(GetLocationRequest) returns (LocationResponse);
+  rpc ListLocations(ListLocationsRequest) returns (ListLocationsResponse);
+  rpc UpdateLocation(UpdateLocationRequest) returns (LocationResponse);
+  rpc DeleteLocation(DeleteLocationRequest) returns (DeleteLocationResponse);
+}
+
+message Location {
+  string id = 1;
+  string organization_id = 2;
+  string entity_type = 3;
+  string entity_id = 4;
+  string name = 5;
+  bool is_headquarters = 6;
+  string timezone = 7;
+  string country = 8;
+  string state = 9;
+  string address1 = 10;
+  string address2 = 11;
+  string city = 12;
+  string pincode = 13;
+  string description = 14;
+  double latitude = 15;
+  double longitude = 16;
+  string place_id = 17;
+  string formatted_address = 18;
+  string created_at = 19;
+  string updated_at = 20;
+  string deleted_at = 21;
+}
+
+message CreateLocationRequest {
+  string organization_id = 1;
+  string entity_type = 2;
+  string entity_id = 3;
+  string name = 4;
+  bool is_headquarters = 5;
+  string timezone = 6;
+  string country = 7;
+  string state = 8;
+  string address1 = 9;
+  string address2 = 10;
+  string city = 11;
+  string pincode = 12;
+  string description = 13;
+  double latitude = 14;
+  double longitude = 15;
+  string place_id = 16;
+  string formatted_address = 17;
+}
+
+message GetLocationRequest { string id = 1; }
+
+message ListLocationsRequest {
+  string organization_id = 1;
+  string entity_type = 2;
+  string entity_id = 3;
+  int32 page = 4;
+  int32 limit = 5;
+  string search = 6;
+}
+
+message UpdateLocationRequest {
+  string id = 1;
+  string entity_type = 2;
+  string entity_id = 3;
+  string name = 4;
+  bool is_headquarters = 5;
+  string timezone = 6;
+  string country = 7;
+  string state = 8;
+  string address1 = 9;
+  string address2 = 10;
+  string city = 11;
+  string pincode = 12;
+  string description = 13;
+  double latitude = 14;
+  double longitude = 15;
+  string place_id = 16;
+  string formatted_address = 17;
+}
+
+message DeleteLocationRequest { string id = 1; }
+
+message LocationResponse {
+  Location location = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message ListLocationsResponse {
+  repeated Location locations = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  bool success = 6;
+  string message = 7;
+}
+
+message DeleteLocationResponse {
+  bool success = 1;
+  string message = 2;
+}

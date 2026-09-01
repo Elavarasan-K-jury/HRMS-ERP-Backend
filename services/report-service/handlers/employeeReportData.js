@@ -465,7 +465,6 @@ export async function generateEmployeeReportHTML(employeeId) {
             ${detailRow("👤 Gender", employee.gender)}
             ${detailRow("🎂 Date of Birth", fmt(employee.dateOfBirth))}
             ${detailRow("📋 Category", employee.category?.name)}
-            ${detailRow("⏱️ Probation", employee.category?.probationMonths ? `${employee.category.probationMonths} months` : "—")}
           </div>
         </div>
 

@@ -6,6 +6,23 @@ dotenv.config();
 const PORT = Number(process.env.ORG_DESG_SERVICE_PORT || 5055);
 const designationProto = loadProto('org_designation');
 
+function validObjectId(id) {
+    return /^[0-9a-fA-F]{24}$/.test(id || '');
+}
+
+async function validateBand(organizationId, bandId) {
+    if (!bandId) return null;
+    const band = await prisma.bands.findFirst({
+        where: { id: bandId, organizationId, deletedAt: null },
+    });
+    if (!band) {
+        const err = new Error('Band not found in organization.');
+        err.code = grpc.status.NOT_FOUND;
+        throw err;
+    }
+    return band;
+}
+
 const impl = {
     CreateDesignation: async (call, callback) => {
         try {
@@ -38,6 +55,24 @@ const impl = {
                 }
             }
 
+            // Validate band exists if provided (must belong to the same organization)
+            if (data.band_id) {
+                const bandExists = await prisma.bands.findFirst({
+                    where: {
+                        id: data.band_id,
+                        organizationId: data.organization_id,
+                        deletedAt: null,
+                    },
+                });
+
+                if (!bandExists) {
+                    return callback({
+                        code: grpc.status.NOT_FOUND,
+                        message: 'Band not found in organization.',
+                    });
+                }
+            }
+
             const nameExists = await prisma.organizationDesignations.findFirst({
                 where: {
                     organizationId: data.organization_id,
@@ -58,6 +93,7 @@ const impl = {
             const mappedData = {
                 organizationId: data.organization_id,
                 departmentId: data.department_id || null,
+                bandId: data.band_id || null,
                 name: data.name,
                 level: data.level || null,
                 description: data.description || null,
@@ -71,6 +107,7 @@ const impl = {
                 include: {
                     organization: true,
                     department: true,
+                    band: true,
                 },
             });
 
@@ -104,10 +141,8 @@ const impl = {
                 include: {
                     organization: true,
                     department: true,
-                    employees: {
-                        where: { deletedAt: null },
-                        select: { id: true, fullName: true }
-                    }
+                    band: true,
+                    employees: { where: { deletedAt: null } }
                 },
             });
 
@@ -191,7 +226,7 @@ const impl = {
                 orderBy: { [sortField]: order },
                 skip,
                 take: limit,
-                include: { organization: true, department: true, employees: true },
+                include: { organization: true, department: true, band: true, employees: { where: { deletedAt: null } } },
             });
 
             const totalPages = Math.ceil(total / limit);
@@ -238,6 +273,7 @@ const impl = {
                     ...where,
                     deletedAt: null,
                 },
+                include: { band: true },
             });
 
             const mappedDesignations = designations.map(desg => ({
@@ -318,9 +354,29 @@ const impl = {
                 }
             }
 
+            // Validate band if provided (must belong to the same organization)
+            const orgId = data.organization_id || existing.organizationId;
+            if (data.band_id && data.band_id !== existing.bandId) {
+                const bandExists = await prisma.bands.findFirst({
+                    where: {
+                        id: data.band_id,
+                        organizationId: orgId,
+                        deletedAt: null,
+                    },
+                });
+
+                if (!bandExists) {
+                    return callback({
+                        code: grpc.status.NOT_FOUND,
+                        message: 'Band not found in organization.',
+                    });
+                }
+            }
+
             const updateData = {
-                organizationId: data.organization_id || existing.organizationId,
+                organizationId: orgId,
                 departmentId: data.department_id ?? existing.departmentId,
+                bandId: data.band_id ?? existing.bandId,
                 name: data.name || existing.name,
                 level: data.level ?? existing.level,
                 description: data.description ?? existing.description,
@@ -330,6 +386,7 @@ const impl = {
             const updated = await prisma.organizationDesignations.update({
                 where: { id: data.id },
                 data: updateData,
+                include: { band: true },
             });
 
             callback(null, {
@@ -365,6 +422,17 @@ const impl = {
                 return callback({
                     code: grpc.status.NOT_FOUND,
                     message: 'Designation not found',
+                });
+            }
+
+            const employeeCount = await prisma.organizationEmployees.count({
+                where: { designationId: id, deletedAt: null },
+            });
+
+            if (employeeCount > 0) {
+                return callback({
+                    code: grpc.status.FAILED_PRECONDITION,
+                    message: `Cannot delete this Designation because ${employeeCount} employee(s) are currently assigned to it.`,
                 });
             }
 
@@ -438,6 +506,7 @@ function mapEmployee(emp = {}) {
         organization_id: emp.organizationId ?? '',
         category_id: emp.categoryId ?? '',
         designation_id: emp.designationId ?? '',
+        employee_code: emp.employeeCode ?? '',
         first_name: emp.firstName ?? '',
         last_name: emp.lastName ?? '',
         full_name: emp.fullName ?? '',
@@ -454,11 +523,23 @@ function mapEmployee(emp = {}) {
     };
 }
 
+function mapBand(b = {}) {
+    if (!b || !b.id) return {};
+    return {
+        id: b.id ?? '',
+        name: b.name ?? '',
+        description: b.description ?? '',
+        order: b.order ?? 0,
+    };
+}
+
 function mapDesignationOnly(d = {}) {
     return {
         id: d.id ?? '',
         name: d.name ?? '',
         level: d.level ?? '',
+        band_id: d.bandId ?? '',
+        band_name: d.band?.name ?? '',
     };
 }
 function mapDesignation(d = {}) {
@@ -466,6 +547,7 @@ function mapDesignation(d = {}) {
         id: d.id ?? '',
         organization_id: d.organizationId ?? '',
         department_id: d.departmentId ?? '',
+        band_id: d.bandId ?? '',
         name: d.name ?? '',
         level: d.level ?? '',
         description: d.description ?? '',
@@ -474,6 +556,7 @@ function mapDesignation(d = {}) {
         deleted_at: d.deletedAt ? d.deletedAt.toISOString() : '',
         organization: mapOrg(d.organization),
         department: mapDepartment(d.department),
+        band: mapBand(d.band),
         employees: Array.isArray(d.employees)
             ? d.employees.map(mapEmployee)
             : [],

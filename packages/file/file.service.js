@@ -1,50 +1,43 @@
-// src/services/file.service.js
-import { v4 as uuid } from "uuid";
-import mime from "mime-types";
-import { fileConfig } from "./config.js";
-import { saveLocal, readLocal, deleteLocal } from "./local.storage.js";
-import { uploadToS3, readFromS3, deleteFromS3 } from "./s3.storage.js";
+import { v4 as uuid } from 'uuid';
+import mime from 'mime-types';
+import { storageService } from './storage/index.js';
 
+/**
+ * Backward-compatible wrapper used by invoice / attendance / subscription
+ * services. New code should use the `storageService` from "./storage/index.js".
+ */
 export class FileService {
     static async upload(fileBuffer, originalName, storePath = '') {
-        const lookupMime = mime.lookup(originalName) || "application/octet-stream";
-        const ext = mime.extension(lookupMime) || "bin";
-        const filename = `${storePath + '/' || ""}${uuid()}${new Date().getTime()}${originalName.split(".")[0]}.${ext}`;
+        const lookupMime = mime.lookup(originalName) || 'application/octet-stream';
+        const ext = mime.extension(lookupMime) || 'bin';
 
+        const timestamp = Date.now();
+        const base = originalName.split('.')[0].replace(/[^a-zA-Z0-9_-]/g, '_') || 'file';
+        const storeDir = storePath.replace(/\/+$/, '');
+        const storageKey = `${storeDir ? storeDir + '/' : ''}${timestamp}_${uuid()}_${base}.${ext}`;
 
-        if (fileConfig.storage === "local") {
-            return saveLocal(fileBuffer, filename);
-        }
+        await storageService.upload(fileBuffer, { storageKey, contentType: lookupMime });
 
-        if (fileConfig.storage === "s3") {
-            const uploaded = await uploadToS3(fileBuffer, filename, lookupMime);
-            return { url: uploaded.Location, key: uploaded.Key };
-        }
-
-        throw new Error("Invalid storage type");
+        return {
+            storageKey,
+            key: storageKey,
+            url: `/uploads/${storageKey}`,
+            fileName: `${base}.${ext}`,
+            fileType: lookupMime,
+            fileSize: fileBuffer.length,
+        };
     }
 
-    /* ✅ NEW: Read file as Buffer */
     static async get(fileKey) {
-        if (!fileKey) throw new Error("File key is required");
-
-        if (fileConfig.storage === "local") {
-            return readLocal(fileKey);
-        }
-
-        if (fileConfig.storage === "s3") {
-            return readFromS3(fileKey);
-        }
-
-        throw new Error("Invalid storage type");
+        const { buffer } = await storageService.download(fileKey);
+        return buffer;
     }
 
     static async delete(filePathOrKey) {
-        if (fileConfig.storage === "local") {
-            return deleteLocal(filePathOrKey);
-        }
-        if (fileConfig.storage === "s3") {
-            return deleteFromS3(filePathOrKey);
-        }
+        return storageService.delete(filePathOrKey);
+    }
+
+    static async exists(fileKey) {
+        return storageService.exists(fileKey);
     }
 }

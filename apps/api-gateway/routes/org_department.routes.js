@@ -14,7 +14,9 @@ export default function registerOrgDepartmentRoutes({ openapi }) {
             .string({ required_error: 'Department name is required' })
             .min(2, 'Name must have at least 2 characters'),
 
-        code: z.string().optional(),
+        code: z
+            .string({ required_error: 'Department code is required' })
+            .min(1, 'Department code is required'),
 
         department_head_id: z
             .string()
@@ -27,6 +29,12 @@ export default function registerOrgDepartmentRoutes({ openapi }) {
             .refine((val) => !val || !isNaN(Date.parse(val)), {
                 message: 'department_head_start_date must be a valid ISO date',
             })
+            .optional()
+            .nullable(),
+
+        parent_id: z
+            .string()
+            .regex(/^[0-9a-fA-F]{24}$/, 'Invalid parent_id')
             .optional()
             .nullable(),
 
@@ -96,6 +104,7 @@ export default function registerOrgDepartmentRoutes({ openapi }) {
                     organization_id: parsed.organization_id,
                     name: parsed.name,
                     code: parsed.code ?? null,
+                    parent_id: parsed.parent_id ?? null,
                     department_head_id: parsed.department_head_id ?? null,
                     department_head_start_date: parsed.department_head_start_date ?? null,
                     description: parsed.description ?? null,
@@ -448,6 +457,7 @@ export default function registerOrgDepartmentRoutes({ openapi }) {
                     organization_id: parsed.organization_id ?? null,
                     name: parsed.name ?? null,
                     code: parsed.code ?? null,
+                    parent_id: parsed.parent_id ?? null,
                     department_head_id: parsed.department_head_id ?? null,
                     department_head_start_date: parsed.department_head_start_date ?? null,
                     description: parsed.description ?? null,

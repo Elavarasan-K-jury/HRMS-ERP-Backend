@@ -55,6 +55,9 @@ log('🔍 LEAVE_TYPES_ADDR =', process.env.LEAVE_TYPE_SERVICE_ADDR);
 log('🔍 LEAVE_REQUESTS_ADDR =', process.env.LEAVE_REQUEST_SERVICE_ADDR);
 log('🔍 HOLIDAYS_ADDR =', process.env.HOLIDAY_SERVICE_ADDR);
 log('🔍 HOLIDAY_POLICY_ADDR =', process.env.HOLIDAY_POLICY_SERVICE_ADDR);
+log('🔍 USAGE_TYPE_ADDR =', process.env.USAGE_TYPE_SERVICE_ADDR);
+log('🔍 EXPENSE_CATEGORY_ADDR =', process.env.EXPENSE_CATEGORY_SERVICE_ADDR);
+log('🔍 EXPENSE_POLICY_ADDR =', process.env.EXPENSE_POLICY_SERVICE_ADDR);
 log()
 log('---------------------------------------------------');
 
@@ -73,6 +76,7 @@ import { withQueue } from './middlewares/request_queue.js';
 import { requestLogger } from './middlewares/req_logged.js';
 import { withServiceMetrics } from './middlewares/service_metrics.js';
 import { usageMiddleware } from './middlewares/usage_tracking.js';
+import { authAdmin } from './middlewares/auth_admin.js';
 
 
 import registerOrganizationRoutes from './routes/organization.routes.js';
@@ -89,6 +93,11 @@ import registerEmployeeOnboardingProgressRoutes from './routes/emp_onboard_progr
 import registerShiftRoutes from './routes/shift.routes.js';
 import registerShiftAssignmentRoutes from './routes/shift_assignment.routes.js';
 import registerShiftPolicyRoutes from './routes/shift_policy.routes.js';
+import registerProbationPolicyRoutes from './routes/probation_policy.routes.js';
+import registerCostCenterRoutes from './routes/cost_center.routes.js';
+import registerPayGradeRoutes from './routes/pay_grade.routes.js';
+import registerBandRoutes from './routes/band.routes.js';
+import registerNoticePeriodPolicyRoutes from './routes/notice_period_policy.routes.js';
 import registerAttendanceRoutes from './routes/attendance.routes.js';
 import registerAttendanceLogRoutes from './routes/attendance_logs.routes.js';
 import registerApprovalRoutes from './routes/approval.routes.js';
@@ -109,12 +118,20 @@ import registerSalaryRoutes from './routes/salary.routes.js';
 import registerSalaryComponentsRoutes from './routes/salary-components.routes.js';
 import registerSalaryTemplateRoutes from './routes/salary_template.routes.js';
 import registerReportsRoutes from './routes/report.routes.js';
+import registerBranchRoutes from './routes/branch.routes.js';
+import registerLegalEntityRoutes from './routes/legal_entity.routes.js';
+import registerLocationRoutes from './routes/location.routes.js';
+import registerUsageTypeRoutes from './routes/usage_type.routes.js';
+import registerExpenseCategoryRoutes from './routes/expense_category.routes.js';
+import registerExpensePolicyRoutes from './routes/expense_policy.routes.js';
+import registerEmployeeDocumentRoutes from './routes/employee_document.routes.js';
 import registerFinanceRoutes from './routes/finance.routes.js';
 import registerSalaryRangeRoutes from './routes/salary-range.routes.js';
 import registerSubscriptionPlanRoutes from './routes/subscription-plans.routes.js';
 import registerInvoiceRoutes from './routes/invoices.routes.js';
 import registerOrganizationSubscriptionRoutes from './routes/organization-subscriptions.routes.js';
 import registerStorageRoutes from './routes/storage.routes.js';
+import registerFileRoutes from './routes/file.routes.js';
 import registerPayslipRoutes from './routes/payslip.routes.js';
 import registerExpenseRoutes from './routes/expense.routes.js';
 import registerPayrollRoutes from './routes/payroll.routes.js';
@@ -218,11 +235,30 @@ const detectServiceByPath = (c) => {
         // ORGANIZATION
         { service: "organization", prefixes: ["/organizations", "/organization"] },
 
+        // LEGAL ENTITIES
+        { service: "legal_entity", prefixes: ["/legal-entities", "/legal-entity"] },
+
         // EMPLOYEES
         { service: "employee", prefixes: ["/employees", "/employee"] },
 
         // EMPLOYEE CATEGORIES (keeping your typo path too)
         { service: "employee_category", prefixes: ["/employee-categories", "/employee-categorie"] },
+
+        // PROBATION POLICIES
+        { service: "probation_policy", prefixes: ["/probation-policies"] },
+
+        // COST CENTERS
+        { service: "cost_center", prefixes: ["/cost-centers"] },
+        { service: "pay_grade", prefixes: ["/pay-grades"] },
+
+        // USAGE TYPES & EXPENSE CATEGORIES
+        { service: "usage_type", prefixes: ["/usage-types"] },
+        { service: "expense_category", prefixes: ["/expense-categories"] },
+        { service: "expense_policy", prefixes: ["/expense-policies"] },
+        { service: "employee_document", prefixes: ["/employee-documents"] },
+
+        // BANDS
+        { service: "band", prefixes: ["/bands"] },
 
         // DEPARTMENTS
         { service: "department", prefixes: ["/departments", "/department"] },
@@ -330,6 +366,26 @@ app.use(
         publish: publishTrafficEvent
     })
 );
+// Auth middleware for protected admin routes
+app.use('/admin/*', authAdmin);
+app.use('/admins/*', authAdmin);
+
+// Auth middleware for probation policy routes (permission-gated)
+app.use('/probation-policies/*', authAdmin);
+app.use('/notice-period-policies/*', authAdmin);
+
+// Auth middleware for cost center routes
+app.use('/cost-centers/*', authAdmin);
+app.use('/pay-grades/*', authAdmin);
+app.use('/bands/*', authAdmin);
+app.use('/usage-types/*', authAdmin);
+app.use('/expense-categories/*', authAdmin);
+app.use('/expense-policies/*', authAdmin);
+app.use('/employee-documents/*', authAdmin);
+
+// Centralized file serving is auth-protected (supports ?token= for <img> tags)
+app.use('/file/*', authAdmin);
+
 // Health check
 app.get('/', (c) => c.text('🚀 Jury-HRMS API Gateway is running!'));
 
@@ -358,8 +414,10 @@ app.use(
 /* 🔗 Route Registration (same usage as before)                        */
 /* ------------------------------------------------------------------ */
 
-const wrapService = (serviceName) => (def, handler) =>
-    app.openapi(def, withQueue(withServiceMetrics(serviceName, handler)));
+const wrapService = (serviceName) => (def, ...handlers) => {
+    const last = handlers.pop();
+    app.openapi(def, ...handlers, withQueue(withServiceMetrics(serviceName, last)));
+};
 
 const wrapSystem = (def, handler) => app.openapi(def, handler);
 
@@ -385,6 +443,11 @@ registerPostPollRoutes({ openapi: wrapService('post_poll') });
 registerShiftRoutes({ openapi: wrapService('shift') });
 registerShiftAssignmentRoutes({ openapi: wrapService('shift_assignment') });
 registerShiftPolicyRoutes({ openapi: wrapService('shift_policy') });
+registerProbationPolicyRoutes({ openapi: wrapService('probation_policy') });
+registerCostCenterRoutes({ openapi: wrapService('cost_center') });
+registerPayGradeRoutes({ openapi: wrapService('pay_grade') });
+registerBandRoutes({ openapi: wrapService('band') });
+registerNoticePeriodPolicyRoutes({ openapi: wrapService('notice_period_policy') });
 registerAttendanceRoutes({ openapi: wrapService('attendance') });
 registerAttendanceLogRoutes({ openapi: wrapService('attendance_logs') });
 registerApprovalRoutes({ openapi: wrapService('approval') });
@@ -402,9 +465,17 @@ registerSubscriptionPlanRoutes({ openapi: wrapService('subscription_plan') });
 registerOrganizationSubscriptionRoutes({ openapi: wrapService('organization_subscription') });
 registerInvoiceRoutes({ openapi: wrapService('invoice') });
 registerStorageRoutes({ openapi: wrapService('storage') });
+registerFileRoutes({ openapi: wrapService('storage') });
 registerPayslipRoutes({ openapi: wrapService('payslip') });
 registerExpenseRoutes({ openapi: wrapService('expense') });
 registerPayrollRoutes({ openapi: wrapService('payroll') });
+registerBranchRoutes({ openapi: wrapService('branch') });
+registerLegalEntityRoutes({ openapi: wrapService('legal_entity') });
+registerLocationRoutes({ openapi: wrapService('location') });
+registerUsageTypeRoutes({ openapi: wrapService('usage_type') });
+registerExpenseCategoryRoutes({ openapi: wrapService('expense_category') });
+registerExpensePolicyRoutes({ openapi: wrapService('expense_policy') });
+registerEmployeeDocumentRoutes({ openapi: wrapService('employee_document') });
 registerHealthRoutes({ openapi: wrapSystem });
 
 /* ------------------------------------------------------------------ */

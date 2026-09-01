@@ -1,0 +1,209 @@
+syntax = "proto3";
+
+package probation_policy;
+
+// =====================================
+// Probation Policy Service
+// =====================================
+//
+// A Probation Policy controls probation rules for an organization:
+// - probation duration (value + unit)
+// - maximum extension duration
+// - whether the probation end date falls on the day after the duration
+//   completes (true) or the last day of the duration (false)
+//
+// This is organization-level metadata. Employee-level probation
+// lifecycle will consume these policies.
+
+service ProbationPolicyService {
+  rpc CreateProbationPolicy (CreateProbationPolicyRequest) returns (ProbationPolicyResponse);
+  rpc GetProbationPolicy    (GetProbationPolicyRequest)    returns (ProbationPolicyResponse);
+  rpc ListProbationPolicies (ListProbationPoliciesRequest) returns (ListProbationPoliciesResponse);
+  rpc UpdateProbationPolicy (UpdateProbationPolicyRequest) returns (ProbationPolicyResponse);
+  rpc DeleteProbationPolicy (DeleteProbationPolicyRequest) returns (DeleteProbationPolicyResponse);
+}
+
+message CreateProbationPolicyRequest {
+  string organization_id            = 1;
+  string name                       = 2;
+  string description                = 3;
+  int32  duration_value             = 4;
+  string duration_unit              = 5; // "MONTHS" | "WEEKS" | "DAYS"
+  int32  max_duration_value         = 6;
+  string max_duration_unit          = 7; // "MONTHS" | "WEEKS" | "DAYS"
+  bool   end_date_after_completion  = 8;
+  bool   is_active                  = 9;
+  string admin_id                   = 10; // for audit logging
+  string ip_address                 = 11;
+  string user_agent                 = 12;
+  repeated string employee_category_ids = 13; // categories governed by this policy
+
+  // Evaluation configuration (Step 2)
+  // Each milestone carries its own auto-trigger (days after probation starts).
+  bool   evaluation_required        = 14;
+
+  // Feedback form settings (Step 2)
+  bool   show_feedback_form_in_review   = 15;
+  bool   share_feedback_with_employee   = 16;
+  bool   employee_response_allowed      = 17;
+  bool   reviewer_response_allowed      = 18;
+  bool   reviewer_recommendations_allowed = 19;
+
+  // Confirmation configuration (Step 3)
+  bool   auto_confirm_probation           = 20;
+  bool   auto_generate_confirmation_letter = 21;
+
+  repeated EvaluationMilestone evaluation_milestones = 22;
+
+  // Marks this policy as the default one for the organization.
+  bool   is_default = 23;
+
+  // Policy type: "PROBATION" | "INTERNSHIP" | "TRAINEE" | "CONTRACT"
+  string policy_type = 24;
+}
+
+message GetProbationPolicyRequest {
+  string id = 1;
+  string organization_id = 2;
+}
+
+message UpdateProbationPolicyRequest {
+  string id                       = 1;
+  string organization_id          = 2;
+  string name                     = 3;
+  string description              = 4;
+  int32  duration_value           = 5;
+  string duration_unit            = 6;
+  int32  max_duration_value       = 7;
+  string max_duration_unit        = 8;
+  bool   end_date_after_completion = 9;
+  bool   is_active                = 10;
+  string admin_id                 = 11;
+  string ip_address               = 12;
+  string user_agent               = 13;
+  repeated string employee_category_ids = 14; // categories governed by this policy
+
+  // Evaluation configuration (Step 2)
+  bool   evaluation_required        = 15;
+
+  // Feedback form settings (Step 2)
+  bool   show_feedback_form_in_review   = 16;
+  bool   share_feedback_with_employee   = 17;
+  bool   employee_response_allowed      = 18;
+  bool   reviewer_response_allowed      = 19;
+  bool   reviewer_recommendations_allowed = 20;
+
+  // Confirmation configuration (Step 3)
+  bool   auto_confirm_probation           = 21;
+  bool   auto_generate_confirmation_letter = 22;
+
+  repeated EvaluationMilestone evaluation_milestones = 23;
+
+  // Marks this policy as the default one for the organization.
+  bool   is_default = 24;
+
+  // Policy type: "PROBATION" | "INTERNSHIP" | "TRAINEE" | "CONTRACT"
+  string policy_type = 25;
+}
+
+message DeleteProbationPolicyRequest {
+  string id = 1;
+  string organization_id = 2;
+  string admin_id = 3;
+  string ip_address = 4;
+  string user_agent = 5;
+}
+
+message DeleteProbationPolicyResponse {
+  bool   success = 1;
+  string message = 2;
+}
+
+message ProbationPolicy {
+  string id                        = 1;
+  string organization_id           = 2;
+  string name                      = 3;
+  string description               = 4;
+  int32  duration_value            = 5;
+  string duration_unit             = 6;
+  int32  max_duration_value        = 7;
+  string max_duration_unit         = 8;
+  bool   end_date_after_completion = 9;
+  bool   is_active                 = 10;
+  string created_at                = 11;
+  string updated_at                = 12;
+  string deleted_at                = 13;
+  repeated string employee_category_ids = 14; // categories governed by this policy
+
+  // Simple category snapshot (id + name) for UI display
+  repeated EmployeeCategoryCategory employee_categories = 15;
+
+  // Evaluation configuration (Step 2)
+  bool   evaluation_required        = 16;
+
+  // Feedback form settings (Step 2)
+  bool   show_feedback_form_in_review   = 17;
+  bool   share_feedback_with_employee   = 18;
+  bool   employee_response_allowed      = 19;
+  bool   reviewer_response_allowed      = 20;
+  bool   reviewer_recommendations_allowed = 21;
+
+  // Confirmation configuration (Step 3)
+  bool   auto_confirm_probation           = 22;
+  bool   auto_generate_confirmation_letter = 23;
+
+  repeated EvaluationMilestone evaluation_milestones = 24;
+
+  // Marks this policy as the default one for the organization.
+  bool   is_default = 25;
+
+  // Number of active employees currently assigned to this policy.
+  int32  employee_count = 26;
+
+  // Policy type: "PROBATION" | "INTERNSHIP" | "TRAINEE" | "CONTRACT"
+  string policy_type = 27;
+}
+
+message EvaluationMilestone {
+  string name                    = 1;
+  int32  order                   = 2;
+  bool   is_final_milestone      = 3;
+  bool   automatic_trigger_enabled = 4;
+  int32  trigger_after_days      = 5;
+  bool   feedback_form_enabled   = 6;
+  repeated EvaluationLevel levels = 7;
+}
+
+message EvaluationLevel {
+  int32  level_order          = 1;
+  string completion_rule      = 2; // "ALL" | "ANY"
+  bool   reminder_enabled     = 3;
+  int32  reminder_after_days  = 4;
+  repeated ProbationEvaluator evaluators = 5;
+}
+
+message ProbationEvaluator {
+  string evaluator_type  = 1; // "EMPLOYEE" | "ROLE"
+  string evaluator_ref_id = 2; // employee id or role id
+  string evaluator_name  = 3;
+}
+
+message EmployeeCategoryCategory {
+  string id   = 1;
+  string name = 2;
+}
+
+message ProbationPolicyResponse {
+  ProbationPolicy policy = 1;
+}
+
+message ListProbationPoliciesRequest {
+  string organization_id = 1;
+  bool   only_active     = 2;
+  // Optional filter: "PROBATION" | "INTERNSHIP" | "TRAINEE" | "CONTRACT" (empty = all)
+  string policy_type     = 3;
+}
+
+message ListProbationPoliciesResponse {
+  repeated ProbationPolicy policies = 1;
+}

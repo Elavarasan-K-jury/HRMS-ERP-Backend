@@ -118,6 +118,10 @@ message CreateOrganizationRequest {
   int32 max_payroll_runs_per_month = 14;
   int32 max_leave_policies = 15;
   int32 max_admin_accounts = 16;
+
+  // 🔐 Org admin login credentials (OTP-based)
+  string admin_email = 17;
+  string admin_phone = 18;
 }
 
 // =============================
@@ -154,6 +158,10 @@ message Organization {
 
   string plan_id = 21;
   string plan_duration = 22;
+
+  // 🔐 Org admin login credentials (OTP-based)
+  string admin_email = 23;
+  string admin_phone = 24;
 }
 
 // =============================
@@ -209,6 +217,10 @@ message UpdateOrganizationRequest {
   int32 max_payroll_runs_per_month = 15;
   int32 max_leave_policies = 16;
   int32 max_admin_accounts = 17;
+
+  // 🔐 Org admin login credentials (OTP-based)
+  string admin_email = 18;
+  string admin_phone = 19;
 }
 
 // =============================

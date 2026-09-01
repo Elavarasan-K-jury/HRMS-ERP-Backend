@@ -16,44 +16,28 @@ service EmployeeCategoryService {
 message CreateEmployeeCategoryRequest {
   string organization_id       = 1;
   string name                  = 2;
-  string code                  = 3;
-  string description           = 4;
-  string id_prefix             = 5;
-  bool   is_permanent          = 6;
-  bool   benefits_applicable   = 7;
-  bool   is_active             = 8;
-  bool   training_required     = 9;
-  int32  training_months       = 10;
-  bool   probation_required    = 11;
-  int32  probation_months      = 12;
-  bool   notice_required       = 13;
-  int32  notice_months         = 14;
+  string description           = 3;
+  bool   is_active             = 4;
+  string employment_type       = 5; // "PROBATION" | "INTERNSHIP" | "TRAINEE" | "CONTRACT" | "PERMANENT"
 }
 
 message GetEmployeeCategoryRequest {
   string id = 1;
+  string organization_id = 2;
 }
 
 message UpdateEmployeeCategoryRequest {
   string id                    = 1;
   string organization_id       = 2;
   string name                  = 3;
-  string code                  = 4;
-  string description           = 5;
-  string id_prefix             = 6;
-  bool   is_permanent          = 7;
-  bool   benefits_applicable   = 8;
-  bool   is_active             = 9;
-  bool   training_required     = 10;
-  int32  training_months       = 11;
-  bool   probation_required    = 12;
-  int32  probation_months      = 13;
-  bool   notice_required       = 14;
-  int32  notice_months         = 15;
+  string description           = 4;
+  bool   is_active             = 5;
+  string employment_type       = 6; // "PROBATION" | "INTERNSHIP" | "TRAINEE" | "CONTRACT" | "PERMANENT"
 }
 
 message DeleteEmployeeCategoryRequest {
   string id = 1;
+  string organization_id = 2;
 }
 
 message DeleteEmployeeCategoryResponse {
@@ -65,23 +49,13 @@ message EmployeeCategory {
   string id                    = 1;
   string organization_id       = 2;
   string name                  = 3;
-  string code                  = 4;
-  string description           = 5;
-  string id_prefix             = 6;
-  bool   is_permanent          = 7;
-  bool   benefits_applicable   = 8;
-  string onboarding_workflow   = 9;
-  bool   is_active             = 10;
-  bool   training_required     = 11;
-  int32  training_months       = 12;
-  bool   probation_required    = 13;
-  int32  probation_months      = 14;
-  bool   notice_required       = 15;
-  int32  notice_months         = 16;
-  string created_at            = 17;
-  string updated_at            = 18;
-  string deleted_at            = 19;
-  optional Organization organization         = 20;
+  string description           = 4;
+  bool   is_active             = 5;
+  string created_at            = 6;
+  string updated_at            = 7;
+  string deleted_at            = 8;
+  optional Organization organization         = 9;
+  string employment_type       = 10; // "PROBATION" | "INTERNSHIP" | "TRAINEE" | "CONTRACT" | "PERMANENT"
 }
 
 message Organization {

@@ -1,0 +1,757 @@
+syntax = "proto3";
+
+package employee_document;
+
+service EmployeeDocumentService {
+  rpc CreateFolder (CreateFolderRequest) returns (FolderResponse);
+  rpc ListFolders (ListFoldersRequest) returns (ListFoldersResponse);
+  rpc GetFolder (GetFolderRequest) returns (FolderResponse);
+  rpc UpdateFolder (UpdateFolderRequest) returns (FolderResponse);
+  rpc DeleteFolder (DeleteFolderRequest) returns (DeleteFolderResponse);
+
+  rpc CreateDocumentType (CreateDocumentTypeRequest) returns (DocumentTypeResponse);
+  rpc ListDocumentTypes (ListDocumentTypesRequest) returns (ListDocumentTypesResponse);
+  rpc GetDocumentType (GetDocumentTypeRequest) returns (DocumentTypeResponse);
+  rpc UpdateDocumentType (UpdateDocumentTypeRequest) returns (DocumentTypeResponse);
+  rpc DeleteDocumentType (DeleteDocumentTypeRequest) returns (DeleteDocumentTypeResponse);
+
+  rpc CreateDocumentField (CreateDocumentFieldRequest) returns (DocumentFieldResponse);
+  rpc ListDocumentFields (ListDocumentFieldsRequest) returns (ListDocumentFieldsResponse);
+  rpc GetDocumentField (GetDocumentFieldRequest) returns (DocumentFieldResponse);
+  rpc UpdateDocumentField (UpdateDocumentFieldRequest) returns (DocumentFieldResponse);
+  rpc DeleteDocumentField (DeleteDocumentFieldRequest) returns (DeleteDocumentFieldResponse);
+
+  rpc AssignDocument (AssignDocumentRequest) returns (AssignmentResponse);
+  rpc AssignDocuments (AssignDocumentsRequest) returns (AssignDocumentsResponse);
+  rpc BulkAssignDocuments (BulkAssignDocumentsRequest) returns (BulkAssignDocumentsResponse);
+  rpc ListEmployeeAssignments (ListEmployeeAssignmentsRequest) returns (ListEmployeeAssignmentsResponse);
+  rpc ListDocumentAssignments (ListDocumentAssignmentsRequest) returns (ListDocumentAssignmentsResponse);
+  rpc GetAssignment (GetAssignmentRequest) returns (AssignmentResponse);
+  rpc UnassignDocument (UnassignDocumentRequest) returns (UnassignDocumentResponse);
+  rpc ListPendingEmployeeDocuments (ListPendingEmployeeDocumentsRequest) returns (ListPendingEmployeeDocumentsResponse);
+
+  rpc SubmitDocument (SubmitDocumentRequest) returns (SubmissionResponse);
+  rpc GetSubmission (GetSubmissionRequest) returns (SubmissionResponse);
+  rpc ListEmployeeSubmissions (ListEmployeeSubmissionsRequest) returns (ListEmployeeSubmissionsResponse);
+  rpc ListAssignmentSubmissions (ListAssignmentSubmissionsRequest) returns (ListAssignmentSubmissionsResponse);
+  rpc DeleteSubmission (DeleteSubmissionRequest) returns (DeleteSubmissionResponse);
+
+  rpc ListPendingVerificationDocuments (ListPendingVerificationDocumentsRequest) returns (ListPendingVerificationDocumentsResponse);
+  rpc VerifySubmission (VerifySubmissionRequest) returns (SubmissionResponse);
+  rpc RejectSubmission (RejectSubmissionRequest) returns (SubmissionResponse);
+  rpc ListVerifiedDocuments (ListVerifiedDocumentsRequest) returns (ListVerifiedDocumentsResponse);
+  rpc ListExpiringDocuments (ListExpiringDocumentsRequest) returns (ListExpiringDocumentsResponse);
+  rpc RenewDocument (RenewDocumentRequest) returns (SubmissionResponse);
+}
+
+message DocumentField {
+  string id = 1;
+  string document_type_id = 2;
+  string label = 3;
+  string key = 4;
+  string field_type = 5; // TEXTBOX | NUMBER | DATE | TEXTAREA | DROPDOWN | FILE
+  string options = 6;    // JSON string
+  bool is_mandatory = 7;
+  int32 display_order = 8;
+  string created_at = 9;
+  string updated_at = 10;
+}
+
+message EmployeeDocumentType {
+  string id = 1;
+  string folder_id = 2;
+  string name = 3;
+  string description = 4;
+  bool is_multiple = 5;
+  bool is_mandatory = 6;
+  bool is_appliable_na = 7;
+  bool is_file_upload_enabled = 8;
+  bool is_verification_required = 9;
+  bool ask_expiry_date = 10;
+  int32 expiry_days = 11;
+  string expiry_period = 12; // DAY | WEEK | MONTH | YEAR
+  bool all_countries = 13;
+  repeated string allowed_countries = 14;
+  int32 display_order = 15;
+  bool is_active = 16;
+  string created_by_id = 17;
+  string updated_by_id = 18;
+  string created_at = 19;
+  string updated_at = 20;
+  int32 field_count = 21;
+  int32 assignment_count = 22;
+  repeated DocumentField fields = 23;
+}
+
+message EmployeeDocumentFolder {
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  string description = 4;
+  bool is_confidential = 5;
+  bool is_active = 6;
+  string permissions = 7; // JSON string
+  string created_by_id = 8;
+  string updated_by_id = 9;
+  string created_at = 10;
+  string updated_at = 11;
+  int32 document_type_count = 12;
+}
+
+message CreateFolderRequest {
+  string organization_id = 1;
+  string name = 2;
+  string description = 3;
+  bool is_confidential = 4;
+  bool is_active = 5;
+  string permissions = 6; // JSON string
+  string created_by_id = 7;
+}
+
+message GetFolderRequest {
+  string folder_id = 1;
+  string organization_id = 2;
+}
+
+message ListFoldersRequest {
+  string organization_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  string search = 4;
+  string sort_by = 5;
+  string sort_order = 6;
+}
+
+message UpdateFolderRequest {
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  string description = 4;
+  bool is_confidential = 5;
+  bool is_active = 6;
+  string permissions = 7; // JSON string
+  string updated_by_id = 8;
+}
+
+message DeleteFolderRequest {
+  string folder_id = 1;
+  string organization_id = 2;
+}
+
+message FolderResponse {
+  EmployeeDocumentFolder folder = 1;
+  string message = 2;
+  bool success = 3;
+}
+
+message ListFoldersResponse {
+  repeated EmployeeDocumentFolder folders = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  bool success = 6;
+  string message = 7;
+}
+
+message DeleteFolderResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message CreateDocumentTypeRequest {
+  string organization_id = 1;
+  string folder_id = 2;
+  string name = 3;
+  string description = 4;
+  bool is_multiple = 5;
+  bool is_mandatory = 6;
+  bool is_appliable_na = 7;
+  bool is_file_upload_enabled = 8;
+  bool is_verification_required = 9;
+  bool ask_expiry_date = 10;
+  int32 expiry_days = 11;
+  string expiry_period = 12;
+  bool all_countries = 13;
+  repeated string allowed_countries = 14;
+  int32 display_order = 15;
+  bool is_active = 16;
+  string created_by_id = 17;
+}
+
+message GetDocumentTypeRequest {
+  string organization_id = 1;
+  string folder_id = 2;
+  string document_type_id = 3;
+}
+
+message ListDocumentTypesRequest {
+  string organization_id = 1;
+  string folder_id = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  string search = 5;
+  string sort_by = 6;
+  string sort_order = 7;
+}
+
+message UpdateDocumentTypeRequest {
+  string id = 1;
+  string organization_id = 2;
+  string folder_id = 3;
+  string name = 4;
+  string description = 5;
+  bool is_multiple = 6;
+  bool is_mandatory = 7;
+  bool is_appliable_na = 8;
+  bool is_file_upload_enabled = 9;
+  bool is_verification_required = 10;
+  bool ask_expiry_date = 11;
+  int32 expiry_days = 12;
+  string expiry_period = 13;
+  bool all_countries = 14;
+  repeated string allowed_countries = 15;
+  int32 display_order = 16;
+  bool is_active = 17;
+  string updated_by_id = 18;
+}
+
+message DeleteDocumentTypeRequest {
+  string organization_id = 1;
+  string folder_id = 2;
+  string document_type_id = 3;
+}
+
+message DocumentTypeResponse {
+  EmployeeDocumentType document_type = 1;
+  string message = 2;
+  bool success = 3;
+}
+
+message ListDocumentTypesResponse {
+  repeated EmployeeDocumentType document_types = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  bool success = 6;
+  string message = 7;
+}
+
+message DeleteDocumentTypeResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message CreateDocumentFieldRequest {
+  string organization_id = 1;
+  string document_type_id = 2;
+  string label = 3;
+  string key = 4;
+  string field_type = 5;
+  string options = 6; // JSON string
+  bool is_mandatory = 7;
+  int32 display_order = 8;
+}
+
+message GetDocumentFieldRequest {
+  string organization_id = 1;
+  string document_type_id = 2;
+  string field_id = 3;
+}
+
+message ListDocumentFieldsRequest {
+  string organization_id = 1;
+  string document_type_id = 2;
+}
+
+message UpdateDocumentFieldRequest {
+  string id = 1;
+  string organization_id = 2;
+  string document_type_id = 3;
+  string label = 4;
+  string key = 5;
+  string field_type = 6;
+  string options = 7; // JSON string
+  bool is_mandatory = 8;
+  int32 display_order = 9;
+}
+
+message DeleteDocumentFieldRequest {
+  string organization_id = 1;
+  string document_type_id = 2;
+  string field_id = 3;
+}
+
+message DocumentFieldResponse {
+  DocumentField field = 1;
+  string message = 2;
+  bool success = 3;
+}
+
+message ListDocumentFieldsResponse {
+  repeated DocumentField fields = 1;
+  int32 total = 2;
+  bool success = 3;
+  string message = 4;
+}
+
+message DeleteDocumentFieldResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message EmployeeDocumentAssignmentItem {
+  string id = 1;
+  string organization_id = 2;
+  string employee_id = 3;
+  string document_type_id = 4;
+  string assigned_by_id = 5;
+  string assigned_at = 6;
+  string status = 7;
+  string created_at = 8;
+  string updated_at = 9;
+
+  // Enriched
+  string employee_name = 10;
+  string employee_code = 11;
+  string department = 12;
+  string designation = 13;
+  string document_type_name = 14;
+  string folder_id = 15;
+  string folder_name = 16;
+  bool document_is_mandatory = 17;
+  bool document_is_multiple = 18;
+  bool document_is_verification_required = 19;
+}
+
+message AssignDocumentRequest {
+  string organization_id = 1;
+  string employee_id = 2;
+  string document_type_id = 3;
+  string assigned_by_id = 4;
+}
+
+message AssignDocumentsRequest {
+  string organization_id = 1;
+  string employee_id = 2;
+  repeated string document_type_ids = 3;
+  string assigned_by_id = 4;
+}
+
+message AssignmentResponse {
+  EmployeeDocumentAssignmentItem assignment = 1;
+  string message = 2;
+  bool success = 3;
+}
+
+message AssignDocumentsResponse {
+  int32 assigned_count = 1;
+  int32 already_assigned_count = 2;
+  int32 failed_count = 3;
+  repeated string already_assigned = 4;
+  repeated string failed = 5;
+  bool success = 6;
+  string message = 7;
+}
+
+message BulkAssignDocumentsRequest {
+  string organization_id = 1;
+  repeated string employee_ids = 2;
+  repeated string document_type_ids = 3;
+  string assigned_by_id = 4;
+}
+
+message BulkAssignDocumentsResponse {
+  int32 total_requested = 1;
+  int32 assigned_count = 2;
+  int32 already_assigned_count = 3;
+  int32 failed_count = 4;
+  bool success = 5;
+  string message = 6;
+}
+
+message ListEmployeeAssignmentsRequest {
+  string organization_id = 1;
+  string employee_id = 2;
+}
+
+message ListEmployeeAssignmentsResponse {
+  repeated EmployeeDocumentAssignmentItem assignments = 1;
+  int32 total = 2;
+  bool success = 3;
+  string message = 4;
+}
+
+message ListDocumentAssignmentsRequest {
+  string organization_id = 1;
+  string document_type_id = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  string search = 5;
+  string sort_by = 6;
+  string sort_order = 7;
+}
+
+message ListDocumentAssignmentsResponse {
+  repeated EmployeeDocumentAssignmentItem assignments = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  bool success = 6;
+  string message = 7;
+}
+
+message GetAssignmentRequest {
+  string organization_id = 1;
+  string assignment_id = 2;
+}
+
+message UnassignDocumentRequest {
+  string organization_id = 1;
+  string assignment_id = 2;
+}
+
+message UnassignDocumentResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message PendingEmployeeDocument {
+  string assignment_id = 1;
+  string employee_id = 2;
+  string employee_name = 3;
+  string employee_code = 4;
+  string designation = 5;
+  string department = 6;
+  string folder_id = 7;
+  string folder_name = 8;
+  string document_type_id = 9;
+  string document_type_name = 10;
+  bool document_is_mandatory = 11;
+  bool document_is_multiple = 12;
+  bool document_is_appliable_na = 13;
+  bool document_is_verification_required = 14;
+  bool document_ask_expiry_date = 15;
+  string assignment_status = 16;
+  string assigned_at = 17;
+  string assigned_by_id = 18;
+}
+
+message ListPendingEmployeeDocumentsRequest {
+  string organization_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  string search = 4;
+  string sort_by = 5;
+  string sort_order = 6;
+  string employee_id = 7;
+  string folder_id = 8;
+  string document_type_id = 9;
+}
+
+message ListPendingEmployeeDocumentsResponse {
+  repeated PendingEmployeeDocument pending_documents = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  int32 total_pending_employees = 6;
+  int32 total_pending_documents = 7;
+  bool success = 8;
+  string message = 9;
+}
+
+message Submission {
+  string id = 1;
+  string organization_id = 2;
+  string assignment_id = 3;
+  string employee_id = 4;
+  string document_type_id = 5;
+  string file_id = 6;
+  string storage_key = 7;
+  string file_name = 8;
+  string file_type = 9;
+  string file_url = 10;
+  string field_values = 11; // JSON string
+  bool is_na = 12;
+  string status = 13;
+  string submitted_by_id = 14;
+  string submitted_at = 15;
+  string expiry_date = 16;
+  string created_at = 17;
+  string updated_at = 18;
+  string employee_name = 19;
+  string employee_code = 20;
+  string document_type_name = 21;
+  string folder_id = 22;
+  string folder_name = 23;
+  string submitted_by_name = 24;
+  repeated DocumentField fields = 25;
+  string verified_by_id = 26;
+  string verified_at = 27;
+  string verified_by_name = 28;
+  string rejected_by_id = 29;
+  string rejected_at = 30;
+  string rejection_reason = 31;
+  bool document_is_multiple = 32;
+  int32 submission_count = 33;
+  string replaced_by_submission_id = 34;
+  bool is_current = 35;
+}
+
+message SubmitDocumentRequest {
+  string organization_id = 1;
+  string assignment_id = 2;
+  string employee_id = 3;
+  string document_type_id = 4;
+  string submitted_by_id = 5;
+  bool is_na = 6;
+  string expiry_date = 7;
+  string field_values = 8; // JSON string
+  bytes file_buffer = 9;
+  string file_name = 10;
+  string file_type = 11;
+}
+
+message GetSubmissionRequest {
+  string organization_id = 1;
+  string submission_id = 2;
+}
+
+message ListEmployeeSubmissionsRequest {
+  string organization_id = 1;
+  string employee_id = 2;
+  int32 page = 3;
+  int32 limit = 4;
+}
+
+message ListAssignmentSubmissionsRequest {
+  string organization_id = 1;
+  string assignment_id = 2;
+}
+
+message SubmissionResponse {
+  Submission submission = 1;
+  string message = 2;
+  bool success = 3;
+}
+
+message ListEmployeeSubmissionsResponse {
+  repeated Submission submissions = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  bool success = 6;
+  string message = 7;
+}
+
+message ListAssignmentSubmissionsResponse {
+  repeated Submission submissions = 1;
+  int32 total = 2;
+  bool success = 3;
+  string message = 4;
+}
+
+message DeleteSubmissionRequest {
+  string organization_id = 1;
+  string submission_id = 2;
+}
+
+message DeleteSubmissionResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message PendingVerificationDocument {
+  string submission_id = 1;
+  string assignment_id = 2;
+  string employee_id = 3;
+  string employee_name = 4;
+  string employee_code = 5;
+  string designation = 6;
+  string department = 7;
+  string folder_id = 8;
+  string folder_name = 9;
+  string document_type_id = 10;
+  string document_type_name = 11;
+  string status = 12;
+  string submitted_at = 13;
+  string submitted_by_id = 14;
+  string submitted_by_name = 15;
+  string file_id = 16;
+  string file_name = 17;
+  string file_type = 18;
+  string file_url = 19;
+  string field_values = 20; // JSON string
+  bool is_na = 21;
+  string expiry_date = 22;
+  bool document_ask_expiry_date = 23;
+  string replaced_by_submission_id = 24;
+  bool is_current = 25;
+}
+
+message ListPendingVerificationDocumentsRequest {
+  string organization_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  string search = 4;
+  string sort_by = 5;
+  string sort_order = 6;
+  string employee_id = 7;
+  string folder_id = 8;
+  string document_type_id = 9;
+}
+
+message ListPendingVerificationDocumentsResponse {
+  repeated PendingVerificationDocument pending_verification_documents = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  int32 total_pending_verification_employees = 6;
+  int32 total_pending_verification_documents = 7;
+  bool success = 8;
+  string message = 9;
+}
+
+message VerifySubmissionRequest {
+  string organization_id = 1;
+  string submission_id = 2;
+  string verified_by_id = 3;
+}
+
+message RejectSubmissionRequest {
+  string organization_id = 1;
+  string submission_id = 2;
+  string rejection_reason = 3;
+  string rejected_by_id = 4;
+}
+
+message VerifiedDocument {
+  string submission_id = 1;
+  string assignment_id = 2;
+  string employee_id = 3;
+  string employee_name = 4;
+  string employee_code = 5;
+  string designation = 6;
+  string department = 7;
+  string folder_id = 8;
+  string folder_name = 9;
+  string document_type_id = 10;
+  string document_type_name = 11;
+  string status = 12;
+  string submitted_at = 13;
+  string submitted_by_id = 14;
+  string submitted_by_name = 15;
+  string verified_at = 16;
+  string verified_by_id = 17;
+  string verified_by_name = 18;
+  string file_id = 19;
+  string file_name = 20;
+  string file_type = 21;
+  string file_url = 22;
+  string field_values = 23; // JSON string
+  bool is_na = 24;
+  string expiry_date = 25;
+  bool document_is_multiple = 26;
+  int32 submission_count = 27;
+  string replaced_by_submission_id = 28;
+  bool is_current = 29;
+}
+
+message ListVerifiedDocumentsRequest {
+  string organization_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  string search = 4;
+  string sort_by = 5;
+  string sort_order = 6;
+  string employee_id = 7;
+  string folder_id = 8;
+  string document_type_id = 9;
+}
+
+message ListVerifiedDocumentsResponse {
+  repeated VerifiedDocument verified_documents = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  int32 total_verified_employees = 6;
+  int32 total_verified_documents = 7;
+  bool success = 8;
+  string message = 9;
+}
+
+message ExpiringDocument {
+  string submission_id = 1;
+  string assignment_id = 2;
+  string employee_id = 3;
+  string employee_name = 4;
+  string employee_code = 5;
+  string designation = 6;
+  string department = 7;
+  string folder_id = 8;
+  string folder_name = 9;
+  string document_type_id = 10;
+  string document_type_name = 11;
+  string status = 12;
+  string submitted_at = 13;
+  string submitted_by_id = 14;
+  string submitted_by_name = 15;
+  string verified_at = 16;
+  string verified_by_id = 17;
+  string verified_by_name = 18;
+  string file_id = 19;
+  string file_name = 20;
+  string file_type = 21;
+  string file_url = 22;
+  string field_values = 23; // JSON string
+  bool is_na = 24;
+  string expiry_date = 25;
+  int32 days_left = 26;
+  string expiry_state = 27; // UPCOMING | TODAY | EXPIRED
+  bool document_is_multiple = 28;
+  string replaced_by_submission_id = 29;
+  bool is_current = 30;
+}
+
+message ListExpiringDocumentsRequest {
+  string organization_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  string search = 4;
+  string sort_by = 5;
+  string sort_order = 6;
+  string employee_id = 7;
+  string folder_id = 8;
+  string document_type_id = 9;
+  int32 days = 10; // expiry window (future days); expired docs always included when expiryDate <= today+days
+}
+
+message ListExpiringDocumentsResponse {
+  repeated ExpiringDocument expiring_documents = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  int32 total_expiring_employees = 6;
+  int32 total_expiring_documents = 7;
+  bool success = 8;
+  string message = 9;
+}
+
+message RenewDocumentRequest {
+  string organization_id = 1;
+  string submission_id = 2;
+  string submitted_by_id = 3;
+  bool is_na = 4;
+  string expiry_date = 5;
+  string field_values = 6; // JSON string
+  bytes file_buffer = 7;
+  string file_name = 8;
+  string file_type = 9;
+}

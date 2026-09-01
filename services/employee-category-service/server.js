@@ -12,7 +12,7 @@ const impl = {
             const data = call.request;
 
             const existing = await prisma.employeeCategories.findFirst({
-                where: { name: data.name },
+                where: { name: data.name, organizationId: data.organization_id },
             });
 
             if (existing && existing.deletedAt === null) {
@@ -36,18 +36,9 @@ const impl = {
             const mappedData = {
                 organizationId: data.organization_id,
                 name: data.name,
-                code: data.code ?? null,
                 description: data.description ?? null,
-                idPrefix: data.id_prefix ?? null,
-                isPermanent: data.is_permanent,
-                benefitsApplicable: data.benefits_applicable,
                 isActive: data.is_active,
-                trainingRequired: data.training_required,
-                trainingMonths: data.training_months,
-                probationRequired: data.probation_required,
-                probationMonths: data.probation_months,
-                noticeRequired: data.notice_required,
-                noticeMonths: data.notice_months,
+                employmentType: data.employment_type || 'PROBATION',
                 createdAt: new Date(),
                 updatedAt: new Date(),
                 deletedAt: null,
@@ -79,7 +70,7 @@ const impl = {
 
     GetEmployeeCategory: async (call, callback) => {
         try {
-            const { id } = call.request;
+            const { id, organization_id } = call.request;
 
             if (!/^[0-9a-fA-F]{24}$/.test(id)) {
                 return callback({
@@ -88,8 +79,12 @@ const impl = {
                 });
             }
 
-            const category = await prisma.employeeCategories.findUnique({
-                where: { id, deletedAt: null },
+            const where = organization_id
+                ? { id, organizationId: organization_id, deletedAt: null }
+                : { id, deletedAt: null };
+
+            const category = await prisma.employeeCategories.findFirst({
+                where,
                 include: {
                     organization: true,
                 },
@@ -136,7 +131,7 @@ const impl = {
             const categories = await prisma.employeeCategories.findMany({
                 where,
                 include: {
-                    organization: true
+                    organization: true,
                 },
                 orderBy: {
                     createdAt: 'desc',
@@ -190,18 +185,12 @@ const impl = {
             if (search) {
                 where = {
                     ...where,
-                    OR: [
-                        { name: { contains: search, mode: 'insensitive' } },
-                        { code: { contains: search, mode: 'insensitive' } },
-                        { idPrefix: { contains: search, mode: 'insensitive' } },
-                    ],
+                    name: { contains: search, mode: 'insensitive' },
                 }
             }
 
             const validSortFields = {
                 name: 'name',
-                code: 'code',
-                idPrefix: 'idPrefix',
                 createdAt: 'createdAt',
                 updatedAt: 'updatedAt',
             };
@@ -219,7 +208,7 @@ const impl = {
                 orderBy: { [orderByField]: order },
                 ...paginate,
                 include: {
-                    organization: true
+                    organization: true,
                 }
             });
 
@@ -264,22 +253,24 @@ const impl = {
                 });
             }
 
+            const categoryInOrg = await prisma.employeeCategories.findFirst({
+                where: { id: data.id, organizationId: data.organization_id, deletedAt: null },
+            });
+
+            if (!categoryInOrg) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Employee category not found',
+                });
+            }
+
             const updated = await prisma.employeeCategories.update({
                 where: { id: data.id },
                 data: {
                     name: data.name,
-                    code: data.code ?? null,
                     description: data.description ?? null,
-                    idPrefix: data.id_prefix ?? null,
-                    isPermanent: data.is_permanent,
-                    benefitsApplicable: data.benefits_applicable,
                     isActive: data.is_active,
-                    trainingRequired: data.training_required,
-                    trainingMonths: data.training_months,
-                    probationRequired: data.probation_required,
-                    probationMonths: data.probation_months,
-                    noticeRequired: data.notice_required,
-                    noticeMonths: data.notice_months,
+                    employmentType: data.employment_type || undefined,
                     updatedAt: new Date(),
                 },
             });
@@ -300,11 +291,24 @@ const impl = {
 
     DeleteEmployeeCategory: async (call, callback) => {
         try {
-            const { id } = call.request;
+            const { id, organization_id } = call.request;
             if (!/^[0-9a-fA-F]{24}$/.test(id)) {
                 return callback({
                     code: grpc.status.INVALID_ARGUMENT,
                     message: 'Invalid category id',
+                });
+            }
+
+            const where = organization_id
+                ? { id, organizationId: organization_id, deletedAt: null }
+                : { id, deletedAt: null };
+
+            const category = await prisma.employeeCategories.findFirst({ where });
+
+            if (!category) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Employee category not found',
                 });
             }
 
@@ -362,19 +366,9 @@ function mapCategory(category) {
         organization_id: category.organizationId,
         organization: mapOrg(category.organization),
         name: category.name,
-        code: category.code ?? '',
         description: category.description ?? '',
-        id_prefix: category.idPrefix ?? '',
-        is_permanent: category.isPermanent,
-        benefits_applicable: category.benefitsApplicable,
-        onboarding_workflow: category.onboardingWorkflow ?? '',
         is_active: category.isActive,
-        training_required: category.trainingRequired,
-        training_months: category.trainingMonths,
-        probation_required: category.probationRequired,
-        probation_months: category.probationMonths,
-        notice_required: category.noticeRequired,
-        notice_months: category.noticeMonths,
+        employment_type: category.employmentType ?? 'PROBATION',
         created_at: formatDate(category.createdAt),
         updated_at: formatDate(category.updatedAt),
         deleted_at: formatDate(category.deletedAt),

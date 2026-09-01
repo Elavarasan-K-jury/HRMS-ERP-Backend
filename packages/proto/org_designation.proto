@@ -23,6 +23,7 @@ message CreateDesignationRequest {
   string name            = 3;
   string level           = 4;  // optional
   string description     = 5;  // optional
+  string band_id         = 6;  // optional
 }
 
 message GetDesignationRequest {
@@ -36,6 +37,7 @@ message UpdateDesignationRequest {
   string name            = 4;
   string level           = 5;
   string description     = 6;
+  string band_id         = 7;  // optional
 }
 
 message DeleteDesignationRequest {
@@ -64,9 +66,11 @@ message ListAllDesignationsRequest {
 // Base Designation Message
 // ------------------------------
 message DesignationOnly {
-  string id              = 1;
-  string name            = 2;
-  string level           = 3;
+  string id          = 1;
+  string name        = 2;
+  string level       = 3;
+  string band_id     = 4;
+  string band_name   = 5;
 }
 
 message Designation {
@@ -85,6 +89,18 @@ message Designation {
   Department department = 11;
   repeated Employee employees = 12;
   int32 employee_count = 13;
+  string band_id = 14;
+  Band band = 15;
+}
+
+// ------------------------------
+// Band Message
+// ------------------------------
+message Band {
+  string id          = 1;
+  string name        = 2;
+  string description = 3;
+  int32  order       = 4;
 }
 
 
@@ -131,17 +147,18 @@ message Employee {
   string organization_id = 2;
   string category_id     = 3;
   string designation_id  = 4;
-  string first_name      = 5;
-  string last_name       = 6;
-  string full_name       = 7;
-  string email           = 8;
-  string phone           = 9;
-  string alt_phone       = 10;
-  string gender          = 11;
-  string date_of_birth   = 12;
-  string created_at      = 13;
-  string updated_at      = 14;
-  string deleted_at      = 15;
+  string employee_code   = 5;
+  string first_name      = 6;
+  string last_name       = 7;
+  string full_name       = 8;
+  string email           = 9;
+  string phone           = 10;
+  string alt_phone       = 11;
+  string gender          = 12;
+  string date_of_birth   = 13;
+  string created_at      = 14;
+  string updated_at      = 15;
+  string deleted_at      = 16;
 }
 
 message DesignationResponse {

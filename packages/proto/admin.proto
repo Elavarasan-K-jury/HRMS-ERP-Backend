@@ -16,6 +16,48 @@ service AdminService {
   rpc ListAdmins      (ListAdminsRequest)      returns (ListAdminsResponse);
   rpc DeleteAdmin     (DeleteAdminRequest)     returns (DeleteAdminResponse);
 
+  // RBAC — Roles
+  rpc CreateRole      (CreateRoleRequest)      returns (RoleResponse);
+  rpc UpdateRole      (UpdateRoleRequest)      returns (RoleResponse);
+  rpc GetRole         (GetRoleRequest)         returns (RoleResponse);
+  rpc ListRoles       (ListRolesRequest)       returns (ListRolesResponse);
+  rpc DeleteRole      (DeleteRoleRequest)      returns (DeleteRoleResponse);
+
+  // RBAC — Permissions
+  rpc ListPermissions (ListPermissionsRequest) returns (ListPermissionsResponse);
+
+  // RBAC — Modules
+  rpc ListModules   (ListModulesRequest)   returns (ListModulesResponse);
+  rpc CreateModule  (CreateModuleRequest)  returns (ModuleResponse);
+  rpc UpdateModule  (UpdateModuleRequest)  returns (ModuleResponse);
+  rpc DeleteModule  (DeleteModuleRequest)  returns (DeleteModuleResponse);
+
+  // RBAC — Role ↔ Permission
+  rpc AssignPermissionToRole   (AssignPermissionRequest)   returns (AssignPermissionResponse);
+  rpc RemovePermissionFromRole (RemovePermissionRequest)   returns (RemovePermissionResponse);
+  rpc ListRolePermissions      (ListRolePermissionsRequest) returns (ListRolePermissionsResponse);
+
+  // RBAC — Admin ↔ Role
+  rpc AssignRole       (AssignAdminRoleRequest)   returns (AssignAdminRoleResponse);
+  rpc UnassignRole     (UnassignAdminRoleRequest)  returns (UnassignAdminRoleResponse);
+  rpc ListAdminRoles   (ListAdminRolesRequest)    returns (ListAdminRolesResponse);
+  rpc ListRoleAdmins   (ListRoleAdminsRequest)    returns (ListRoleAdminsResponse);
+
+  // RBAC — Employee ↔ Role
+  rpc AssignEmployeeRole     (AssignEmployeeRoleRequest)   returns (AssignEmployeeRoleResponse);
+  rpc UnassignEmployeeRole   (UnassignEmployeeRoleRequest)  returns (UnassignEmployeeRoleResponse);
+  rpc ListRoleEmployees      (ListRoleEmployeesRequest)     returns (ListRoleEmployeesResponse);
+  rpc ListEmployeeRoles      (ListEmployeeRolesRequest)     returns (ListEmployeeRolesResponse);
+
+  // RBAC — Resolve effective permissions
+  rpc GetAdminPermissions (GetAdminPermissionsRequest) returns (GetAdminPermissionsResponse);
+
+  // Audit Log
+  rpc ListAuditLogs   (ListAuditLogsRequest)   returns (ListAuditLogsResponse);
+
+  // System Config
+  rpc GetSystemConfig   (GetSystemConfigRequest)   returns (GetSystemConfigResponse);
+  rpc UpdateSystemConfig (UpdateSystemConfigRequest) returns (UpdateSystemConfigResponse);
 }
 
 // ========== Auth ==========
@@ -30,6 +72,7 @@ message RequestLoginOtpRequest {
 message RequestLoginOtpResponse {
   string message = 1; // "OTP sent to registered email"
   string success = 2;
+  string authentication_type = 3; // Basic (email) or Mobile OTP (phone)
 }
 
 message VerifyLoginOtpRequest {
@@ -49,6 +92,7 @@ message AuthResponse {
     string expires_in = 4; // seconds for access token
     Admin admin = 5;
     string success = 6;
+    string authentication_type = 7; // Basic (email) or Mobile OTP (phone)
 }
 
 // ========== Admin ==========
@@ -60,6 +104,7 @@ message Admin {
     string created_at = 4;
     string updated_at = 5;
     string deleted_at = 6;
+    bool is_super_admin = 7;
 }
 
 message CreateAdminRequest {
@@ -71,6 +116,7 @@ message UpdateAdminRequest {
     string id = 1;
     string email = 2;
     string phone = 3;
+    bool is_super_admin = 4;
 }
 
 message GetAdminRequest { string id = 1; }
@@ -81,6 +127,7 @@ message ListAdminsRequest {
     string search = 3; // optional: email/phone contains
     string sort_by = 4; // email, phone, created_at
     string sort_order = 5; // asc|desc
+    string organization_id = 6; // optional: only admins belonging to this org
 }
 
 message ListAdminsResponse {
@@ -113,4 +160,375 @@ message VerifyTokenResponse {
   string success = 7;    // true/false
   string message = 8;    // Status message
   string user = 9;      // Token scope
+  string authentication_type = 10;
+}
+
+// ========== RBAC — Roles ==========
+
+message Role {
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  string description = 4;
+  bool is_system = 5;
+  bool is_active = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+message CreateRoleRequest {
+  string organization_id = 1;
+  string name = 2;
+  string description = 3;
+}
+
+message UpdateRoleRequest {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  bool is_active = 4;
+}
+
+message GetRoleRequest {
+  string id = 1;
+}
+
+message ListRolesRequest {
+  string organization_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+}
+
+message ListRolesResponse {
+  repeated Role roles = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  string success = 6;
+  string message = 7;
+}
+
+message DeleteRoleRequest {
+  string id = 1;
+}
+
+message DeleteRoleResponse {
+  string success = 1;
+  string message = 2;
+}
+
+message RoleResponse {
+  Role role = 1;
+  string success = 2;
+  string message = 3;
+}
+
+// ========== RBAC — Permissions ==========
+
+message Permission {
+  string id = 1;
+  string key = 2;
+  string name = 3;
+  string group = 4;
+  string description = 5;
+  bool is_active = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+message ListPermissionsRequest {
+  string group = 1;          // optional filter
+  int32 page = 2;
+  int32 limit = 3;
+}
+
+message ListPermissionsResponse {
+  repeated Permission permissions = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  string success = 6;
+  string message = 7;
+}
+
+// ========== RBAC — Modules ==========
+
+message Module {
+  string id = 1;
+  string key = 2;
+  string name = 3;
+  string icon = 4;
+  string scope = 5;          // "super_admin" | "organization"
+  int32 sort_order = 6;
+  bool is_active = 7;
+  string created_at = 8;
+  string updated_at = 9;
+  string parent_id = 10;     // empty for top-level modules
+  repeated Module children = 11; // sub-modules (2 levels deep)
+  repeated string actions = 12; // permission actions enabled (create/view/edit/delete/manage)
+}
+
+message ListModulesRequest {
+  string scope = 1;          // optional filter: "super_admin" | "organization"
+  int32 page = 2;
+  int32 limit = 3;
+}
+
+message ListModulesResponse {
+  repeated Module modules = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  string success = 6;
+  string message = 7;
+}
+
+message CreateModuleRequest {
+  string key = 1;
+  string name = 2;
+  string icon = 3;
+  string scope = 4;
+  int32 sort_order = 5;
+  bool is_active = 6;
+  string parent_id = 7;
+  repeated string actions = 8; // permission actions to create (defaults to create/view/edit/delete/manage)
+}
+
+message UpdateModuleRequest {
+  string id = 1;
+  optional string key = 2;
+  optional string name = 3;
+  optional string icon = 4;
+  optional string scope = 5;
+  optional int32 sort_order = 6;
+  optional bool is_active = 7;
+  optional string parent_id = 8;
+  repeated string actions = 9; // new actions to keep (ignored unless reconcile_actions=true)
+  optional bool reconcile_actions = 10; // when true, actions becomes authoritative (adds missing, soft-deletes deselected)
+}
+
+message ModuleResponse {
+  Module module = 1;
+  string success = 2;
+  string message = 3;
+}
+
+message DeleteModuleRequest {
+  string id = 1;
+}
+
+message DeleteModuleResponse {
+  string success = 1;
+  string message = 2;
+}
+
+// ========== RBAC — Role ↔ Permission ==========
+
+message AssignPermissionRequest {
+  string role_id = 1;
+  string permission_id = 2;
+}
+
+message AssignPermissionResponse {
+  string success = 1;
+  string message = 2;
+}
+
+message RemovePermissionRequest {
+  string role_id = 1;
+  string permission_id = 2;
+}
+
+message RemovePermissionResponse {
+  string success = 1;
+  string message = 2;
+}
+
+message ListRolePermissionsRequest {
+  string role_id = 1;
+}
+
+message ListRolePermissionsResponse {
+  repeated string permission_ids = 1;
+  repeated Permission permissions = 2;
+  string success = 3;
+  string message = 4;
+}
+
+// ========== RBAC — Admin ↔ Role ==========
+
+message AssignAdminRoleRequest {
+  string admin_id = 1;
+  string role_id = 2;
+  string organization_id = 3;
+}
+
+message AssignAdminRoleResponse {
+  string success = 1;
+  string message = 2;
+}
+
+message UnassignAdminRoleRequest {
+  string admin_id = 1;
+  string role_id = 2;
+  string organization_id = 3;
+}
+
+message UnassignAdminRoleResponse {
+  string success = 1;
+  string message = 2;
+}
+
+message ListAdminRolesRequest {
+  string admin_id = 1;
+}
+
+message ListAdminRolesResponse {
+  repeated Role roles = 1;
+  string success = 2;
+  string message = 3;
+}
+
+message ListRoleAdminsRequest {
+  string role_id = 1;
+}
+
+message ListRoleAdminsResponse {
+  repeated Admin admins = 1;
+  string success = 2;
+  string message = 3;
+}
+
+// ========== RBAC — Employee ↔ Role ==========
+
+message AssignEmployeeRoleRequest {
+  string employee_id = 1;
+  string role_id = 2;
+  string organization_id = 3;
+}
+
+message AssignEmployeeRoleResponse {
+  string success = 1;
+  string message = 2;
+}
+
+message UnassignEmployeeRoleRequest {
+  string employee_id = 1;
+  string role_id = 2;
+  string organization_id = 3;
+}
+
+message UnassignEmployeeRoleResponse {
+  string success = 1;
+  string message = 2;
+}
+
+message ListRoleEmployeesRequest {
+  string role_id = 1;
+  string organization_id = 2;
+}
+
+message EmployeeRef {
+  string id = 1;
+  string organization_id = 2;
+  string email = 3;
+  string phone = 4;
+}
+
+message ListRoleEmployeesResponse {
+  repeated EmployeeRef employees = 1;
+  string success = 2;
+  string message = 3;
+}
+
+message ListEmployeeRolesRequest {
+  string employee_id = 1;
+  string organization_id = 2;
+}
+
+message ListEmployeeRolesResponse {
+  repeated Role roles = 1;
+  string success = 2;
+  string message = 3;
+}
+
+// ========== RBAC — Resolve Permissions ==========
+
+message GetAdminPermissionsRequest {
+  string admin_id = 1;
+}
+
+message GetAdminPermissionsResponse {
+  repeated string permission_keys = 1;
+  bool is_super_admin = 2;
+  string success = 3;
+  string message = 4;
+}
+
+// ========== Audit Log ==========
+
+message AuditLog {
+  string id = 1;
+  string admin_id = 2;
+  string organization_id = 3;
+  string action = 4;
+  string entity_type = 5;
+  string entity_id = 6;
+  string changes = 7;      // JSON string
+  string ip_address = 8;
+  string user_agent = 9;
+  string created_at = 10;
+}
+
+message ListAuditLogsRequest {
+  string admin_id = 1;          // optional filter
+  string organization_id = 2;   // optional filter
+  string action = 3;            // optional filter
+  string entity_type = 4;       // optional filter
+  string start_date = 5;        // ISO string
+  string end_date = 6;          // ISO string
+  int32 page = 7;
+  int32 limit = 8;
+}
+
+message ListAuditLogsResponse {
+  repeated AuditLog logs = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  string success = 6;
+  string message = 7;
+}
+
+// ========== System Config ==========
+
+message GetSystemConfigRequest {
+  string key = 1;
+}
+
+message GetSystemConfigResponse {
+  string key = 1;
+  string value = 2;        // JSON string
+  string description = 3;
+  string updated_by_id = 4;
+  string created_at = 5;
+  string updated_at = 6;
+  string success = 7;
+  string message = 8;
+}
+
+message UpdateSystemConfigRequest {
+  string key = 1;
+  string value = 2;        // JSON string
+  string description = 3;
+  string admin_id = 4;
+}
+
+message UpdateSystemConfigResponse {
+  string success = 1;
+  string message = 2;
 }

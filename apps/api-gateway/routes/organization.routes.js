@@ -49,6 +49,14 @@ export default function registerOrganizationRoutes({ openapi }) {
     const createOrgSchema = z.object({
         ...baseOrgSchema,
         ...orgPlanSchema,
+        // 🔐 Org admin OTP login credentials
+        admin_email: z
+            .string({ required_error: 'Admin email is required' })
+            .email('Invalid admin email format'),
+        admin_phone: z
+            .string()
+            .regex(/^$|^[0-9]{10}$/, 'Admin phone must be 10 digits')
+            .optional(),
     }).strict();
 
     openapi(
@@ -256,6 +264,12 @@ export default function registerOrganizationRoutes({ openapi }) {
         .object({
             ...baseOrgSchema,
             ...orgPlanSchema,
+            // 🔐 Org admin OTP login credentials (editable on update)
+            admin_email: z.string().email('Invalid admin email format').optional(),
+            admin_phone: z
+                .string()
+                .regex(/^$|^[0-9]{10}$/, 'Admin phone must be 10 digits')
+                .optional(),
             address: z.union([z.string(), z.object({}).passthrough()]).optional(),
         })
         .partial();

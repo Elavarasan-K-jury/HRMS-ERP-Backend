@@ -43,6 +43,11 @@ message File {
   string deleted_at = 9;
   string folder_name = 10;
   int64 size = 11;
+  string file_id = 12;
+  string file_name = 13;
+  string file_type = 14;
+  int64 file_size = 15;
+  string storage_key = 16;
 }
 
 message FolderShare {
@@ -145,12 +150,29 @@ message UploadFileRequest {
 
   bytes file_buffer = 4;
   string file_name = 5;
+
+  // centralized upload (POST /file/upload)
+  string store_path = 6;
+  string mime_type = 7;
 }
 
 message UploadFileResponse {
   File file = 1;
   bool success = 2;
   string message = 3;
+}
+
+message GetFileRequest {
+  string id = 1;
+  string organization_id = 2;
+  string admin_id = 3;
+}
+
+message GetFileResponse {
+  File file = 1;
+  bytes content = 2;
+  bool success = 3;
+  string message = 4;
 }
 
 message ListFilesRequest {
@@ -170,7 +192,7 @@ message ListFilesResponse {
   string message = 7;
 }
 
-message DeleteFileRequest { string id = 1; }
+message DeleteFileRequest { string id = 1; string organization_id = 2; string admin_id = 3; }
 
 message DeleteFileResponse {
   bool success = 1;
@@ -233,6 +255,8 @@ service StorageService {
 
   // Files
   rpc UploadFileToFolder(UploadFileRequest) returns (UploadFileResponse);
+  rpc UploadFile(UploadFileRequest) returns (UploadFileResponse);
+  rpc GetFile(GetFileRequest) returns (GetFileResponse);
   rpc ListFiles(ListFilesRequest) returns (ListFilesResponse);
   rpc DeleteFile(DeleteFileRequest) returns (DeleteFileResponse);
 
