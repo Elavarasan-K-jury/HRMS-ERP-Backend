@@ -18,20 +18,22 @@ const cleanDate = (val) =>
 
 function mapAssetRequest(r) {
     const ad = r.assignmentDetails ?? {};
-    const emp = ad.employee ?? {};
+    const emp = ad.employee ?? r.employee ?? {};
     const asset = ad.asset ?? {};
-    const assetCategory = asset.assetCategory ?? {};
-    const assetModel = asset.assetModel ?? {};
+    const assetCategory = r.assetCategory ?? asset.assetCategory ?? {};
+    const assetModel = r.assetModel ?? asset.assetModel ?? {};
     const specs = assetModel.specs ?? {};
 
     const toISO = (d) => (d ? new Date(d).toISOString() : "");
     const safe = (v) => (v ?? "");
 
     return {
-        // ===== Request (top-level) =====
         id: r.id,
         organization_id: r.organizationId,
-        assignment_id: r.assignmentId,
+        employee_id: r.employeeId,
+        category_id: safe(r.categoryId),
+        model_id: safe(r.modelId),
+        assignment_id: safe(r.assignmentId),
         approved_by_id: safe(r.approvedById),
         reason: safe(r.reason),
         quantity: r.quantity,
@@ -43,108 +45,42 @@ function mapAssetRequest(r) {
         updated_at: toISO(r.updatedAt),
         deleted_at: toISO(r.deletedAt),
 
-        // ===== Assignment Details =====
-        assignment_details: {
+        category: assetCategory.id ? {
+            id: assetCategory.id,
+            name: assetCategory.name,
+            code: assetCategory.code,
+        } : null,
+
+        model: assetModel.id ? {
+            id: assetModel.id,
+            brand: assetModel.brand,
+            model_name: assetModel.modelName,
+            code: assetModel.code,
+        } : null,
+
+        employee: emp.id ? {
+            id: emp.id,
+            first_name: emp.firstName,
+            last_name: emp.lastName,
+            full_name: emp.fullName,
+            employee_code: emp.employeeCode,
+            email: emp.email,
+        } : null,
+
+        assignment_details: ad.id ? {
             id: ad.id,
-            organization_id: ad.organizationId,
             asset_id: ad.assetId,
             employee_id: ad.employeeId,
             assigned_date: toISO(ad.assignedDate),
             return_date: toISO(ad.returnDate),
-            condition_assign: safe(ad.conditionAssign),
             status: safe(ad.status),
-            notes: safe(ad.notes),
-            created_at: toISO(ad.createdAt),
-            updated_at: toISO(ad.updatedAt),
-            deleted_at: toISO(ad.deletedAt),
-
-            // ===== Employee =====
-            employee: {
-                id: emp.id,
-                organization_id: emp.organizationId,
-                category_id: emp.categoryId,
-                designation_id: emp.designationId,
-                first_name: emp.firstName,
-                last_name: emp.lastName,
-                full_name: emp.fullName,
-                employee_code: emp.employeeCode,
-                access_token: safe(emp.accessToken),
-                refresh_token: safe(emp.refreshToken),
-                email: emp.email,
-                phone: emp.phone,
-                alt_phone: emp.altPhone,
-                gender: emp.gender,
-                date_of_birth: toISO(emp.dateOfBirth),
-                created_at: toISO(emp.createdAt),
-                updated_at: toISO(emp.updatedAt),
-                deleted_at: toISO(emp.deletedAt),
-            },
-
-            // ===== Asset =====
-            asset: {
+            asset: asset.id ? {
                 id: asset.id,
-                organization_id: asset.organizationId,
-                categories_id: asset.categoriesId,
-                model_id: asset.modelId,
                 serial_number: asset.serialNumber,
                 asset_tag: asset.assetTag,
-                user_name: asset.userName,
-                password: asset.password,
-                purchase_date: toISO(asset.purchaseDate),
-                warranty_expire: toISO(asset.warrantyExpire),
                 status: asset.status,
-                location: asset.location,
-                created_at: toISO(asset.createdAt),
-                updated_at: toISO(asset.updatedAt),
-                deleted_at: toISO(asset.deletedAt),
-
-                // Asset Category
-                asset_category: {
-                    id: assetCategory.id,
-                    organization_id: assetCategory.organizationId,
-                    name: assetCategory.name,
-                    code: assetCategory.code,
-                    description: safe(assetCategory.description),
-                    is_active: !!assetCategory.isActive,
-                    created_at: toISO(assetCategory.createdAt),
-                    updated_at: toISO(assetCategory.updatedAt),
-                    deleted_at: toISO(assetCategory.deletedAt),
-                },
-
-                // Asset Model
-                asset_model: {
-                    id: assetModel.id,
-                    organization_id: assetModel.organizationId,
-                    categories_id: assetModel.categoriesId,
-                    brand: assetModel.brand,
-                    model_name: assetModel.modelName,
-                    code: assetModel.code,
-                    description: safe(assetModel.description),
-                    specs: {
-                        cpu: safe(specs.CPU),
-                        gpu: safe(specs.GPU),
-                        ram: safe(specs.RAM),
-                        storage: safe(specs.Storage),
-                    },
-                    is_active: !!assetModel.isActive,
-                    created_at: toISO(assetModel.createdAt),
-                    updated_at: toISO(assetModel.updatedAt),
-                    deleted_at: toISO(assetModel.deletedAt),
-                },
-
-                // Conditions arrays (keep as-is)
-                asset_condition: Array.isArray(asset.assetcondition) ? asset.assetcondition : [],
-            },
-
-            // Assignment condition array (keep as-is)
-            assignment_condition: Array.isArray(ad.assetcondition) ? ad.assetcondition : [],
-        },
-
-        // ===== Approved By (if you later populate) =====
-        approved_by: r.approvedBy ?? null,
-
-        // ===== Optional: raw copy (if you want literally everything unchanged) =====
-        raw: r,
+            } : null,
+        } : null,
     };
 }
 
@@ -157,10 +93,10 @@ const impl = {
         try {
             const data = call.request;
 
-            if (!data.organization_id || !data.category_id || !data.model_id) {
+            if (!data.organization_id) {
                 return callback({
                     code: grpc.status.INVALID_ARGUMENT,
-                    message: 'organization_id, category_id and model_id are required.',
+                    message: 'organization_id is required.',
                 });
             }
 
@@ -171,19 +107,10 @@ const impl = {
                 });
             }
 
-            const existing = await prisma.assetRequest.findFirst({
-                where: {
-                    organizationId: data.organization_id,
-                    categoriesId: data.category_id,
-                    modelId: data.model_id,
-                    deletedAt: null,
-                },
-            });
-
-            if (existing) {
+            if (!data.category_id && !data.model_id) {
                 return callback({
-                    code: grpc.status.ALREADY_EXISTS,
-                    message: 'Asset request already exists',
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: 'At least one of category_id or model_id is required.',
                 });
             }
 
@@ -193,57 +120,57 @@ const impl = {
             if (!organization) {
                 return callback({
                     code: grpc.status.NOT_FOUND,
-                    message: 'Organization not found',
+                    message: 'Organization not found.',
                 });
             }
 
-            const category = await prisma.assetCategories.findUnique({
-                where: { id: data.category_id },
+            const employee = await prisma.organizationEmployees.findUnique({
+                where: { id: data.employee_id },
             });
-            if (!category) {
+            if (!employee || employee.organizationId !== data.organization_id) {
                 return callback({
                     code: grpc.status.NOT_FOUND,
-                    message: 'Asset category not found',
+                    message: 'Employee not found in this organization.',
                 });
             }
 
-            const model = await prisma.assetModels.findUnique({
-                where: { id: data.model_id },
-            });
-            if (!model) {
-                return callback({
-                    code: grpc.status.NOT_FOUND,
-                    message: 'Asset model not found',
+            if (data.category_id) {
+                const category = await prisma.assetCategories.findUnique({
+                    where: { id: data.category_id },
                 });
+                if (!category || category.organizationId !== data.organization_id) {
+                    return callback({
+                        code: grpc.status.NOT_FOUND,
+                        message: 'Asset category not found in this organization.',
+                    });
+                }
+            }
+
+            if (data.model_id) {
+                const model = await prisma.assetModels.findUnique({
+                    where: { id: data.model_id },
+                });
+                if (!model || model.organizationId !== data.organization_id) {
+                    return callback({
+                        code: grpc.status.NOT_FOUND,
+                        message: 'Asset model not found in this organization.',
+                    });
+                }
             }
 
             const mappedData = {
                 organizationId: data.organization_id,
-                categoriesId: data.category_id,
-                modelId: data.model_id,
-
-                // relations
-                employee: {
-                    connect: { id: data.employee_id },
-                },
-                approvedBy: cleanId(data.approved_by)
-                    ? { connect: { id: cleanId(data.approved_by) } }
-                    : undefined,
-
-                reason: data.reason,
+                employeeId: data.employee_id,
+                categoryId: data.category_id || null,
+                modelId: data.model_id || null,
+                assignmentId: data.assignment_id || null,
+                approvedById: null,
+                reason: data.reason || null,
                 quantity: data.quantity ?? 1,
-                priority: data.priority ?? 'Medium',
-                status: data.status ?? 'Pending',
-
-                approvedAt: data.approved_at && data.approved_at !== ''
-                    ? new Date(data.approved_at)
-                    : null,
-
-                rejectionReason:
-                    data.rejection_reason === 'null'
-                        ? null
-                        : data.rejection_reason || null,
-
+                priority: data.priority ?? 'MEDIUM',
+                status: 'PENDING',
+                approvedAt: null,
+                rejectionReason: null,
                 createdAt: new Date(),
                 updatedAt: new Date(),
                 deletedAt: null,
@@ -253,7 +180,8 @@ const impl = {
                 data: mappedData,
                 include: {
                     employee: true,
-                    approvedBy: true,
+                    assetCategory: true,
+                    assetModel: true,
                 },
             });
 
@@ -263,7 +191,7 @@ const impl = {
                 message: 'Asset request created successfully',
             });
         } catch (e) {
-            console.error('❌ CreateAssetRequest Error:', e);
+            console.error('CreateAssetRequest Error:', e);
             callback({
                 code: grpc.status.INTERNAL,
                 message: 'Internal server error',
@@ -288,16 +216,17 @@ const impl = {
             const model = await prisma.assetRequest.findUnique({
                 where: { id },
                 include: {
+                    employee: true,
+                    assetCategory: true,
+                    assetModel: true,
                     assignmentDetails: {
                         include: {
                             asset: {
                                 include: {
                                     assetCategory: true,
                                     assetModel: true,
-                                    assetcondition: true
                                 }
                             },
-                            assetcondition: true,
                         }
                     },
                     approvedBy: true,
@@ -332,6 +261,8 @@ const impl = {
         try {
             const {
                 organization_id,
+                employee_id,
+                status,
                 page = 1,
                 limit = 10,
                 search = '',
@@ -352,12 +283,24 @@ const impl = {
 
             const prismaSortBy = SORT_MAP[sort_by] ?? 'createdAt';
 
+            if (!organization_id) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: 'organization_id is required.',
+                });
+            }
+
             const where = {
                 deletedAt: null,
+                organizationId: organization_id,
             };
 
-            if (organization_id) {
-                where.organizationId = organization_id;
+            if (employee_id) {
+                where.employeeId = employee_id;
+            }
+
+            if (status) {
+                where.status = status;
             }
 
             if (search) {
@@ -377,17 +320,17 @@ const impl = {
                     [prismaSortBy]: sort_order,
                 },
                 include: {
+                    employee: true,
+                    assetCategory: true,
+                    assetModel: true,
                     assignmentDetails: {
                         include: {
-                            employee: true,
                             asset: {
                                 include: {
                                     assetCategory: true,
                                     assetModel: true,
-                                    assetcondition: true
                                 }
                             },
-                            assetcondition: true,
                         }
                     },
                     approvedBy: true,
@@ -406,7 +349,7 @@ const impl = {
                 message: 'Asset requests fetched successfully',
             });
         } catch (e) {
-            console.error('❌ ListAssetRequests Error:', e);
+            console.error('ListAssetRequests Error:', e);
             callback({
                 code: grpc.status.INTERNAL,
                 message: 'Internal server error',
@@ -424,6 +367,20 @@ const impl = {
                 status
             } = call.request;
 
+            if (!id) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: 'Asset request ID is required.',
+                });
+            }
+
+            if (!status || !['APPROVED', 'REJECTED'].includes(status)) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: 'Status must be APPROVED or REJECTED.',
+                });
+            }
+
             const existing = await prisma.assetRequest.findFirst({
                 where: { id, deletedAt: null },
             });
@@ -431,37 +388,199 @@ const impl = {
             if (!existing) {
                 return callback({
                     code: grpc.status.NOT_FOUND,
-                    message: 'Asset request not found',
+                    message: 'Asset request not found.',
                 });
             }
 
+            if (existing.status !== 'PENDING') {
+                return callback({
+                    code: grpc.status.FAILED_PRECONDITION,
+                    message: `Cannot ${status.toLowerCase()} request: current status is ${existing.status}. Only PENDING requests can be processed.`,
+                });
+            }
+
+            const updateData = {
+                status: status,
+                updatedAt: new Date(),
+            };
+
+            if (status === 'APPROVED') {
+                updateData.approvedById = approved_by || null;
+                updateData.approvedAt = approved_at ? new Date(approved_at) : new Date();
+            } else if (status === 'REJECTED') {
+                updateData.rejectionReason = rejection_reason || null;
+            }
 
             const updated = await prisma.assetRequest.update({
                 where: { id },
-                data: {
-                    approvedById: clean(approved_by),
-                    status: clean(status),
-                    approvedAt: cleanDate(approved_at),
-                    rejectionReason:
-                        rejection_reason === 'null'
-                            ? null
-                            : clean(rejection_reason),
-                    updatedAt: new Date(),
+                data: updateData,
+                include: {
+                    employee: true,
+                    assetCategory: true,
+                    assetModel: true,
                 },
             });
 
             callback(null, {
+                request: mapAssetRequest(updated),
                 success: true,
-                message: `Asset request ${status} successfully`,
+                message: `Asset request ${status.toLowerCase()} successfully`,
             });
         } catch (e) {
-            console.error('❌ approveRejectAssetRequest Error:', e);
+            console.error('ApproveRejectAssetRequest Error:', e);
             callback({
                 code: grpc.status.INTERNAL,
                 message: 'Internal server error',
             });
         }
     },
+
+    // -----------------------------
+    // Assign Asset to Approved Request (Phase 06)
+    // -----------------------------
+    AssignAssetToRequest: async (call, callback) => {
+        try {
+            const { request_id, asset_id, assigned_date, condition_assign, notes } = call.request;
+
+            if (!request_id || !asset_id) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: 'request_id and asset_id are required.',
+                });
+            }
+
+            const request = await prisma.assetRequest.findUnique({
+                where: { id: request_id },
+                include: { employee: true, assetCategory: true, assetModel: true },
+            });
+
+            if (!request || request.deletedAt) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Asset request not found.',
+                });
+            }
+
+            if (request.status !== 'APPROVED') {
+                return callback({
+                    code: grpc.status.FAILED_PRECONDITION,
+                    message: `Cannot assign asset: request status is ${request.status}. Only APPROVED requests can be assigned.`,
+                });
+            }
+
+            if (request.assignmentId) {
+                return callback({
+                    code: grpc.status.FAILED_PRECONDITION,
+                    message: 'This request already has an assigned asset.',
+                });
+            }
+
+            const asset = await prisma.assets.findUnique({
+                where: { id: asset_id },
+                include: { assetCategory: true, assetModel: true },
+            });
+
+            if (!asset || asset.deletedAt) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Asset not found.',
+                });
+            }
+
+            if (asset.organizationId !== request.organizationId) {
+                return callback({
+                    code: grpc.status.FAILED_PRECONDITION,
+                    message: 'Asset does not belong to the same organization as the request.',
+                });
+            }
+
+            if ((asset.status || '').toUpperCase() !== 'AVAILABLE') {
+                return callback({
+                    code: grpc.status.FAILED_PRECONDITION,
+                    message: `Cannot assign asset: current status is ${asset.status}. Asset must be AVAILABLE.`,
+                });
+            }
+
+            if (request.categoryId && asset.categoriesId !== request.categoryId) {
+                return callback({
+                    code: grpc.status.FAILED_PRECONDITION,
+                    message: 'Asset category does not match the requested category.',
+                });
+            }
+
+            if (request.modelId && asset.modelId !== request.modelId) {
+                return callback({
+                    code: grpc.status.FAILED_PRECONDITION,
+                    message: 'Asset model does not match the requested model.',
+                });
+            }
+
+            const activeAssignment = await prisma.assetAssignments.findFirst({
+                where: {
+                    assetId: asset_id,
+                    deletedAt: null,
+                    status: { in: ['ASSIGNED', 'ASSIGNMENT_PENDING'] },
+                },
+            });
+
+            if (activeAssignment) {
+                return callback({
+                    code: grpc.status.FAILED_PRECONDITION,
+                    message: 'Asset already has an active assignment.',
+                });
+            }
+
+            const assignment = await prisma.assetAssignments.create({
+                data: {
+                    organizationId: request.organizationId,
+                    assetId: asset_id,
+                    employeeId: request.employeeId,
+                    assignedDate: assigned_date ? new Date(assigned_date) : new Date(),
+                    conditionAssign: condition_assign ? JSON.parse(condition_assign) : null,
+                    status: 'ASSIGNED',
+                    notes: notes || `Assigned from request #${request_id.slice(-8)}`,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    deletedAt: null,
+                },
+                include: {
+                    asset: true,
+                    employee: true,
+                },
+            });
+
+            await prisma.assets.update({
+                where: { id: asset_id },
+                data: { status: 'ASSIGNED', updatedAt: new Date() },
+            });
+
+            await prisma.assetRequest.update({
+                where: { id: request_id },
+                data: { assignmentId: assignment.id, updatedAt: new Date() },
+            });
+
+            callback(null, {
+                assignment: {
+                    id: assignment.id,
+                    organization_id: assignment.organizationId,
+                    asset_id: assignment.assetId,
+                    employee_id: assignment.employeeId,
+                    assigned_date: new Date(assignment.assignedDate).toISOString(),
+                    status: assignment.status,
+                    notes: assignment.notes,
+                },
+                success: true,
+                message: 'Asset assigned to request successfully',
+            });
+        } catch (e) {
+            console.error('AssignAssetToRequest Error:', e);
+            callback({
+                code: grpc.status.INTERNAL,
+                message: 'Internal server error',
+            });
+        }
+    },
+
     // -----------------------------
     // Update
     // -----------------------------
@@ -484,6 +603,13 @@ const impl = {
                 return callback({
                     code: grpc.status.NOT_FOUND,
                     message: 'Asset request not found',
+                });
+            }
+
+            if (call.request.status && call.request.status !== existing.status) {
+                return callback({
+                    code: grpc.status.FAILED_PRECONDITION,
+                    message: 'Status cannot be changed via update. Use ApproveRejectAssetRequest to change status.',
                 });
             }
 
@@ -533,6 +659,24 @@ const impl = {
                 return callback({
                     code: grpc.status.INVALID_ARGUMENT,
                     message: 'Invalid asset request ID format',
+                });
+            }
+
+            const existing = await prisma.assetRequest.findFirst({
+                where: { id, deletedAt: null },
+            });
+
+            if (!existing) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Asset request not found',
+                });
+            }
+
+            if (existing.assignmentId) {
+                return callback({
+                    code: grpc.status.FAILED_PRECONDITION,
+                    message: 'Cannot delete request: it has an active assignment. Remove the assignment first.',
                 });
             }
 

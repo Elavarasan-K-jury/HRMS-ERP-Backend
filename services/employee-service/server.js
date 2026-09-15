@@ -366,6 +366,9 @@ const impl = {
                 nationality: data.nationality || null,
                 personalEmail: data.personal_email || null,
                 professionalSummary: data.professional_summary || null,
+                about: data.about || null,
+                whatILoveAboutJob: data.what_i_love_about_job || null,
+                interestsAndHobbies: data.interests_and_hobbies || null,
                 currentAddress: parseAddressJson(data.current_address),
                 permanentAddress: parseAddressJson(data.permanent_address),
                 isPermanent: data.is_permanent || false,
@@ -1268,6 +1271,9 @@ const impl = {
                 nationality: data.nationality != null ? (data.nationality || null) : existing.nationality,
                 personalEmail: data.personal_email != null ? (data.personal_email || null) : existing.personalEmail,
                 professionalSummary: data.professional_summary != null ? (data.professional_summary || null) : existing.professionalSummary,
+                about: data.about != null ? (data.about || null) : existing.about,
+                whatILoveAboutJob: data.what_i_love_about_job != null ? (data.what_i_love_about_job || null) : existing.whatILoveAboutJob,
+                interestsAndHobbies: data.interests_and_hobbies != null ? (data.interests_and_hobbies || null) : existing.interestsAndHobbies,
                 currentAddress: data.current_address != null
                     ? parseAddressJson(data.current_address)
                     : existing.currentAddress,
@@ -2149,6 +2155,179 @@ include: {
             cb({ code: grpc.status.INTERNAL, message: e.message });
         }
     },
+
+    /* ============================ RELATIONSHIP HANDLERS ============================ */
+
+    async ListEmployeeRelationships(call, cb) {
+        try {
+            const { employee_id, organization_id } = call.request;
+            if (!employee_id) {
+                return cb({ code: grpc.status.INVALID_ARGUMENT, message: 'employee_id is required' });
+            }
+
+            // Fetch without deletedAt filter, then filter in JS (Prisma deletedAt:null filter
+            // is unreliable on MongoDB — same pattern used for noticePeriodPolicyEmployee).
+            const allRows = await prisma.employeeRelationship.findMany({
+                where: {
+                    employeeId: employee_id,
+                    organizationId: organization_id,
+                },
+                orderBy: { createdAt: 'desc' },
+            });
+            const rows = allRows.filter(r => !r.deletedAt);
+
+            return cb(null, {
+                success: true,
+                relationships: rows.map(r => ({
+                    id: r.id,
+                    organization_id: r.organizationId,
+                    employee_id: r.employeeId,
+                    relationship: r.relationship,
+                    first_name: r.firstName,
+                    last_name: r.lastName || '',
+                    gender: r.gender || '',
+                    email: r.email || '',
+                    phone: r.phone || '',
+                    profession: r.profession || '',
+                    date_of_birth: r.dateOfBirth ? r.dateOfBirth.toISOString().split('T')[0] : '',
+                    created_at: r.createdAt.toISOString(),
+                    updated_at: r.updatedAt.toISOString(),
+                })),
+            });
+        } catch (e) {
+            cb({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
+
+    async CreateEmployeeRelationship(call, cb) {
+        try {
+            const { employee_id, organization_id, relationship, first_name, last_name, gender, email, phone, profession, date_of_birth } = call.request;
+            if (!employee_id || !organization_id || !relationship || !first_name) {
+                return cb({ code: grpc.status.INVALID_ARGUMENT, message: 'employee_id, organization_id, relationship, and first_name are required' });
+            }
+
+            const created = await prisma.employeeRelationship.create({
+                data: {
+                    employeeId: employee_id,
+                    organizationId: organization_id,
+                    relationship,
+                    firstName: first_name,
+                    lastName: last_name || null,
+                    gender: gender || null,
+                    email: email || null,
+                    phone: phone || null,
+                    profession: profession || null,
+                    dateOfBirth: date_of_birth ? new Date(date_of_birth + 'T00:00:00') : null,
+                    deletedAt: null,
+                },
+            });
+
+            return cb(null, {
+                success: true,
+                message: 'Relationship created successfully',
+                relationship: {
+                    id: created.id,
+                    organization_id: created.organizationId,
+                    employee_id: created.employeeId,
+                    relationship: created.relationship,
+                    first_name: created.firstName,
+                    last_name: created.lastName || '',
+                    gender: created.gender || '',
+                    email: created.email || '',
+                    phone: created.phone || '',
+                    profession: created.profession || '',
+                    date_of_birth: created.dateOfBirth ? created.dateOfBirth.toISOString().split('T')[0] : '',
+                    created_at: created.createdAt.toISOString(),
+                    updated_at: created.updatedAt.toISOString(),
+                },
+            });
+        } catch (e) {
+            cb({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
+
+    async UpdateEmployeeRelationship(call, cb) {
+        try {
+            const { id, employee_id, organization_id, relationship, first_name, last_name, gender, email, phone, profession, date_of_birth } = call.request;
+            if (!id || !employee_id || !organization_id) {
+                return cb({ code: grpc.status.INVALID_ARGUMENT, message: 'id, employee_id, and organization_id are required' });
+            }
+
+            const existingAll = await prisma.employeeRelationship.findMany({
+                where: { id, employeeId: employee_id, organizationId: organization_id },
+            });
+            const existing = existingAll.find(r => !r.deletedAt) || null;
+            if (!existing) {
+                return cb({ code: grpc.status.NOT_FOUND, message: 'Relationship not found' });
+            }
+
+            const data = {};
+            if (relationship !== undefined) data.relationship = relationship;
+            if (first_name !== undefined) data.firstName = first_name;
+            if (last_name !== undefined) data.lastName = last_name || null;
+            if (gender !== undefined) data.gender = gender || null;
+            if (email !== undefined) data.email = email || null;
+            if (phone !== undefined) data.phone = phone || null;
+            if (profession !== undefined) data.profession = profession || null;
+            if (date_of_birth !== undefined) data.dateOfBirth = date_of_birth ? new Date(date_of_birth + 'T00:00:00') : null;
+
+            const updated = await prisma.employeeRelationship.update({
+                where: { id },
+                data,
+            });
+
+            return cb(null, {
+                success: true,
+                message: 'Relationship updated successfully',
+                relationship: {
+                    id: updated.id,
+                    organization_id: updated.organizationId,
+                    employee_id: updated.employeeId,
+                    relationship: updated.relationship,
+                    first_name: updated.firstName,
+                    last_name: updated.lastName || '',
+                    gender: updated.gender || '',
+                    email: updated.email || '',
+                    phone: updated.phone || '',
+                    profession: updated.profession || '',
+                    date_of_birth: updated.dateOfBirth ? updated.dateOfBirth.toISOString().split('T')[0] : '',
+                    created_at: updated.createdAt.toISOString(),
+                    updated_at: updated.updatedAt.toISOString(),
+                },
+            });
+        } catch (e) {
+            cb({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
+
+    async DeleteEmployeeRelationship(call, cb) {
+        try {
+            const { id, employee_id, organization_id } = call.request;
+            if (!id || !employee_id || !organization_id) {
+                return cb({ code: grpc.status.INVALID_ARGUMENT, message: 'id, employee_id, and organization_id are required' });
+            }
+
+            const existingAll = await prisma.employeeRelationship.findMany({
+                where: { id, employeeId: employee_id, organizationId: organization_id },
+            });
+            const existing = existingAll.find(r => !r.deletedAt) || null;
+            if (!existing) {
+                return cb({ code: grpc.status.NOT_FOUND, message: 'Relationship not found' });
+            }
+
+            await prisma.employeeRelationship.update({
+                where: { id },
+                data: { deletedAt: new Date() },
+            });
+
+            return cb(null, {
+                success: true,
+                message: 'Relationship deleted successfully',
+            });
+        } catch (e) {
+            cb({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
 };
 
 function formatDate(date) {
@@ -2394,6 +2573,9 @@ function mapEmployee(emp) {
         nationality: emp?.nationality ?? '',
         personal_email: emp?.personalEmail ?? '',
         professional_summary: emp?.professionalSummary ?? '',
+        about: emp?.about ?? '',
+        what_i_love_about_job: emp?.whatILoveAboutJob ?? '',
+        interests_and_hobbies: emp?.interestsAndHobbies ?? '',
         current_address: emp?.currentAddress
             ? (typeof emp.currentAddress === 'string' ? emp.currentAddress : JSON.stringify(emp.currentAddress))
             : '',

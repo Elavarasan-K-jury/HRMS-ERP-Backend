@@ -138,6 +138,9 @@ export default function registerEmployeeRoutes(app) {
         nationality: z.string().max(120).optional().nullable(),
         personalEmail: z.string().email('Invalid personal email format').optional().nullable().or(z.literal('')),
         professionalSummary: z.string().max(2000).optional().nullable(),
+        about: z.string().max(5000).optional().nullable(),
+        whatILoveAboutJob: z.string().max(2000).optional().nullable(),
+        interestsAndHobbies: z.string().max(2000).optional().nullable(),
         profileImage: z.string().max(500).optional().nullable(),
         profileImageFileId: z.string().optional().nullable(),
         costCenterId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid cost_center_id').optional().nullable(),
@@ -237,6 +240,9 @@ export default function registerEmployeeRoutes(app) {
                     nationality: parsed.nationality || '',
                     personal_email: parsed.personalEmail || '',
                     professional_summary: parsed.professionalSummary || '',
+                    about: parsed.about || '',
+                    what_i_love_about_job: parsed.whatILoveAboutJob || '',
+                    interests_and_hobbies: parsed.interestsAndHobbies || '',
                     current_address: parsed.currentAddress ? JSON.stringify(parsed.currentAddress) : '',
                     permanent_address: parsed.permanentAddress ? JSON.stringify(parsed.permanentAddress) : '',
                     profile_image: parsed.profileImage || '',
@@ -560,6 +566,9 @@ export default function registerEmployeeRoutes(app) {
                     nationality: parsed.nationality === undefined ? undefined : (parsed.nationality || ''),
                     personal_email: parsed.personalEmail === undefined ? undefined : (parsed.personalEmail || ''),
                     professional_summary: parsed.professionalSummary === undefined ? undefined : (parsed.professionalSummary || ''),
+                    about: parsed.about === undefined ? undefined : (parsed.about || ''),
+                    what_i_love_about_job: parsed.whatILoveAboutJob === undefined ? undefined : (parsed.whatILoveAboutJob || ''),
+                    interests_and_hobbies: parsed.interestsAndHobbies === undefined ? undefined : (parsed.interestsAndHobbies || ''),
                     profile_image: parsed.profileImage === undefined ? undefined : (parsed.profileImage || ''),
                     profile_image_file_id: parsed.profileImageFileId === undefined ? undefined : (parsed.profileImageFileId || ''),
                     cost_center_id: parsed.costCenterId === undefined ? undefined : (parsed.costCenterId || ''),
@@ -1056,5 +1065,225 @@ export default function registerEmployeeRoutes(app) {
                 return c.json({ error: error.message || 'Internal error' }, 500);
             }
         }
+    );
+
+    /* ============================ EMPLOYEE RELATIONSHIP ROUTES ============================ */
+
+    const VALID_RELATIONSHIP_TYPES = ['CHILD', 'FATHER', 'FATHER_IN_LAW', 'MOTHER', 'MOTHER_IN_LAW', 'OTHERS', 'PARTNER', 'SPOUSE', 'SELF', 'SIBLING'];
+    const VALID_GENDER_TYPES = ['MALE', 'FEMALE', 'OTHER'];
+
+    function grpcCall(payload) {
+        return new Promise((resolve, reject) => {
+            employeeClient.ListEmployeeRelationships(payload, (err, resp) => {
+                if (err) return reject(err);
+                resolve(resp);
+            });
+        });
+    }
+
+    function grpcCreate(payload) {
+        return new Promise((resolve, reject) => {
+            employeeClient.CreateEmployeeRelationship(payload, (err, resp) => {
+                if (err) return reject(err);
+                resolve(resp);
+            });
+        });
+    }
+
+    function grpcUpdate(payload) {
+        return new Promise((resolve, reject) => {
+            employeeClient.UpdateEmployeeRelationship(payload, (err, resp) => {
+                if (err) return reject(err);
+                resolve(resp);
+            });
+        });
+    }
+
+    function grpcDelete(payload) {
+        return new Promise((resolve, reject) => {
+            employeeClient.DeleteEmployeeRelationship(payload, (err, resp) => {
+                if (err) return reject(err);
+                resolve(resp);
+            });
+        });
+    }
+
+    const relationshipSchema = z.object({
+        relationship: z.enum(VALID_RELATIONSHIP_TYPES),
+        first_name: z.string().min(1).max(100),
+        last_name: z.string().max(100).optional().nullable(),
+        gender: z.enum(VALID_GENDER_TYPES).optional().nullable(),
+        email: z.string().email().optional().nullable().or(z.literal('')),
+        phone: z.string().max(20).optional().nullable(),
+        profession: z.string().max(100).optional().nullable(),
+        date_of_birth: z.string().optional().nullable(),
+    });
+
+    // GET /employees/:employee_id/relationships
+    app.openapi(
+        {
+            method: 'get',
+            path: '/employees/{employee_id}/relationships',
+            tags: ['Employee Relationship'],
+            summary: 'List relationships for an employee',
+            request: {
+                params: z.object({
+                    employee_id: z.string({ required_error: 'Employee ID is required' }),
+                }),
+            },
+            responses: { 200: { description: 'Relationships listed successfully' } },
+        },
+        async (c) => {
+            try {
+                const { employee_id } = c.req.valid('param');
+                const empRes = await new Promise((resolve, reject) => {
+                    employeeClient.GetEmployee({ id: employee_id }, (err, resp) => {
+                        if (err) return reject(err);
+                        resolve(resp);
+                    });
+                });
+                const employee = empRes?.employee;
+                if (!employee) return c.json({ error: 'Employee not found' }, 404);
+
+                const response = await grpcCall({
+                    employee_id,
+                    organization_id: employee.organization_id,
+                });
+                return c.json(response);
+            } catch (error) {
+                return c.json({ error: error.message }, grpcToHttpStatus(error.code));
+            }
+        },
+    );
+
+    // POST /employees/:employee_id/relationships
+    app.openapi(
+        {
+            method: 'post',
+            path: '/employees/{employee_id}/relationships',
+            tags: ['Employee Relationship'],
+            summary: 'Create a relationship for an employee',
+            request: {
+                params: z.object({
+                    employee_id: z.string({ required_error: 'Employee ID is required' }),
+                }),
+                body: { content: { 'application/json': { schema: relationshipSchema } } },
+            },
+            responses: { 201: { description: 'Relationship created successfully' } },
+        },
+        async (c) => {
+            try {
+                const { employee_id } = c.req.valid('param');
+                const empRes = await new Promise((resolve, reject) => {
+                    employeeClient.GetEmployee({ id: employee_id }, (err, resp) => {
+                        if (err) return reject(err);
+                        resolve(resp);
+                    });
+                });
+                const employee = empRes?.employee;
+                if (!employee) return c.json({ error: 'Employee not found' }, 404);
+
+                const body = await c.req.json();
+                const parsed = relationshipSchema.parse(body);
+
+                const response = await grpcCreate({
+                    employee_id,
+                    organization_id: employee.organization_id,
+                    ...parsed,
+                });
+                return c.json(response, 201);
+            } catch (error) {
+                if (error instanceof ZodError) {
+                    return c.json({ error: 'Validation failed', details: error.errors.map(e => ({ field: e.path.join('.'), message: e.message })) }, 400);
+                }
+                return c.json({ error: error.message }, grpcToHttpStatus(error.code));
+            }
+        },
+    );
+
+    // PUT /employees/:employee_id/relationships/:relationshipId
+    app.openapi(
+        {
+            method: 'put',
+            path: '/employees/{employee_id}/relationships/{relationshipId}',
+            tags: ['Employee Relationship'],
+            summary: 'Update a relationship for an employee',
+            request: {
+                params: z.object({
+                    employee_id: z.string({ required_error: 'Employee ID is required' }),
+                    relationshipId: z.string({ required_error: 'Relationship ID is required' }),
+                }),
+                body: { content: { 'application/json': { schema: relationshipSchema.partial() } } },
+            },
+            responses: { 200: { description: 'Relationship updated successfully' } },
+        },
+        async (c) => {
+            try {
+                const { employee_id, relationshipId } = c.req.valid('param');
+                const empRes = await new Promise((resolve, reject) => {
+                    employeeClient.GetEmployee({ id: employee_id }, (err, resp) => {
+                        if (err) return reject(err);
+                        resolve(resp);
+                    });
+                });
+                const employee = empRes?.employee;
+                if (!employee) return c.json({ error: 'Employee not found' }, 404);
+
+                const body = await c.req.json();
+                const parsed = relationshipSchema.partial().parse(body);
+
+                const response = await grpcUpdate({
+                    id: relationshipId,
+                    employee_id,
+                    organization_id: employee.organization_id,
+                    ...parsed,
+                });
+                return c.json(response);
+            } catch (error) {
+                if (error instanceof ZodError) {
+                    return c.json({ error: 'Validation failed', details: error.errors.map(e => ({ field: e.path.join('.'), message: e.message })) }, 400);
+                }
+                return c.json({ error: error.message }, grpcToHttpStatus(error.code));
+            }
+        },
+    );
+
+    // DELETE /employees/:employee_id/relationships/:relationshipId
+    app.openapi(
+        {
+            method: 'delete',
+            path: '/employees/{employee_id}/relationships/{relationshipId}',
+            tags: ['Employee Relationship'],
+            summary: 'Delete a relationship for an employee',
+            request: {
+                params: z.object({
+                    employee_id: z.string({ required_error: 'Employee ID is required' }),
+                    relationshipId: z.string({ required_error: 'Relationship ID is required' }),
+                }),
+            },
+            responses: { 200: { description: 'Relationship deleted successfully' } },
+        },
+        async (c) => {
+            try {
+                const { employee_id, relationshipId } = c.req.valid('param');
+                const empRes = await new Promise((resolve, reject) => {
+                    employeeClient.GetEmployee({ id: employee_id }, (err, resp) => {
+                        if (err) return reject(err);
+                        resolve(resp);
+                    });
+                });
+                const employee = empRes?.employee;
+                if (!employee) return c.json({ error: 'Employee not found' }, 404);
+
+                const response = await grpcDelete({
+                    id: relationshipId,
+                    employee_id,
+                    organization_id: employee.organization_id,
+                });
+                return c.json(response);
+            } catch (error) {
+                return c.json({ error: error.message }, grpcToHttpStatus(error.code));
+            }
+        },
     );
 }

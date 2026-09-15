@@ -366,7 +366,7 @@ const impl = {
             });
             if (!type) return callback({ code: grpc.status.NOT_FOUND, message: 'Document type not found' });
 
-            const assignmentCount = await prisma.employeeDocumentAssignment.count({ where: { documentTypeId: document_type_id, deletedAt: null } });
+            const assignmentCount = await prisma.employeeDocumentAssignment.count({ where: { documentTypeId: document_type_id, deletedAt: { isSet: false } } });
             callback(null, { document_type: mapDocumentType({ ...type, _count: { fields: type.fields.length, assignments: assignmentCount } }), message: 'Document type found', success: true });
         } catch (e) {
             if (e.code) return callback({ code: e.code, message: e.message });
@@ -422,7 +422,7 @@ const impl = {
                 },
             });
             const fieldCount = await prisma.employeeDocumentField.count({ where: { documentTypeId: data.id, deletedAt: null } });
-            const assignmentCount = await prisma.employeeDocumentAssignment.count({ where: { documentTypeId: data.id, deletedAt: null } });
+            const assignmentCount = await prisma.employeeDocumentAssignment.count({ where: { documentTypeId: data.id, deletedAt: { isSet: false } } });
             callback(null, { document_type: mapDocumentType({ ...updated, _count: { fields: fieldCount, assignments: assignmentCount } }), message: 'Document type updated successfully', success: true });
         } catch (e) {
             if (e.code === 'P2002') return callback({ code: grpc.status.ALREADY_EXISTS, message: `Document type '${call.request?.name?.trim() || 'this name'}' already exists in this folder.` });
@@ -666,32 +666,110 @@ const impl = {
             const { organization_id, employee_ids = [], document_type_ids = [], assigned_by_id } = call.request;
             if (!organization_id) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'organization_id is required.' });
             if (!isObjectId(organization_id)) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid organization_id.' });
-            const validEmpIds = employee_ids.filter(id => isObjectId(id) && id);
-            const validTypeIds = document_type_ids.filter(id => isObjectId(id) && id);
-            if (validEmpIds.length === 0) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'At least one valid employee id is required.' });
-            if (validTypeIds.length === 0) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'At least one valid document type id is required.' });
+            const uniqueEmpIds = [...new Set(employee_ids.filter(id => isObjectId(id) && id))];
+            const uniqueTypeIds = [...new Set(document_type_ids.filter(id => isObjectId(id) && id))];
+            if (uniqueEmpIds.length === 0) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'At least one valid employee id is required.' });
+            if (uniqueTypeIds.length === 0) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'At least one valid document type id is required.' });
 
-            const totalRequested = validEmpIds.length * validTypeIds.length;
+            const totalRequested = uniqueEmpIds.length * uniqueTypeIds.length;
+
+            // Batch-fetch valid employees in this org
+            const employees = await prisma.organizationEmployees.findMany({
+                where: { id: { in: uniqueEmpIds }, deletedAt: null, organizationId: organization_id },
+                select: { id: true },
+            });
+            const validEmpSet = new Set(employees.map(e => e.id));
+
+            // Batch-fetch valid active document types with folder org check
+            const types = await prisma.employeeDocumentType.findMany({
+                where: { id: { in: uniqueTypeIds }, deletedAt: null, isActive: true },
+                select: { id: true, folderId: true },
+            });
+            const folderIds = [...new Set(types.map(t => t.folderId))];
+            const folders = await prisma.employeeDocumentFolder.findMany({
+                where: { id: { in: folderIds }, deletedAt: null, isActive: true, organizationId: organization_id },
+                select: { id: true },
+            });
+            const validFolderSet = new Set(folders.map(f => f.id));
+            const validTypeSet = new Set(types.filter(t => validFolderSet.has(t.folderId)).map(t => t.id));
+
+            // Batch-fetch existing assignments (active + soft-deleted) for these employee+type combos
+            const existingAssignments = await prisma.employeeDocumentAssignment.findMany({
+                where: {
+                    organizationId: organization_id,
+                    employeeId: { in: uniqueEmpIds },
+                    documentTypeId: { in: uniqueTypeIds },
+                },
+                select: { id: true, employeeId: true, documentTypeId: true, deletedAt: true, assignedById: true },
+            });
+
+            // Build lookup maps
+            const existingMap = new Map();
+            existingAssignments.forEach(a => {
+                existingMap.set(`${a.employeeId}:${a.documentTypeId}`, a);
+            });
+
+            const now = new Date();
+            const assignedByIdValue = isObjectId(assigned_by_id) ? assigned_by_id : null;
+
             let assignedCount = 0;
             let alreadyCount = 0;
             let failedCount = 0;
 
-            for (const empId of validEmpIds) {
-                const employee = await prisma.organizationEmployees.findFirst({ where: { id: empId, deletedAt: null } });
-                if (!employee || String(employee.organizationId) !== String(organization_id)) {
-                    failedCount += validTypeIds.length;
-                    continue;
-                }
-                for (const dtId of validTypeIds) {
-                    try {
-                        const result = await assignDocumentRecord({ organization_id, employee_id: empId, document_type_id: dtId, assigned_by_id, isBulk: true });
-                        if (result.already) alreadyCount++;
-                        else if (result.error) failedCount++;
-                        else assignedCount++;
-                    } catch (e) {
+            const toCreate = [];
+            const toReactivate = [];
+
+            for (const empId of uniqueEmpIds) {
+                const empValid = validEmpSet.has(empId);
+                for (const dtId of uniqueTypeIds) {
+                    if (!empValid || !validTypeSet.has(dtId)) {
                         failedCount++;
+                        continue;
+                    }
+                    const existing = existingMap.get(`${empId}:${dtId}`);
+                    if (existing) {
+                        if (!existing.deletedAt) {
+                            alreadyCount++;
+                        } else {
+                            toReactivate.push({ id: existing.id, assignedByIdValue });
+                        }
+                    } else {
+                        toCreate.push({ empId, dtId });
                     }
                 }
+            }
+
+            // Batch-reactivate soft-deleted assignments
+            for (const r of toReactivate) {
+                await prisma.employeeDocumentAssignment.update({
+                    where: { id: r.id },
+                    data: {
+                        deletedAt: null,
+                        status: 'PENDING',
+                        assignedById: r.assignedByIdValue || undefined,
+                        assignedAt: now,
+                        updatedAt: now,
+                    },
+                });
+                assignedCount++;
+            }
+
+            // Batch-create new assignments
+            if (toCreate.length > 0) {
+                await prisma.employeeDocumentAssignment.createMany({
+                    data: toCreate.map(c => ({
+                        organizationId: organization_id,
+                        employeeId: c.empId,
+                        documentTypeId: c.dtId,
+                        assignedById: assignedByIdValue,
+                        assignedAt: now,
+                        status: 'PENDING',
+                        deletedAt: null,
+                        createdAt: now,
+                        updatedAt: now,
+                    })),
+                });
+                assignedCount += toCreate.length;
             }
 
             callback(null, {
@@ -721,11 +799,11 @@ const impl = {
                 return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Employee does not belong to this organization.' });
             }
 
-            const assignments = await prisma.employeeDocumentAssignment.findMany({
-                where: { employeeId: employee_id, organizationId: organization_id, deletedAt: null },
-                include: { documentType: { include: { folder: true } } },
-                orderBy: { createdAt: 'desc' },
-            });
+    const assignments = await prisma.employeeDocumentAssignment.findMany({
+            where: { employeeId: employee_id, organizationId: organization_id, deletedAt: { isSet: false } },
+            include: { documentType: { include: { folder: true } } },
+            orderBy: { createdAt: 'desc' },
+        });
 
             const result = assignments.map(a => mapAssignmentWithType(a));
             callback(null, { assignments: result, total: result.length, success: true, message: 'Assignments found' });
@@ -751,7 +829,7 @@ const impl = {
             }
 
             const assignments = await prisma.employeeDocumentAssignment.findMany({
-                where: { documentTypeId: document_type_id, organizationId: organization_id, deletedAt: null },
+                where: { documentTypeId: document_type_id, organizationId: organization_id, deletedAt: { isSet: false } },
                 orderBy: { createdAt: 'desc' },
             });
             const empIds = assignments.map(a => a.employeeId);
@@ -793,6 +871,122 @@ const impl = {
         }
     },
 
+    ListGroupedAssignments: async (call, callback) => {
+        try {
+            const { organization_id, page = 1, limit = 10, search = '', sort_by = 'created_at', sort_order = 'desc' } = call.request;
+            if (!organization_id) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'organization_id is required.' });
+            if (!isObjectId(organization_id)) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid organization_id.' });
+
+            // 1. Fetch all active assignments for this org
+            const assignments = await prisma.employeeDocumentAssignment.findMany({
+                where: { organizationId: organization_id, deletedAt: { isSet: false } },
+                include: { documentType: { include: { folder: true } } },
+                orderBy: { createdAt: 'desc' },
+            });
+
+            // 2. Group by employee
+            const byEmployee = new Map();
+            for (const a of assignments) {
+                const empId = a.employeeId;
+                if (!byEmployee.has(empId)) byEmployee.set(empId, []);
+                byEmployee.get(empId).push(a);
+            }
+
+            // 3. Fetch employee records (with search)
+            const empIds = [...byEmployee.keys()];
+            if (!empIds.length) {
+                return callback(null, { groups: [], total_employees: 0, page, limit, total_pages: 0, success: true, message: 'No assignments found' });
+            }
+
+            let empWhere = { id: { in: empIds }, deletedAt: null };
+            if (search) {
+                const q = search.toLowerCase();
+                empWhere = {
+                    id: { in: empIds }, deletedAt: null,
+                    OR: [
+                        { fullName: { contains: q, mode: 'insensitive' } },
+                        { employeeCode: { contains: q, mode: 'insensitive' } },
+                        { email: { contains: q, mode: 'insensitive' } },
+                    ],
+                };
+            }
+
+            // Also filter by document type name if search matches
+            let filteredEmpIds = empIds;
+            if (search) {
+                const q = search.toLowerCase();
+                const matchingEmpIds = new Set();
+                for (const [empId, empAssignments] of byEmployee) {
+                    const hasMatch = empAssignments.some(a => {
+                        const typeName = (a.documentType?.name || '').toLowerCase();
+                        const folderName = (a.documentType?.folder?.name || '').toLowerCase();
+                        return typeName.includes(q) || folderName.includes(q);
+                    });
+                    if (hasMatch) matchingEmpIds.add(empId);
+                }
+                // Combine: employee search OR document name match
+                const employeeMatches = await prisma.organizationEmployees.findMany({
+                    where: empWhere,
+                    select: { id: true },
+                });
+                const allMatchingIds = new Set([...employeeMatches.map(e => e.id), ...matchingEmpIds]);
+                filteredEmpIds = empIds.filter(id => allMatchingIds.has(id));
+            }
+
+            const totalEmployees = filteredEmpIds.length;
+
+            // 4. Sort employees
+            const sortField = sort_by === 'name' ? 'fullName' : sort_by === 'code' ? 'employeeCode' : 'fullName';
+            const sortDir = sort_order === 'asc' ? 'asc' : 'desc';
+
+            // 5. Paginate employees
+            const skip = (page - 1) * limit;
+            const pagedEmpIds = filteredEmpIds.slice(skip, skip + limit);
+
+            const employees = await prisma.organizationEmployees.findMany({
+                where: { id: { in: pagedEmpIds }, deletedAt: null },
+                include: {
+                    designation: true,
+                    departmentAssignments: { where: { deletedAt: null }, include: { department: true } },
+                },
+                orderBy: { [sortField]: sortDir },
+            });
+
+            // Build employee lookup
+            const empLookup = new Map(employees.map(e => [e.id, e]));
+
+            // 6. Build grouped result
+            const groups = pagedEmpIds.map(empId => {
+                const emp = empLookup.get(empId);
+                if (!emp) return null;
+                const empAssignments = byEmployee.get(empId) || [];
+                const docAssignments = empAssignments.map(a => mapAssignmentWithType(a));
+                return {
+                    employee_id: emp.id ?? '',
+                    employee_name: emp.fullName ?? '',
+                    employee_code: emp.employeeCode ?? '',
+                    designation: emp.designation?.name ?? '',
+                    department: emp.departmentAssignments?.[0]?.department?.name ?? '',
+                    assignment_count: docAssignments.length,
+                    assignments: docAssignments,
+                };
+            }).filter(Boolean);
+
+            callback(null, {
+                groups,
+                total_employees: totalEmployees,
+                page,
+                limit,
+                total_pages: Math.ceil(totalEmployees / limit),
+                success: true,
+                message: 'Grouped assignments found',
+            });
+        } catch (e) {
+            console.error('ListGroupedAssignments Error:', e);
+            callback({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
+
     GetAssignment: async (call, callback) => {
         try {
             const { organization_id, assignment_id } = call.request;
@@ -800,7 +994,7 @@ const impl = {
             if (!isObjectId(assignment_id)) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid assignment id' });
 
             const assignment = await prisma.employeeDocumentAssignment.findFirst({
-                where: { id: assignment_id, deletedAt: null },
+                where: { id: assignment_id, deletedAt: { isSet: false } },
                 include: { documentType: { include: { folder: true } } },
             });
             if (!assignment) return callback({ code: grpc.status.NOT_FOUND, message: 'Assignment not found' });
@@ -821,7 +1015,7 @@ const impl = {
             if (!isObjectId(organization_id)) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid organization_id.' });
             if (!isObjectId(assignment_id)) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid assignment id' });
 
-            const assignment = await prisma.employeeDocumentAssignment.findFirst({ where: { id: assignment_id, deletedAt: null } });
+            const assignment = await prisma.employeeDocumentAssignment.findFirst({ where: { id: assignment_id, deletedAt: { isSet: false } } });
             if (!assignment) return callback({ code: grpc.status.NOT_FOUND, message: 'Assignment not found' });
             if (String(assignment.organizationId) !== String(organization_id)) {
                 return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Assignment does not belong to this organization.' });
@@ -850,7 +1044,7 @@ const impl = {
             // Fetch active (non-deleted) assignments belonging to the org with enriched data.
             // We intentionally avoid N+1 by loading assignments + their type/folder/employee in one pass,
             // then computing which of those have an active submission with a single grouped query.
-            const whereAssignment = { organizationId: organization_id, deletedAt: null };
+            const whereAssignment = { organizationId: organization_id, deletedAt: { isSet: false } };
             if (employee_id && isObjectId(employee_id)) whereAssignment.employeeId = employee_id;
             if (document_type_id && isObjectId(document_type_id)) whereAssignment.documentTypeId = document_type_id;
 
@@ -884,22 +1078,30 @@ const impl = {
                 pending = pendingInitial.filter(a => String(a.documentType?.folderId) === String(folder_id));
             }
 
-            // Determine which assignment ids have an ACTIVE submission (deletedAt null, excluding expired/rejected? see below).
+            // Determine submission status for each assignment (do NOT filter out — just annotate).
             const candidateIds = pending.map(a => a.id);
             const activeSubs = candidateIds.length
                 ? await prisma.employeeDocumentSubmission.findMany({
                     where: { assignmentId: { in: candidateIds }, deletedAt: null },
-                    select: { assignmentId: true, status: true },
+                    select: { assignmentId: true, status: true, id: true, createdAt: true },
+                    orderBy: { createdAt: 'desc' },
                 })
                 : [];
 
-            // A submission "blocks" pending-on-employee for PENDING / PENDING_VERIFICATION / VERIFIED / EXPIRED.
-            // REJECTED does NOT block — a rejected document becomes actionable again for a later resubmission lifecycle.
-            const blockedIds = new Set();
+            // Map assignment -> latest submission status
+            const subStatusMap = new Map();
             for (const s of activeSubs) {
-                if (['PENDING', 'PENDING_VERIFICATION', 'VERIFIED', 'EXPIRED'].includes(s.status)) blockedIds.add(s.assignmentId);
+                if (!subStatusMap.has(s.assignmentId)) subStatusMap.set(s.assignmentId, s);
             }
-            pending = pending.filter(a => !blockedIds.has(a.id));
+            pending.forEach(a => {
+                const sub = subStatusMap.get(a.id);
+                a._submissionStatus = sub?.status || null;
+                a._submissionId = sub?.id || null;
+            });
+
+            // Remove assignments that are VERIFIED — no longer pending.
+            // Keep PENDING_VERIFICATION, REJECTED, EXPIRED, etc. visible.
+            pending = pending.filter(a => a._submissionStatus !== 'VERIFIED');
 
             // Search: employee name/code/email + doc type name + folder name
             if (search) {
@@ -918,30 +1120,41 @@ const impl = {
                 });
             }
 
-            // Sort
-            const validSort = { created_at: 'createdAt', assigned_at: 'assignedAt', name: 'fullName' };
-            const dir = sort_order.toLowerCase() === 'asc' ? 1 : -1;
-            if (sort_by === 'employee_name') {
-                pending.sort((a, b) => String(a.employee?.fullName || '').localeCompare(String(b.employee?.fullName || '')) * dir);
-            } else {
-                const field = validSort[sort_by] === 'fullName' ? 'createdAt' : (validSort[sort_by] || 'createdAt');
-                pending.sort((a, b) => ((a[field] ? new Date(a[field]).getTime() : 0) - (b[field] ? new Date(b[field]).getTime() : 0)) * dir);
+            // Group by employee for employee-level pagination
+            const byEmployee = new Map();
+            for (const a of pending) {
+                const empId = a.employeeId;
+                if (!byEmployee.has(empId)) byEmployee.set(empId, []);
+                byEmployee.get(empId).push(a);
             }
 
-            const total = pending.length;
             const totalPendingDocuments = pending.length;
-            const uniqueEmployees = new Set(pending.map(a => a.employeeId));
-            const totalPendingEmployees = uniqueEmployees.size;
+            const totalPendingEmployees = byEmployee.size;
 
+            // Sort employees
+            const empEntries = [...byEmployee.entries()];
+            const dir = sort_order.toLowerCase() === 'asc' ? 1 : -1;
+            if (sort_by === 'employee_name' || sort_by === 'name') {
+                empEntries.sort((a, b) => String(a[1][0]?.employee?.fullName || '').localeCompare(String(b[1][0]?.employee?.fullName || '')) * dir);
+            } else {
+                empEntries.sort((a, b) => {
+                    const aDate = a[1][0]?.createdAt ? new Date(a[1][0].createdAt).getTime() : 0;
+                    const bDate = b[1][0]?.createdAt ? new Date(b[1][0].createdAt).getTime() : 0;
+                    return (aDate - bDate) * dir;
+                });
+            }
+
+            // Paginate employees
             const skip = (page - 1) * limit;
-            const pageRows = pending.slice(skip, skip + limit);
+            const pagedEntries = empEntries.slice(skip, skip + limit);
+            const pageRows = pagedEntries.flatMap(([, docs]) => docs);
 
             callback(null, {
                 pending_documents: pageRows.map(mapPendingDocument),
-                total,
+                total: totalPendingDocuments,
                 page,
                 limit,
-                total_pages: Math.ceil(total / limit),
+                total_pages: Math.ceil(totalPendingEmployees / limit),
                 total_pending_employees: totalPendingEmployees,
                 total_pending_documents: totalPendingDocuments,
                 success: true,
@@ -959,17 +1172,19 @@ const impl = {
     SubmitDocument: async (call, callback) => {
         try {
             const data = call.request;
-            const { organization_id, assignment_id, employee_id, document_type_id, submitted_by_id } = data;
+            const { organization_id, assignment_id, employee_id, document_type_id, admin_id } = data;
             if (!organization_id || !isObjectId(organization_id)) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid organization_id.' });
             if (!isObjectId(assignment_id)) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid assignment id' });
             if (!isObjectId(employee_id)) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid employee id' });
             if (!isObjectId(document_type_id)) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid document type id' });
 
+            const actorId = isObjectId(admin_id) ? admin_id : null;
+
             const isNA = Boolean(data.is_na);
             const expiryDate = data.expiry_date ? new Date(data.expiry_date) : null;
 
             // --- Validate ownership chain: assignment -> employee + type -> folder -> org ---
-            const assignment = await prisma.employeeDocumentAssignment.findFirst({ where: { id: assignment_id, deletedAt: null } });
+            const assignment = await prisma.employeeDocumentAssignment.findFirst({ where: { id: assignment_id, deletedAt: { isSet: false } } });
             if (!assignment) return callback({ code: grpc.status.NOT_FOUND, message: 'Assignment not found' });
             if (String(assignment.organizationId) !== String(organization_id)) return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Assignment does not belong to this organization.' });
             if (String(assignment.employeeId) !== String(employee_id)) return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Assignment does not belong to this employee.' });
@@ -988,7 +1203,7 @@ const impl = {
             // --- Single-type duplicate protection (only for non-multiple) ---
             if (!type.isMultiple) {
                 const activeSub = await prisma.employeeDocumentSubmission.findFirst({
-                    where: { assignmentId: assignment_id, deletedAt: null, status: { in: ['PENDING_VERIFICATION', 'PENDING', 'VERIFIED'] } },
+                    where: { assignmentId: assignment_id, deletedAt: { isSet: false }, status: { in: ['PENDING_VERIFICATION', 'PENDING', 'VERIFIED'] } },
                 });
                 if (activeSub) return callback({ code: grpc.status.ALREADY_EXISTS, message: 'This document has already been submitted and is awaiting review.' });
             }
@@ -1019,7 +1234,7 @@ const impl = {
                         storageKey,
                         fileName: data.file_name || 'document',
                         fileSize: size,
-                        addedById: submitted_by_id || employee_id,
+                        addedById: actorId || employee_id,
                         organizationId: organization_id,
                         createdAt: new Date(),
                         updatedAt: new Date(),
@@ -1055,7 +1270,8 @@ const impl = {
                     fieldValues,
                     isNA,
                     status: 'PENDING_VERIFICATION',
-                    submittedById: isObjectId(submitted_by_id) ? submitted_by_id : null,
+                    submittedById: actorId,
+                    submittedByType: actorId ? 'ADMIN' : null,
                     submittedAt: new Date(),
                     expiryDate,
                     createdAt: new Date(),
@@ -1081,7 +1297,26 @@ const impl = {
             const submission = await prisma.employeeDocumentSubmission.findFirst({ where: { id: submission_id, deletedAt: null } });
             if (!submission) return callback({ code: grpc.status.NOT_FOUND, message: 'Submission not found' });
             if (String(submission.organizationId) !== String(organization_id)) return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Submission does not belong to this organization.' });
-            callback(null, { submission: mapSubmission(await enrichSubmission(submission)), message: 'Submission found', success: true });
+
+            // For PENDING_VERIFICATION submissions, find the current VERIFIED predecessor for change comparison
+            let previousSubmission = null;
+            if (submission.status === 'PENDING_VERIFICATION' && submission.assignmentId) {
+                previousSubmission = await prisma.employeeDocumentSubmission.findFirst({
+                    where: {
+                        assignmentId: submission.assignmentId,
+                        id: { not: submission_id },
+                        status: 'VERIFIED',
+                        deletedAt: null,
+                        replacedBySubmissionId: { isSet: false },
+                    },
+                });
+            }
+
+            const resp = { submission: mapSubmission(await enrichSubmission(submission)), message: 'Submission found', success: true };
+            if (previousSubmission) {
+                resp.previous_submission = mapSubmission(await enrichSubmission(previousSubmission));
+            }
+            callback(null, resp);
         } catch (e) {
             if (e.code) return callback({ code: e.code, message: e.message });
             console.error('GetSubmission Error:', e);
@@ -1115,7 +1350,7 @@ const impl = {
             const { organization_id, assignment_id } = call.request;
             if (!isObjectId(organization_id)) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid organization_id.' });
             if (!isObjectId(assignment_id)) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid assignment id' });
-            const assignment = await prisma.employeeDocumentAssignment.findFirst({ where: { id: assignment_id, deletedAt: null } });
+            const assignment = await prisma.employeeDocumentAssignment.findFirst({ where: { id: assignment_id, deletedAt: { isSet: false } } });
             if (!assignment) return callback({ code: grpc.status.NOT_FOUND, message: 'Assignment not found' });
             if (String(assignment.organizationId) !== String(organization_id)) return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Assignment does not belong to this organization.' });
             const submissions = await prisma.employeeDocumentSubmission.findMany({ where: { assignmentId: assignment_id, organizationId: organization_id, deletedAt: null }, orderBy: { createdAt: 'desc' } });
@@ -1209,17 +1444,15 @@ const impl = {
 
             const total = pending.length;
             const uniqueEmployees = new Set(pending.map(s => s.employeeId));
-            const skip = (page - 1) * limit;
-            const pageRows = pending.slice(skip, skip + limit);
             const enrichedRows = [];
-            for (const s of pageRows) enrichedRows.push(await enrichSubmission(s));
+            for (const s of pending) enrichedRows.push(await enrichSubmission(s));
 
             callback(null, {
                 pending_verification_documents: enrichedRows.map(mapPendingVerificationDocument),
                 total,
-                page,
-                limit,
-                total_pages: Math.ceil(total / limit),
+                page: 1,
+                limit: total,
+                total_pages: 1,
                 total_pending_verification_employees: uniqueEmployees.size,
                 total_pending_verification_documents: total,
                 success: true,
@@ -1233,12 +1466,19 @@ const impl = {
 
     VerifySubmission: async (call, callback) => {
         try {
-            const { organization_id, submission_id, verified_by_id } = call.request;
+            const { organization_id, submission_id, admin_id } = call.request;
+            const actorId = isObjectId(admin_id) ? admin_id : null;
             const chain = await getReviewableSubmission(organization_id, submission_id, { statuses: ['PENDING_VERIFICATION'], action: 'verify' });
             if (chain.error) return callback({ code: chain.error.code, message: chain.error.message });
             const updated = await prisma.employeeDocumentSubmission.update({
                 where: { id: submission_id },
-                data: { status: 'VERIFIED', verifiedAt: new Date(), verifiedById: isObjectId(verified_by_id) ? verified_by_id : chain.submission.verifiedById, updatedAt: new Date() },
+                data: {
+                    status: 'VERIFIED',
+                    verifiedAt: new Date(),
+                    verifiedById: actorId,
+                    verifiedByType: actorId ? 'ADMIN' : null,
+                    updatedAt: new Date()
+                },
             });
 
             // Rule #4/#10: when a renewal submission is VERIFIED, mark the previously-current
@@ -1271,14 +1511,22 @@ const impl = {
 
     RejectSubmission: async (call, callback) => {
         try {
-            const { organization_id, submission_id, rejection_reason, rejected_by_id } = call.request;
+            const { organization_id, submission_id, rejection_reason, admin_id } = call.request;
+            const actorId = isObjectId(admin_id) ? admin_id : null;
             const reason = (rejection_reason || '').trim();
             if (!reason) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Rejection reason is required.' });
             const chain = await getReviewableSubmission(organization_id, submission_id, { statuses: ['PENDING_VERIFICATION'], action: 'reject' });
             if (chain.error) return callback({ code: chain.error.code, message: chain.error.message });
             const updated = await prisma.employeeDocumentSubmission.update({
                 where: { id: submission_id },
-                data: { status: 'REJECTED', rejectionReason: reason, rejectedAt: new Date(), rejectedById: isObjectId(rejected_by_id) ? rejected_by_id : chain.submission.rejectedById, updatedAt: new Date() },
+                data: {
+                    status: 'REJECTED',
+                    rejectionReason: reason,
+                    rejectedAt: new Date(),
+                    rejectedById: actorId,
+                    rejectedByType: actorId ? 'ADMIN' : null,
+                    updatedAt: new Date()
+                },
             });
             callback(null, { submission: mapSubmission(await enrichSubmission(updated)), message: 'Document rejected successfully', success: true });
         } catch (e) {
@@ -1303,7 +1551,7 @@ const impl = {
             const submissions = await prisma.employeeDocumentSubmission.findMany({
                 where,
                 include: {
-                    documentType: { include: { folder: true } },
+                    documentType: { include: { folder: true, fields: { where: { deletedAt: null }, orderBy: { displayOrder: 'asc' } } } },
                     employee: { include: { designation: true, departmentAssignments: { where: { deletedAt: null }, include: { department: true } } } },
                 },
                 orderBy: { createdAt: 'desc' },
@@ -1476,9 +1724,11 @@ const impl = {
         let uploadedStorageKey = null;
         try {
             const data = call.request;
-            const { organization_id, submission_id, submitted_by_id } = data;
+            const { organization_id, submission_id, admin_id } = data;
             if (!organization_id || !isObjectId(organization_id)) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid organization_id.' });
             if (!isObjectId(submission_id)) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid submission id' });
+
+            const actorId = isObjectId(admin_id) ? admin_id : null;
 
             const isNA = Boolean(data.is_na);
             const expiryDate = data.expiry_date ? new Date(data.expiry_date) : null;
@@ -1490,7 +1740,7 @@ const impl = {
             if (existing.status !== 'VERIFIED') return callback({ code: grpc.status.FAILED_PRECONDITION, message: `Only verified documents can be renewed (current status: '${existing.status}').` });
 
             // --- Derive employee/assignment/type from the existing submission (never trust client) ---
-            const assignment = await prisma.employeeDocumentAssignment.findFirst({ where: { id: existing.assignmentId, deletedAt: null } });
+            const assignment = await prisma.employeeDocumentAssignment.findFirst({ where: { id: existing.assignmentId, deletedAt: { isSet: false } } });
             if (!assignment) return callback({ code: grpc.status.NOT_FOUND, message: 'Assignment not found' });
             if (String(assignment.organizationId) !== String(organization_id)) return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Assignment does not belong to this organization.' });
 
@@ -1529,7 +1779,10 @@ const impl = {
             }
 
             // --- New file upload (reuse Phase 6 storage pattern) ---
-            let fileId = null, storageKey = null, fileName = null, fileType = null;
+            let fileId = existing.fileId || null;
+            let storageKey = existing.storageKey || null;
+            let fileName = existing.fileName || null;
+            let fileType = existing.fileType || null;
             if (data.file_buffer?.length) {
                 const buf = Buffer.from(data.file_buffer);
                 const { mime, size } = validateFile({ buffer: buf, fileName: data.file_name || 'document', mimeType: data.file_type || undefined });
@@ -1545,7 +1798,7 @@ const impl = {
                         storageKey,
                         fileName: data.file_name || 'document',
                         fileSize: size,
-                        addedById: submitted_by_id || existing.employeeId,
+                        addedById: actorId || existing.employeeId,
                         organizationId: organization_id,
                         createdAt: new Date(),
                         updatedAt: new Date(),
@@ -1581,7 +1834,8 @@ const impl = {
                     fieldValues,
                     isNA,
                     status: 'PENDING_VERIFICATION',
-                    submittedById: isObjectId(submitted_by_id) ? submitted_by_id : existing.submittedById,
+                    submittedById: actorId,
+                    submittedByType: actorId ? 'ADMIN' : null,
                     submittedAt: new Date(),
                     expiryDate,
                     createdAt: new Date(),
@@ -1670,6 +1924,8 @@ function mapPendingDocument(a) {
         assignment_status: a.status ?? 'PENDING',
         assigned_at: a.assignedAt ? a.assignedAt.toISOString() : '',
         assigned_by_id: a.assignedById ?? '',
+        submission_status: a._submissionStatus || '',
+        submission_id: a._submissionId || '',
     };
 }
 
@@ -1677,16 +1933,35 @@ function mapPendingDocument(a) {
 async function enrichSubmission(s) {
     const sWith = { ...s };
     try {
-        const [employee, type, submitter, verifier] = await Promise.all([
+        const [employee, type] = await Promise.all([
             prisma.organizationEmployees.findFirst({ where: { id: s.employeeId, deletedAt: null } }),
             prisma.employeeDocumentType.findFirst({ where: { id: s.documentTypeId, deletedAt: null }, include: { folder: true, fields: { where: { deletedAt: null }, orderBy: { displayOrder: 'asc' } } } }),
-            s.submittedById ? prisma.organizationEmployees.findFirst({ where: { id: s.submittedById, deletedAt: null } }) : Promise.resolve(null),
-            s.verifiedById ? prisma.organizationEmployees.findFirst({ where: { id: s.verifiedById, deletedAt: null } }) : Promise.resolve(null),
         ]);
         sWith._employee = employee || null;
         sWith._type = type || null;
+
+        // Resolve actor names from the correct collection based on actorType
+        const resolveActor = async (actorId, actorType) => {
+            if (!actorId) return null;
+            if (actorType === 'ADMIN') {
+                const admin = await prisma.admins.findFirst({ where: { id: actorId, deletedAt: null } }).catch(() => null);
+                if (admin) {
+                    // Admins model has no fullName — derive from email prefix
+                    admin.fullName = admin.email ? admin.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : '';
+                }
+                return admin;
+            }
+            return await prisma.organizationEmployees.findFirst({ where: { id: actorId, deletedAt: null } }).catch(() => null);
+        };
+
+        const [submitter, verifier, rejector] = await Promise.all([
+            resolveActor(s.submittedById, s.submittedByType),
+            resolveActor(s.verifiedById, s.verifiedByType),
+            resolveActor(s.rejectedById, s.rejectedByType),
+        ]);
         sWith._submittedBy = submitter || null;
         sWith._verifiedBy = verifier || null;
+        sWith._rejectedBy = rejector || null;
     } catch (e) { /* enrichment is best-effort */ }
     return sWith;
 }
@@ -1696,6 +1971,16 @@ function mapSubmission(s = {}) {
     const t = s._type || {};
     const f = t.folder || {};
     const sub = s._submittedBy || {};
+    const verifier = s._verifiedBy || {};
+    const rejector = s._rejectedBy || {};
+
+    // Derive display name from email when fullName is missing (Admins model has no name field)
+    const deriveName = (actor) => {
+        if (actor.fullName) return actor.fullName;
+        if (actor.email) return actor.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        return '';
+    };
+
     return {
         id: s.id ?? '',
         organization_id: s.organizationId ?? '',
@@ -1722,13 +2007,20 @@ function mapSubmission(s = {}) {
         rejection_reason: s.rejectionReason ?? '',
         replaced_by_submission_id: s.replacedBySubmissionId ?? '',
         is_current: (s.status === 'VERIFIED') && !s.deletedAt && !s.replacedBySubmissionId,
-        verified_by_name: (s._verifiedBy || {}).fullName ?? '',
+        submitted_by_name: deriveName(sub),
+        submitted_by_type: s.submittedByType ?? '',
+        submitted_by_email: sub.email ?? '',
+        verified_by_name: deriveName(verifier),
+        verified_by_type: s.verifiedByType ?? '',
+        verified_by_email: verifier.email ?? '',
+        rejected_by_name: deriveName(rejector),
+        rejected_by_type: s.rejectedByType ?? '',
+        rejected_by_email: rejector.email ?? '',
         employee_name: emp.fullName ?? '',
         employee_code: emp.employeeCode ?? '',
         document_type_name: t.name ?? '',
         folder_id: f.id ?? '',
         folder_name: f.name ?? '',
-        submitted_by_name: sub.fullName ?? '',
         fields: (t.fields || []).map(mapDocumentField),
     };
 }
@@ -1739,6 +2031,13 @@ function mapPendingVerificationDocument(s = {}) {
     const t = s.documentType || {};
     const f = t.folder || {};
     const sub = s._submittedBy || {};
+
+    const deriveName = (actor) => {
+        if (actor.fullName) return actor.fullName;
+        if (actor.email) return actor.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        return '';
+    };
+
     return {
         submission_id: s.id ?? '',
         assignment_id: s.assignmentId ?? '',
@@ -1754,7 +2053,9 @@ function mapPendingVerificationDocument(s = {}) {
         status: s.status ?? 'PENDING_VERIFICATION',
         submitted_at: s.submittedAt ? s.submittedAt.toISOString() : '',
         submitted_by_id: s.submittedById ?? '',
-        submitted_by_name: sub.fullName ?? '',
+        submitted_by_name: deriveName(sub),
+        submitted_by_type: s.submittedByType ?? '',
+        submitted_by_email: sub.email ?? '',
         file_id: s.fileId ?? '',
         file_name: s.fileName ?? '',
         file_type: s.fileType ?? '',
@@ -1774,6 +2075,14 @@ function mapVerifiedDocument(s = {}) {
     const t = s.documentType || {};
     const f = t.folder || {};
     const sub = s._submittedBy || {};
+    const verifier = s._verifiedBy || {};
+
+    const deriveName = (actor) => {
+        if (actor.fullName) return actor.fullName;
+        if (actor.email) return actor.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        return '';
+    };
+
     return {
         submission_id: s.id ?? '',
         assignment_id: s.assignmentId ?? '',
@@ -1789,10 +2098,14 @@ function mapVerifiedDocument(s = {}) {
         status: s.status ?? 'VERIFIED',
         submitted_at: s.submittedAt ? s.submittedAt.toISOString() : '',
         submitted_by_id: s.submittedById ?? '',
-        submitted_by_name: sub.fullName ?? '',
+        submitted_by_name: deriveName(sub),
+        submitted_by_type: s.submittedByType ?? '',
+        submitted_by_email: sub.email ?? '',
         verified_at: s.verifiedAt ? s.verifiedAt.toISOString() : '',
         verified_by_id: s.verifiedById ?? '',
-        verified_by_name: (s._verifiedBy || {}).fullName ?? '',
+        verified_by_name: deriveName(verifier),
+        verified_by_type: s.verifiedByType ?? '',
+        verified_by_email: verifier.email ?? '',
         file_id: s.fileId ?? '',
         file_name: s.fileName ?? '',
         file_type: s.fileType ?? '',
@@ -1801,6 +2114,18 @@ function mapVerifiedDocument(s = {}) {
         is_na: !!s.isNA,
         expiry_date: s.expiryDate ? s.expiryDate.toISOString() : '',
         document_is_multiple: !!t.isMultiple,
+        document_is_mandatory: !!t.isMandatory,
+        document_is_verification_required: !!t.isVerificationRequired,
+        fields: (t.fields || []).map(fd => ({
+            id: fd.id ?? '',
+            document_type_id: fd.documentTypeId ?? '',
+            label: fd.label ?? '',
+            key: fd.key ?? '',
+            field_type: fd.fieldType ?? 'TEXTBOX',
+            options: fd.options ? (typeof fd.options === 'string' ? JSON.parse(fd.options) : fd.options) : [],
+            is_mandatory: !!fd.isMandatory,
+            display_order: fd.displayOrder ?? 0,
+        })),
         submission_count: 1,
         replaced_by_submission_id: s.replacedBySubmissionId ?? '',
         is_current: !s.deletedAt && !s.replacedBySubmissionId,
@@ -1965,7 +2290,10 @@ async function assignDocumentRecord({ organization_id, employee_id, document_typ
 
 async function main() {
     await checkDbConnection('employee-document-service');
-    const server = new grpc.Server();
+    const server = new grpc.Server({
+        'grpc.max_send_message_length': 16 * 1024 * 1024,
+        'grpc.max_receive_message_length': 16 * 1024 * 1024,
+    });
     server.addService(employeeDocumentProto.EmployeeDocumentService.service, impl);
     await new Promise((resolve, reject) => {
         server.bindAsync(`0.0.0.0:${PORT}`, grpc.ServerCredentials.createInsecure(), (err) => (err ? reject(err) : resolve()));

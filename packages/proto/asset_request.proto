@@ -45,7 +45,9 @@ service AssetRequestService {
       returns (ListAssetRequestsResponse);
   rpc UpdateAssetRequest(UpdateAssetRequest) returns (AssetRequestResponse);
   rpc ApproveRejectAssetRequest(AssetRequestStatus)
-      returns (DeleteAssetRequestResponse);
+      returns (AssetRequestResponse);
+  rpc AssignAssetToRequest(AssignAssetToRequestRequest)
+      returns (AssignAssetToRequestResponse);
   rpc DeleteAssetRequest(DeleteAssetRequest)
       returns (DeleteAssetRequestResponse);
 }
@@ -264,4 +266,31 @@ message ListAssetRequestsResponse {
 message DeleteAssetRequestResponse {
   bool success = 1;
   string message = 2;
+}
+
+// =============================
+// 🔹 Assign Asset to Request (Phase 06)
+// =============================
+message AssignAssetToRequestRequest {
+  string request_id = 1;
+  string asset_id = 2;
+  string assigned_date = 3;
+  string condition_assign = 4;
+  string notes = 5;
+}
+
+message AssignAssetToRequestResponse {
+  AssignmentInfo assignment = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message AssignmentInfo {
+  string id = 1;
+  string organization_id = 2;
+  string asset_id = 3;
+  string employee_id = 4;
+  string assigned_date = 5;
+  string status = 6;
+  string notes = 7;
 }

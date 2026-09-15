@@ -9,7 +9,7 @@ export default function registerAssetAssignmentRoutes(app) {
         assigned_date: z.string({ required_error: 'Assigned Date is required' }),
         return_date: z.string().optional(),
         condition_assign: z.string().optional(),
-        status: z.string().default('Active'),
+        status: z.string().default('ASSIGNED'),
         notes: z.string().optional(),
     });
 
@@ -171,6 +171,8 @@ export default function registerAssetAssignmentRoutes(app) {
             request: {
                 query: z.object({
                     organization_id: z.string({ required_error: 'Organization ID is required' }),
+                    employee_id: z.string().optional(),
+                    status: z.string().optional(),
                     search: z.string().optional(),
                     page: z.coerce.number().optional().default(1),
                     limit: z.coerce.number().optional().default(10),
@@ -217,7 +219,9 @@ export default function registerAssetAssignmentRoutes(app) {
                 const response = await new Promise((resolve, reject) => {
                     assetAssignmentClient.listAssetAssignments({
                         organization_id: query.organization_id,
-                        search: query.search,
+                        employee_id: query.employee_id || '',
+                        status: query.status || '',
+                        search: query.search || '',
                         page: query.page,
                         limit: query.limit,
                         sort_by: query.sort_by,
@@ -370,6 +374,100 @@ export default function registerAssetAssignmentRoutes(app) {
                 return c.json(response, 200);
             } catch (error) {
                 return c.json({ message: error.message }, 500);
+            }
+        }
+    );
+
+    // 🟢 Phase 04: Get My Assigned Assets (employee-scoped)
+    app.openapi(
+        {
+            method: 'get',
+            path: '/employee-assets/my-assigned',
+            tags: ['Asset Assignments'],
+            summary: 'Get assets assigned to the authenticated employee',
+            request: {
+                query: z.object({
+                    organization_id: z.string({ required_error: 'Organization ID is required' }),
+                }),
+            },
+            responses: {
+                200: {
+                    description: 'Employee assigned assets',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                assignments: z.array(z.object({
+                                    id: z.string(),
+                                    asset_id: z.string(),
+                                    employee_id: z.string(),
+                                    assigned_date: z.string(),
+                                    return_date: z.string().optional(),
+                                    condition_assign: z.string().optional(),
+                                    status: z.string(),
+                                    notes: z.string().optional(),
+                                    created_at: z.string(),
+                                    asset: z.object({
+                                        id: z.string(),
+                                        serial_number: z.string(),
+                                        asset_tag: z.string(),
+                                        status: z.string(),
+                                        location: z.any().optional(),
+                                        category: z.object({
+                                            id: z.string(),
+                                            name: z.string(),
+                                            code: z.string(),
+                                        }).optional(),
+                                        model: z.object({
+                                            id: z.string(),
+                                            brand: z.string(),
+                                            model_name: z.string(),
+                                            code: z.string(),
+                                        }).optional(),
+                                    }).optional(),
+                                })),
+                                success: z.boolean(),
+                                message: z.string(),
+                            }),
+                        },
+                    },
+                },
+            },
+        },
+        async (c) => {
+            try {
+                // Phase 04: Employee identity from authEmployee middleware
+                const employeeId = c.get('employeeId');
+                if (!employeeId) {
+                    return c.json({ success: false, message: 'Unauthorized' }, 401);
+                }
+
+                const query = c.req.valid('query');
+
+                const response = await new Promise((resolve, reject) => {
+                    assetAssignmentClient.listAssetAssignments({
+                        organization_id: query.organization_id,
+                        employee_id: employeeId,
+                        status: 'ASSIGNED',
+                        page: 1,
+                        limit: 100,
+                        sort_by: 'created_at',
+                        sort_order: 'desc',
+                    }, (err, response) => {
+                        if (err) {
+                            reject(err);
+                        } else {
+                            resolve(response);
+                        }
+                    });
+                });
+
+                return c.json({
+                    assignments: response.assignments || [],
+                    success: true,
+                    message: 'Assigned assets fetched successfully',
+                }, 200);
+            } catch (error) {
+                return c.json({ success: false, message: error.message }, 500);
             }
         }
     );

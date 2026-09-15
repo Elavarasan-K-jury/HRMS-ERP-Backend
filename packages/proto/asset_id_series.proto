@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package asset_id_series;
+
+service AssetIdSeriesService {
+  rpc CreateAssetIdSeries(CreateAssetIdSeriesRequest) returns (AssetIdSeriesResponse);
+  rpc GetAssetIdSeries(GetAssetIdSeriesRequest) returns (AssetIdSeriesResponse);
+  rpc ListAssetIdSeries(ListAssetIdSeriesRequest) returns (ListAssetIdSeriesResponse);
+  rpc UpdateAssetIdSeries(UpdateAssetIdSeriesRequest) returns (AssetIdSeriesResponse);
+  rpc DeleteAssetIdSeries(DeleteAssetIdSeriesRequest) returns (DeleteAssetIdSeriesResponse);
+  rpc GenerateAssetId(GenerateAssetIdRequest) returns (GenerateAssetIdResponse);
+}
+
+message CreateAssetIdSeriesRequest {
+  string organization_id = 1;
+  string name = 2;
+  string prefix = 3;
+  int32 digits = 4;
+  string suffix = 5;
+  bool is_active = 6;
+}
+
+message GetAssetIdSeriesRequest {
+  string id = 1;
+}
+
+message UpdateAssetIdSeriesRequest {
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  string prefix = 4;
+  int32 digits = 5;
+  string suffix = 6;
+  bool is_active = 7;
+}
+
+message DeleteAssetIdSeriesRequest {
+  string id = 1;
+}
+
+message ListAssetIdSeriesRequest {
+  string organization_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  string search = 4;
+  string sort_by = 5;
+  string sort_order = 6;
+}
+
+message GenerateAssetIdRequest {
+  string organization_id = 1;
+  string series_id = 2;
+  bool preview_only = 3;
+}
+
+message AssetIdSeries {
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  string prefix = 4;
+  int32 digits = 5;
+  string suffix = 6;
+  int32 next_number = 7;
+  bool is_active = 8;
+  string created_at = 9;
+  string updated_at = 10;
+  string deleted_at = 11;
+}
+
+message AssetIdSeriesResponse {
+  AssetIdSeries series = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message ListAssetIdSeriesResponse {
+  repeated AssetIdSeries series = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  bool success = 6;
+  string message = 7;
+}
+
+message DeleteAssetIdSeriesResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GenerateAssetIdResponse {
+  string asset_id = 1;
+  string series_id = 2;
+  int32 next_number = 3;
+  bool success = 4;
+  string message = 5;
+}

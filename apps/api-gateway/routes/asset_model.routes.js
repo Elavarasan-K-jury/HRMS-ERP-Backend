@@ -7,8 +7,8 @@ export default function registerAssetModelRoutes(app) {
         category_id: z.string({ required_error: 'Category ID is required' }),
         brand: z.string({ required_error: 'Brand is required' }),
         model_name: z.string({ required_error: 'Model name is required' }),
-        code: z.string().optional(),
-        description: z.string().optional(),
+        code: z.string().nullable().optional(),
+        description: z.string().nullable().optional(),
         specs: z.string().optional(),
         is_active: z.boolean().default(true),
     });
@@ -166,6 +166,7 @@ export default function registerAssetModelRoutes(app) {
             request: {
                 query: z.object({
                     organization_id: z.string({ required_error: 'Organization ID is required' }),
+                    category_id: z.string().optional(),
                     search: z.string().optional(),
                     page: z.coerce.number().optional().default(1),
                     limit: z.coerce.number().optional().default(10),

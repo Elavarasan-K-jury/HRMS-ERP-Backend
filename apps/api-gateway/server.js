@@ -77,6 +77,7 @@ import { requestLogger } from './middlewares/req_logged.js';
 import { withServiceMetrics } from './middlewares/service_metrics.js';
 import { usageMiddleware } from './middlewares/usage_tracking.js';
 import { authAdmin } from './middlewares/auth_admin.js';
+import { authEmployee } from './middlewares/auth_employee.js';
 
 
 import registerOrganizationRoutes from './routes/organization.routes.js';
@@ -107,6 +108,8 @@ import registerAssetRoutes from './routes/assets.routes.js';
 import registerAssetRequestRoutes from './routes/asset_request.routes.js';
 import registerAssetAssignmentRoutes from './routes/asset_assignment.routes.js';
 import registerAssetConditionRoutes from './routes/asset_condition.routes.js';
+import registerAssetIdSeriesRoutes from './routes/asset_id_series.routes.js';
+import registerAssetAttributeDefinitionRoutes from './routes/asset_attribute_definition.routes.js';
 import registerHierarchyRoutes from './routes/hierarchy.routes.js';
 import registerPostPollRoutes from './routes/post_poll.routes.js';
 import registerHealthRoutes from './routes/health.routes.js';
@@ -125,6 +128,8 @@ import registerUsageTypeRoutes from './routes/usage_type.routes.js';
 import registerExpenseCategoryRoutes from './routes/expense_category.routes.js';
 import registerExpensePolicyRoutes from './routes/expense_policy.routes.js';
 import registerEmployeeDocumentRoutes from './routes/employee_document.routes.js';
+import registerEmployeeProfileSelfRoutes from './routes/employee_profile_self.routes.js';
+import registerOrganizationDocumentRoutes from './routes/organization_document.routes.js';
 import registerFinanceRoutes from './routes/finance.routes.js';
 import registerSalaryRangeRoutes from './routes/salary-range.routes.js';
 import registerSubscriptionPlanRoutes from './routes/subscription-plans.routes.js';
@@ -256,6 +261,7 @@ const detectServiceByPath = (c) => {
         { service: "expense_category", prefixes: ["/expense-categories"] },
         { service: "expense_policy", prefixes: ["/expense-policies"] },
         { service: "employee_document", prefixes: ["/employee-documents"] },
+        { service: "organization_document", prefixes: ["/organization-documents"] },
 
         // BANDS
         { service: "band", prefixes: ["/bands"] },
@@ -282,6 +288,8 @@ const detectServiceByPath = (c) => {
                 "/asset-conditions",
                 "/asset-models",
                 "/asset-requests",
+                "/asset-id-series",
+                "/asset-attribute-definitions",
             ],
         },
 
@@ -381,10 +389,26 @@ app.use('/bands/*', authAdmin);
 app.use('/usage-types/*', authAdmin);
 app.use('/expense-categories/*', authAdmin);
 app.use('/expense-policies/*', authAdmin);
+app.use('/employee-documents/my/*', authEmployee);
 app.use('/employee-documents/*', authAdmin);
+app.use('/employee-profile/my/*', authEmployee);
+app.use('/organization-documents/*', authAdmin);
 
 // Centralized file serving is auth-protected (supports ?token= for <img> tags)
 app.use('/file/*', authAdmin);
+
+// Phase 04: Employee self-service asset endpoints (must be before admin middleware)
+app.use('/employee-assets/*', authEmployee);
+
+// Auth middleware for asset routes (Phase 00: foundation security)
+app.use('/assets/*', authAdmin);
+app.use('/asset-categories/*', authAdmin);
+app.use('/asset-models/*', authAdmin);
+app.use('/asset-assignments/*', authAdmin);
+app.use('/asset-requests/*', authAdmin);
+app.use('/asset-conditions/*', authAdmin);
+app.use('/asset-id-series/*', authAdmin);
+app.use('/asset-attribute-definitions/*', authAdmin);
 
 // Health check
 app.get('/', (c) => c.text('🚀 Jury-HRMS API Gateway is running!'));
@@ -439,6 +463,8 @@ registerAssetRoutes({ openapi: wrapService('asset') });
 registerAssetRequestRoutes({ openapi: wrapService('asset_request') });
 registerAssetAssignmentRoutes({ openapi: wrapService('asset_assignment') });
 registerAssetConditionRoutes({ openapi: wrapService('asset_condition') });
+registerAssetIdSeriesRoutes({ openapi: wrapService('asset_id_series') });
+registerAssetAttributeDefinitionRoutes({ openapi: wrapService('asset_attribute_definition') });
 registerPostPollRoutes({ openapi: wrapService('post_poll') });
 registerShiftRoutes({ openapi: wrapService('shift') });
 registerShiftAssignmentRoutes({ openapi: wrapService('shift_assignment') });
@@ -476,6 +502,8 @@ registerUsageTypeRoutes({ openapi: wrapService('usage_type') });
 registerExpenseCategoryRoutes({ openapi: wrapService('expense_category') });
 registerExpensePolicyRoutes({ openapi: wrapService('expense_policy') });
 registerEmployeeDocumentRoutes({ openapi: wrapService('employee_document') });
+registerEmployeeProfileSelfRoutes({ openapi: wrapService('employee_profile_self') });
+registerOrganizationDocumentRoutes({ openapi: wrapService('organization_document') });
 registerHealthRoutes({ openapi: wrapSystem });
 
 /* ------------------------------------------------------------------ */

@@ -25,6 +25,23 @@ const impl = {
                 });
             }
 
+            // Verify category belongs to the same organization
+            const category = await prisma.assetCategories.findUnique({
+                where: { id: data.category_id },
+            });
+            if (!category || category.deletedAt) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Asset category not found.',
+                });
+            }
+            if (category.organizationId !== data.organization_id) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: 'Category does not belong to the specified organization.',
+                });
+            }
+
             const existing = await prisma.assetModels.findFirst({
                 where: {
                     organizationId: data.organization_id,
@@ -135,6 +152,7 @@ const impl = {
     ListAssetModels: async (call, callback) => {
         try {
             const { organization_id,
+                category_id,
                 page = 1,
                 limit = 10,
                 search = '',
@@ -154,21 +172,25 @@ const impl = {
 
             const prismaSortField = sortMap[sort_by] || "createdAt";
 
+            if (!organization_id) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: 'organization_id is required.',
+                });
+            }
+
             let where = {
                 deletedAt: null,
+                organizationId: organization_id,
             };
-            if (organization_id) {
-                where = {
-                    organizationId: organization_id,
-                };
+            if (category_id) {
+                where.categoriesId = category_id;
             }
             if (search) {
-                where = {
-                    OR: [
-                        { brand: { contains: search, mode: 'insensitive' } },
-                        { modelName: { contains: search, mode: 'insensitive' } },
-                    ],
-                };
+                where.OR = [
+                    { brand: { contains: search, mode: 'insensitive' } },
+                    { modelName: { contains: search, mode: 'insensitive' } },
+                ];
             }
             const total = await prisma.assetModels.count({ where });
             const models = await prisma.assetModels.findMany({
@@ -257,6 +279,27 @@ const impl = {
                 return callback({
                     code: grpc.status.INVALID_ARGUMENT,
                     message: 'Invalid model id',
+                });
+            }
+
+            const model = await prisma.assetModels.findUnique({
+                where: { id },
+            });
+            if (!model || model.deletedAt) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Asset model not found',
+                });
+            }
+
+            // Check for active assets referencing this model
+            const assetCount = await prisma.assets.count({
+                where: { modelId: id, deletedAt: null },
+            });
+            if (assetCount > 0) {
+                return callback({
+                    code: grpc.status.FAILED_PRECONDITION,
+                    message: 'Cannot delete model: has active assets. Remove all assets first.',
                 });
             }
 

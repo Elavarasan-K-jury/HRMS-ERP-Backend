@@ -27,6 +27,7 @@ service EmployeeDocumentService {
   rpc ListEmployeeAssignments (ListEmployeeAssignmentsRequest) returns (ListEmployeeAssignmentsResponse);
   rpc ListDocumentAssignments (ListDocumentAssignmentsRequest) returns (ListDocumentAssignmentsResponse);
   rpc GetAssignment (GetAssignmentRequest) returns (AssignmentResponse);
+  rpc ListGroupedAssignments (ListGroupedAssignmentsRequest) returns (ListGroupedAssignmentsResponse);
   rpc UnassignDocument (UnassignDocumentRequest) returns (UnassignDocumentResponse);
   rpc ListPendingEmployeeDocuments (ListPendingEmployeeDocumentsRequest) returns (ListPendingEmployeeDocumentsResponse);
 
@@ -403,6 +404,35 @@ message ListDocumentAssignmentsResponse {
   string message = 7;
 }
 
+message ListGroupedAssignmentsRequest {
+  string organization_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  string search = 4;
+  string sort_by = 5;
+  string sort_order = 6;
+}
+
+message EmployeeGroupAssignment {
+  string employee_id = 1;
+  string employee_name = 2;
+  string employee_code = 3;
+  string designation = 4;
+  string department = 5;
+  int32 assignment_count = 6;
+  repeated EmployeeDocumentAssignmentItem assignments = 7;
+}
+
+message ListGroupedAssignmentsResponse {
+  repeated EmployeeGroupAssignment groups = 1;
+  int32 total_employees = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  bool success = 6;
+  string message = 7;
+}
+
 message GetAssignmentRequest {
   string organization_id = 1;
   string assignment_id = 2;
@@ -437,6 +467,8 @@ message PendingEmployeeDocument {
   string assignment_status = 16;
   string assigned_at = 17;
   string assigned_by_id = 18;
+  string submission_status = 19;
+  string submission_id = 20;
 }
 
 message ListPendingEmployeeDocumentsRequest {
@@ -499,6 +531,13 @@ message Submission {
   int32 submission_count = 33;
   string replaced_by_submission_id = 34;
   bool is_current = 35;
+  string submitted_by_type = 36;
+  string submitted_by_email = 37;
+  string verified_by_type = 38;
+  string verified_by_email = 39;
+  string rejected_by_type = 40;
+  string rejected_by_email = 41;
+  string rejected_by_name = 42;
 }
 
 message SubmitDocumentRequest {
@@ -513,6 +552,7 @@ message SubmitDocumentRequest {
   bytes file_buffer = 9;
   string file_name = 10;
   string file_type = 11;
+  string admin_id = 12;
 }
 
 message GetSubmissionRequest {
@@ -536,6 +576,7 @@ message SubmissionResponse {
   Submission submission = 1;
   string message = 2;
   bool success = 3;
+  Submission previous_submission = 4; // For PENDING_VERIFICATION: the current VERIFIED version of the same assignment
 }
 
 message ListEmployeeSubmissionsResponse {
@@ -591,6 +632,8 @@ message PendingVerificationDocument {
   bool document_ask_expiry_date = 23;
   string replaced_by_submission_id = 24;
   bool is_current = 25;
+  string submitted_by_type = 26;
+  string submitted_by_email = 27;
 }
 
 message ListPendingVerificationDocumentsRequest {
@@ -621,6 +664,7 @@ message VerifySubmissionRequest {
   string organization_id = 1;
   string submission_id = 2;
   string verified_by_id = 3;
+  string admin_id = 4;
 }
 
 message RejectSubmissionRequest {
@@ -628,6 +672,7 @@ message RejectSubmissionRequest {
   string submission_id = 2;
   string rejection_reason = 3;
   string rejected_by_id = 4;
+  string admin_id = 5;
 }
 
 message VerifiedDocument {
@@ -660,6 +705,18 @@ message VerifiedDocument {
   int32 submission_count = 27;
   string replaced_by_submission_id = 28;
   bool is_current = 29;
+  string submitted_by_type = 30;
+  string submitted_by_email = 31;
+  string verified_by_type = 32;
+  string verified_by_email = 33;
+  bool document_is_mandatory = 34;
+  bool document_is_verification_required = 35;
+  string rejected_by_id = 36;
+  string rejected_by_name = 37;
+  string rejected_by_type = 38;
+  string rejected_by_email = 39;
+  string rejection_reason = 40;
+  repeated DocumentField fields = 41;
 }
 
 message ListVerifiedDocumentsRequest {
@@ -754,4 +811,5 @@ message RenewDocumentRequest {
   bytes file_buffer = 7;
   string file_name = 8;
   string file_type = 9;
+  string admin_id = 10;
 }

@@ -385,7 +385,7 @@ export default function registerAssetRequestRoutes(app) {
             method: 'put',
             path: '/asset-requests/{id}/status',
             tags: ['Asset Requests'],
-            summary: 'Update asset request',
+            summary: 'Approve or reject an asset request',
             request: {
                 params: z.object({
                     id: z.string({ required_error: 'Asset Request ID is required' }),
@@ -395,7 +395,7 @@ export default function registerAssetRequestRoutes(app) {
                         'application/json': {
                             schema: z.object({
                                 approved_by: z.string().optional(),
-                                status: z.string(),
+                                status: z.enum(['APPROVED', 'REJECTED'], { required_error: 'Status must be APPROVED or REJECTED' }),
                                 approved_at: z.string().optional(),
                                 rejection_reason: z.string().optional(),
                             })
@@ -409,10 +409,10 @@ export default function registerAssetRequestRoutes(app) {
                     content: {
                         'application/json': {
                             schema: z.object({
+                                request: z.any(),
                                 success: z.boolean(),
                                 message: z.string()
                             })
-
                         },
                     },
                 },
@@ -420,19 +420,15 @@ export default function registerAssetRequestRoutes(app) {
                     description: 'Validation Error',
                     content: {
                         'application/json': {
-                            schema: z.object({
-                                message: z.string(),
-                            }),
+                            schema: z.object({ message: z.string() }),
                         },
                     },
                 },
-                500: {
-                    description: 'Internal Server Error',
+                409: {
+                    description: 'Business Rule Conflict',
                     content: {
                         'application/json': {
-                            schema: z.object({
-                                message: z.string(),
-                            }),
+                            schema: z.object({ message: z.string() }),
                         },
                     },
                 },
@@ -449,23 +445,105 @@ export default function registerAssetRequestRoutes(app) {
                 const body = await c.req.json();
 
                 const response = await new Promise((resolve, reject) => {
-                    assetRequestClient.ApproveRejectAssetRequest({ id, ...body }, (err, response) => {
-                        if (err) {
-                            reject(err);
-                        } else {
-                            resolve(response);
-                        }
+                    assetRequestClient.ApproveRejectAssetRequest({
+                        id,
+                        status: body.status,
+                        approved_by: body.approved_by || '',
+                        approved_at: body.approved_at || '',
+                        rejection_reason: body.rejection_reason || '',
+                    }, (err, response) => {
+                        if (err) reject(err);
+                        else resolve(response);
                     });
                 });
 
-                if (!response.request) {
-                    return c.json({ message: 'Asset Request not found' }, 404);
-                }
+                return c.json(response);
+            } catch (err) {
+                const msg = err?.details || err?.message || 'Internal server error';
+                const code = err?.code === 9 ? 409 : err?.code === 5 ? 404 : 500;
+                return c.json({ success: false, message: msg }, code);
+            }
+        }
+    );
+
+    // Phase 06: Assign physical asset to approved request
+    app.openapi(
+        {
+            method: 'post',
+            path: '/asset-requests/{id}/assign',
+            tags: ['Asset Requests'],
+            summary: 'Assign a physical asset to an approved request',
+            request: {
+                params: z.object({
+                    id: z.string({ required_error: 'Asset Request ID is required' }),
+                }),
+                body: {
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                asset_id: z.string({ required_error: 'Asset ID is required' }),
+                                assigned_date: z.string().optional(),
+                                condition_assign: z.string().optional(),
+                                notes: z.string().optional(),
+                            }),
+                        },
+                    },
+                },
+            },
+            responses: {
+                200: {
+                    description: 'Asset assigned to request',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                assignment: z.any(),
+                                success: z.boolean(),
+                                message: z.string(),
+                            }),
+                        },
+                    },
+                },
+                400: {
+                    description: 'Validation Error',
+                    content: {
+                        'application/json': {
+                            schema: z.object({ message: z.string() }),
+                        },
+                    },
+                },
+                409: {
+                    description: 'Business Rule Conflict',
+                    content: {
+                        'application/json': {
+                            schema: z.object({ message: z.string() }),
+                        },
+                    },
+                },
+            },
+        },
+        async (c) => {
+            try {
+                const id = c.req.param('id');
+                const body = await c.req.json();
+
+                const response = await new Promise((resolve, reject) => {
+                    assetRequestClient.AssignAssetToRequest({
+                        request_id: id,
+                        asset_id: body.asset_id,
+                        assigned_date: body.assigned_date || '',
+                        condition_assign: body.condition_assign || '',
+                        notes: body.notes || '',
+                    }, (err, response) => {
+                        if (err) reject(err);
+                        else resolve(response);
+                    });
+                });
 
                 return c.json(response);
-
             } catch (err) {
-                return c.json({ message: err.message }, 500);
+                const msg = err?.details || err?.message || 'Internal server error';
+                const code = err?.code === 9 ? 409 : err?.code === 5 ? 404 : 500;
+                return c.json({ success: false, message: msg }, code);
             }
         }
     );
@@ -542,6 +620,140 @@ export default function registerAssetRequestRoutes(app) {
 
             } catch (err) {
                 return c.json({ message: err.message }, 500);
+            }
+        }
+    );
+
+    // Phase 05: Employee self-service — create asset request
+    app.openapi(
+        {
+            method: 'post',
+            path: '/employee-assets/request',
+            tags: ['Asset Requests'],
+            summary: 'Employee: submit an asset request',
+            request: {
+                body: {
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                organization_id: z.string({ required_error: 'Organization ID is required' }),
+                                category_id: z.string().optional(),
+                                model_id: z.string().optional(),
+                                reason: z.string().optional(),
+                                quantity: z.number().optional(),
+                                priority: z.string().optional(),
+                            }),
+                        },
+                    },
+                },
+            },
+            responses: {
+                201: {
+                    description: 'Asset request created',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                request: z.any(),
+                                success: z.boolean(),
+                                message: z.string(),
+                            }),
+                        },
+                    },
+                },
+            },
+        },
+        async (c) => {
+            try {
+                const employeeId = c.get('employeeId');
+                if (!employeeId) {
+                    return c.json({ success: false, message: 'Unauthorized' }, 401);
+                }
+
+                const body = await c.req.json();
+
+                const response = await new Promise((resolve, reject) => {
+                    assetRequestClient.createAssetRequest({
+                        organization_id: body.organization_id,
+                        employee_id: employeeId,
+                        category_id: body.category_id || '',
+                        model_id: body.model_id || '',
+                        reason: body.reason || '',
+                        quantity: body.quantity || 1,
+                        priority: body.priority || 'MEDIUM',
+                    }, (err, response) => {
+                        if (err) reject(err);
+                        else resolve(response);
+                    });
+                });
+
+                return c.json(response, 201);
+            } catch (err) {
+                return c.json({ success: false, message: err.message }, 500);
+            }
+        }
+    );
+
+    // Phase 05: Employee self-service — list my requests
+    app.openapi(
+        {
+            method: 'get',
+            path: '/employee-assets/my-requests',
+            tags: ['Asset Requests'],
+            summary: 'Employee: list my asset requests',
+            request: {
+                query: z.object({
+                    organization_id: z.string({ required_error: 'Organization ID is required' }),
+                    page: z.coerce.number().optional().default(1),
+                    limit: z.coerce.number().optional().default(20),
+                }),
+            },
+            responses: {
+                200: {
+                    description: 'My asset requests',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                requests: z.array(z.any()),
+                                total: z.number(),
+                                success: z.boolean(),
+                                message: z.string(),
+                            }),
+                        },
+                    },
+                },
+            },
+        },
+        async (c) => {
+            try {
+                const employeeId = c.get('employeeId');
+                if (!employeeId) {
+                    return c.json({ success: false, message: 'Unauthorized' }, 401);
+                }
+
+                const query = c.req.valid('query');
+
+                const response = await new Promise((resolve, reject) => {
+                    assetRequestClient.listAssetRequests({
+                        organization_id: query.organization_id,
+                        employee_id: employeeId,
+                        page: query.page,
+                        limit: query.limit,
+                        sort_by: 'created_at',
+                        sort_order: 'desc',
+                    }, (err, response) => {
+                        if (err) reject(err);
+                        else resolve(response);
+                    });
+                });
+
+                return c.json({
+                    requests: response.requests || [],
+                    total: response.total || 0,
+                    success: true,
+                    message: 'My asset requests fetched successfully',
+                }, 200);
+            } catch (err) {
+                return c.json({ success: false, message: err.message }, 500);
             }
         }
     );

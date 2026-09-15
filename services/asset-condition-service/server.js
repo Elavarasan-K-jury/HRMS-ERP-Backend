@@ -143,26 +143,26 @@ const impl = {
             const prismaSortBy = SORT_MAP[sort_by] ?? "createdAt";
 
             // WHERE conditions
+            if (!organization_id) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: 'organization_id is required.',
+                });
+            }
+
             let where = {
                 deletedAt: null,
+                organizationId: organization_id,
             };
-
-            if (organization_id) {
-                where = {
-                    organizationId: organization_id,
-                };
-            }
             if (search) {
-                where = {
-                    OR: [
-                        {
-                            description: {
-                                contains: search,
-                                mode: "insensitive",
-                            },
+                where.OR = [
+                    {
+                        description: {
+                            contains: search,
+                            mode: "insensitive",
                         },
-                    ],
-                };
+                    },
+                ];
             }
 
             const conditions = await prisma.assetCondition.findMany({

@@ -8,7 +8,7 @@ export default function registerAssetCategoryRoutes(app) {
         name: z
             .string({ required_error: 'Category name is required' }),
         code: z.string().optional(),
-        description: z.string().optional(),
+        description: z.string().nullable().optional(),
         is_active: z.boolean().default(true),
     });
 

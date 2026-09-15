@@ -1,6 +1,10 @@
 import { z, ZodError } from 'zod';
 import { grpc } from '@jury-hrms/proto';
 import { employeeDocumentClient } from '../grpc/employee_document.client.js';
+import { employeeClient } from '../grpc/employee.client.js';
+import { PrismaClient } from '@jury-hrms/db';
+
+const prisma = new PrismaClient();
 
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id');
 
@@ -505,6 +509,26 @@ export default function registerEmployeeDocumentRoutes({ openapi }) {
             } catch (e) { return c.json({ error: e.message }, grpcToHttpStatus(e.code)); }
         });
 
+    // GET /employee-documents/assignments/grouped
+    openapi({ method: 'get', path: '/employee-documents/assignments/grouped', tags: ['Employee-Documents'], summary: 'List assignments grouped by employee', request: { query: z.object({
+        organization_id: objectId.optional(),
+        page: z.coerce.number().int().min(1).optional().default(1),
+        limit: z.coerce.number().int().min(1).max(100).optional().default(10),
+        search: z.string().optional().default(''),
+        sort_by: z.string().optional().default('name'),
+        sort_order: z.enum(['asc', 'desc']).optional().default('asc'),
+    }) }, responses: { 200: {}, 403: {} } },
+        async (c) => {
+            try {
+                const q = c.req.valid('query');
+                const res = await grpcCall(employeeDocumentClient, 'ListGroupedAssignments', {
+                    organization_id: q.organization_id ?? '',
+                    page: q.page, limit: q.limit, search: q.search, sort_by: q.sort_by, sort_order: q.sort_order,
+                });
+                return c.json(res);
+            } catch (e) { return c.json({ error: e.message }, grpcToHttpStatus(e.code)); }
+        });
+
     // GET /employee-documents/assignments/{assignmentId}
     openapi({ method: 'get', path: '/employee-documents/assignments/{assignmentId}', tags: ['Employee-Documents'], summary: 'Get assignment', request: { params: z.object({ assignmentId: objectId }), query: z.object({ organization_id: objectId.optional() }) }, responses: { 200: {}, 404: {}, 403: {} } },
         async (c) => {
@@ -595,13 +619,14 @@ export default function registerEmployeeDocumentRoutes({ openapi }) {
                     assignment_id: parsed.assignment_id,
                     employee_id: parsed.employee_id,
                     document_type_id: parsed.document_type_id,
-                    submitted_by_id: body.submitted_by_id || '',
+                    submitted_by_id: '',
                     field_values: body.field_values || '',
                     is_na: body.is_na === 'true',
                     expiry_date: body.expiry_date || '',
                     file_buffer: fileBuffer,
                     file_name: fileName,
                     file_type: fileType,
+                    admin_id: c.get('adminId') || '',
                 });
                 return c.json(res, 201);
             } catch (e) {
@@ -624,9 +649,10 @@ export default function registerEmployeeDocumentRoutes({ openapi }) {
                 }).parse(body);
                 const res = await grpcCall(employeeDocumentClient, 'SubmitDocument', {
                     organization_id: parsed.organization_id, assignment_id: parsed.assignment_id, employee_id: parsed.employee_id,
-                    document_type_id: parsed.document_type_id, submitted_by_id: parsed.submitted_by_id ?? '',
+                    document_type_id: parsed.document_type_id, submitted_by_id: '',
                     field_values: parsed.field_values ?? '', is_na: !!parsed.is_na, expiry_date: parsed.expiry_date ?? '',
                     file_buffer: Buffer.alloc(0), file_name: '', file_type: '',
+                    admin_id: c.get('adminId') || '',
                 });
                 return c.json(res, 201);
             } catch (e) {
@@ -711,7 +737,7 @@ export default function registerEmployeeDocumentRoutes({ openapi }) {
                 const body = await c.req.json();
                 const parsed = z.object({ organization_id: objectId, verified_by_id: objectId.optional() }).parse(body);
                 const p = c.req.valid('param');
-                const res = await grpcCall(employeeDocumentClient, 'VerifySubmission', { organization_id: parsed.organization_id, submission_id: p.submissionId, verified_by_id: parsed.verified_by_id ?? '' });
+                const res = await grpcCall(employeeDocumentClient, 'VerifySubmission', { organization_id: parsed.organization_id, submission_id: p.submissionId, verified_by_id: '', admin_id: c.get('adminId') || '' });
                 return c.json(res);
             } catch (e) {
                 if (e instanceof ZodError) return c.json({ error: 'Validation failed', details: e.errors.map(x => ({ field: x.path.join('.'), message: x.message })) }, 400);
@@ -726,7 +752,7 @@ export default function registerEmployeeDocumentRoutes({ openapi }) {
                 const body = await c.req.json();
                 const parsed = z.object({ organization_id: objectId, rejection_reason: z.string().min(1, 'Rejection reason is required').transform(s => s.trim()), rejected_by_id: objectId.optional() }).parse(body);
                 const p = c.req.valid('param');
-                const res = await grpcCall(employeeDocumentClient, 'RejectSubmission', { organization_id: parsed.organization_id, submission_id: p.submissionId, rejection_reason: parsed.rejection_reason, rejected_by_id: parsed.rejected_by_id ?? '' });
+                const res = await grpcCall(employeeDocumentClient, 'RejectSubmission', { organization_id: parsed.organization_id, submission_id: p.submissionId, rejection_reason: parsed.rejection_reason, rejected_by_id: '', admin_id: c.get('adminId') || '' });
                 return c.json(res);
             } catch (e) {
                 if (e instanceof ZodError) return c.json({ error: 'Validation failed', details: e.errors.map(x => ({ field: x.path.join('.'), message: x.message })) }, 400);
@@ -817,13 +843,14 @@ export default function registerEmployeeDocumentRoutes({ openapi }) {
                 const res = await grpcCall(employeeDocumentClient, 'RenewDocument', {
                     organization_id: parsed.organization_id,
                     submission_id: c.req.param('submissionId'),
-                    submitted_by_id: body.submitted_by_id || '',
+                    submitted_by_id: '',
                     field_values: body.field_values || '',
                     is_na: body.is_na === 'true',
                     expiry_date: body.expiry_date || '',
                     file_buffer: fileBuffer,
                     file_name: fileName,
                     file_type: fileType,
+                    admin_id: c.get('adminId') || '',
                 });
                 return c.json(res, 201);
             } catch (e) {
@@ -843,13 +870,289 @@ export default function registerEmployeeDocumentRoutes({ openapi }) {
                 const res = await grpcCall(employeeDocumentClient, 'RenewDocument', {
                     organization_id: parsed.organization_id,
                     submission_id: c.req.param('submissionId'),
-                    submitted_by_id: parsed.submitted_by_id ?? '',
+                    submitted_by_id: '',
                     field_values: parsed.field_values ?? '',
                     is_na: !!parsed.is_na,
                     expiry_date: parsed.expiry_date ?? '',
                     file_buffer: Buffer.alloc(0), file_name: '', file_type: '',
+                    admin_id: c.get('adminId') || '',
                 });
                 return c.json(res, 201);
+            } catch (e) {
+                if (e instanceof ZodError) return c.json({ error: 'Validation failed', details: e.errors.map(x => ({ field: x.path.join('.'), message: x.message })) }, 400);
+                return c.json({ error: e.message }, grpcToHttpStatus(e.code));
+            }
+        });
+
+    /* ============================ EMPLOYEE SELF-SERVICE (authEmployee) ============================ */
+    // GET /employee-documents/my/verified
+    // Returns VERIFIED, current documents for the authenticated employee only.
+    // Uses authEmployee middleware (applied at gateway level for /employee-documents/my/*).
+    openapi({ method: 'get', path: '/employee-documents/my/verified', tags: ['Employee-Documents'], summary: 'Employee self-service: list my verified documents', request: { query: z.object({
+        page: z.coerce.number().int().min(1).optional().default(1),
+        limit: z.coerce.number().int().min(1).max(100).optional().default(50),
+    }) }, responses: { 200: {}, 401: {}, 403: {} } },
+        async (c) => {
+            try {
+                const employeeId = c.get('employeeId');
+                if (!employeeId) return c.json({ error: 'Unauthorized' }, 401);
+
+                const empRes = await grpcCall(employeeClient, 'GetEmployee', { id: employeeId });
+                const employee = empRes?.employee;
+                if (!employee || !employee.organization_id) {
+                    return c.json({ error: 'Employee organization not found' }, 404);
+                }
+
+                const q = c.req.valid('query');
+                const res = await grpcCall(employeeDocumentClient, 'ListVerifiedDocuments', {
+                    organization_id: employee.organization_id,
+                    employee_id: employeeId,
+                    page: q.page, limit: q.limit,
+                    search: '', sort_by: 'verified_at', sort_order: 'desc',
+                    folder_id: '', document_type_id: '',
+                });
+                return c.json(res);
+            } catch (e) {
+                return c.json({ error: e.message }, grpcToHttpStatus(e.code));
+            }
+        });
+
+    // GET /employee-documents/my/assignments
+    // Returns all assigned document types (folders + types) for the authenticated employee only.
+    openapi({ method: 'get', path: '/employee-documents/my/assignments', tags: ['Employee-Documents'], summary: 'Employee self-service: list my assigned document types', responses: { 200: {}, 401: {}, 403: {} } },
+        async (c) => {
+            try {
+                const employeeId = c.get('employeeId');
+                if (!employeeId) return c.json({ error: 'Unauthorized' }, 401);
+
+                const empRes = await grpcCall(employeeClient, 'GetEmployee', { id: employeeId });
+                const employee = empRes?.employee;
+                if (!employee || !employee.organization_id) {
+                    return c.json({ error: 'Employee organization not found' }, 404);
+                }
+
+                const res = await grpcCall(employeeDocumentClient, 'ListEmployeeAssignments', {
+                    organization_id: employee.organization_id,
+                    employee_id: employeeId,
+                });
+                return c.json(res);
+            } catch (e) {
+                return c.json({ error: e.message }, grpcToHttpStatus(e.code));
+            }
+        });
+
+    // GET /employee-documents/my/submissions
+    // Returns all submissions for the authenticated employee (any status) for state determination.
+    openapi({ method: 'get', path: '/employee-documents/my/submissions', tags: ['Employee-Documents'], summary: 'Employee self-service: list my submissions', responses: { 200: {}, 401: {}, 403: {} } },
+        async (c) => {
+            try {
+                const employeeId = c.get('employeeId');
+                if (!employeeId) return c.json({ error: 'Unauthorized' }, 401);
+
+                const empRes = await grpcCall(employeeClient, 'GetEmployee', { id: employeeId });
+                const employee = empRes?.employee;
+                if (!employee || !employee.organization_id) {
+                    return c.json({ error: 'Employee organization not found' }, 404);
+                }
+
+                const submissions = await prisma.employeeDocumentSubmission.findMany({
+                    where: { employeeId: employeeId, organizationId: employee.organization_id, deletedAt: null },
+                    include: { documentType: { select: { id: true, name: true } } },
+                    orderBy: { createdAt: 'desc' },
+                });
+
+                const result = submissions.map(s => ({
+                    id: s.id,
+                    assignment_id: s.assignmentId || '',
+                    document_type_id: s.documentTypeId || '',
+                    document_type_name: s.documentType?.name || '',
+                    status: s.status || '',
+                    submitted_at: s.submittedAt ? s.submittedAt.toISOString() : '',
+                    file_name: s.fileName || '',
+                    replaced_by_submission_id: s.replacedBySubmissionId || '',
+                    is_current: s.status === 'VERIFIED' && !s.replacedBySubmissionId,
+                }));
+
+                return c.json({ submissions: result, total: result.length, success: true });
+            } catch (e) {
+                return c.json({ error: e.message }, grpcToHttpStatus(e.code));
+            }
+        });
+
+    // GET /employee-documents/my/document-type/{documentTypeId}/fields
+    // Returns document type configuration including fields[] for the employee dynamic form.
+    openapi({ method: 'get', path: '/employee-documents/my/document-type/{documentTypeId}/fields', tags: ['Employee-Documents'], summary: 'Employee self-service: get document type fields', request: { params: z.object({ documentTypeId: objectId }) }, responses: { 200: {}, 401: {}, 403: {}, 404: {} } },
+        async (c) => {
+            try {
+                const employeeId = c.get('employeeId');
+                if (!employeeId) return c.json({ error: 'Unauthorized' }, 401);
+
+                const empRes = await grpcCall(employeeClient, 'GetEmployee', { id: employeeId });
+                const employee = empRes?.employee;
+                if (!employee || !employee.organization_id) {
+                    return c.json({ error: 'Employee organization not found' }, 404);
+                }
+
+                const p = c.req.valid('param');
+
+                const assignment = await prisma.employeeDocumentAssignment.findFirst({
+                    where: { employeeId, documentTypeId: p.documentTypeId, deletedAt: { isSet: false } },
+                });
+                if (!assignment) return c.json({ error: 'Not assigned' }, 404);
+
+                const type = await prisma.employeeDocumentType.findFirst({
+                    where: { id: p.documentTypeId, deletedAt: null },
+                    include: {
+                        fields: { where: { deletedAt: null }, orderBy: { displayOrder: 'asc' } },
+                        folder: { select: { id: true, name: true, organizationId: true } },
+                    },
+                });
+
+                if (!type) return c.json({ error: 'Document type not found' }, 404);
+                if (String(type.folder?.organizationId || '') !== String(employee.organization_id)) {
+                    return c.json({ error: 'Document type not found' }, 404);
+                }
+
+                return c.json({
+                    document_type: {
+                        id: type.id,
+                        name: type.name,
+                        folder_id: type.folderId,
+                        folder_name: type.folder?.name || '',
+                        is_mandatory: !!type.isMandatory,
+                        is_multiple: !!type.isMultiple,
+                        is_verification_required: !!type.isVerificationRequired,
+                        is_file_upload_enabled: !!type.isFileUploadEnabled,
+                        is_appliable_na: !!type.isAppliableNa,
+                        ask_expiry_date: !!type.askExpiryDate,
+                    },
+                    fields: type.fields.map(f => ({
+                        id: f.id,
+                        key: f.key,
+                        label: f.label,
+                        field_type: f.fieldType,
+                        is_mandatory: !!f.isMandatory,
+                        options: f.options || [],
+                        display_order: f.displayOrder || 0,
+                    })),
+                });
+            } catch (e) {
+                return c.json({ error: e.message }, grpcToHttpStatus(e.code));
+            }
+        });
+
+    // POST /employee-documents/my/submissions
+    // Employee self-service document submission. Creates PENDING_VERIFICATION submission.
+    // For non-multiple types: if a VERIFIED submission exists, creates a renewal (PENDING_VERIFICATION).
+    openapi({ method: 'post', path: '/employee-documents/my/submissions', tags: ['Employee-Documents'], summary: 'Employee self-service: submit a document', request: {
+        body: { content: { 'multipart/form-data': { schema: z.object({
+            assignment_id: objectId,
+            document_type_id: objectId,
+            field_values: z.string().optional(),
+            is_na: z.enum(['true', 'false']).optional(),
+            expiry_date: z.string().optional(),
+            file: z.any().optional(),
+        }) } } },
+    }, responses: { 201: {}, 400: {}, 404: {}, 403: {}, 409: {} } },
+        async (c) => {
+            try {
+                const employeeId = c.get('employeeId');
+                if (!employeeId) return c.json({ error: 'Unauthorized' }, 401);
+
+                const empRes = await grpcCall(employeeClient, 'GetEmployee', { id: employeeId });
+                const employee = empRes?.employee;
+                if (!employee || !employee.organization_id) {
+                    return c.json({ error: 'Employee organization not found' }, 404);
+                }
+
+                const body = await c.req.parseBody();
+                const parsed = z.object({
+                    assignment_id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid assignment_id'),
+                    document_type_id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid document_type_id'),
+                }).parse(body);
+
+                const file = body?.file;
+                let fileBuffer = Buffer.alloc(0);
+                let fileName = '';
+                let fileType = '';
+                if (file && file.arrayBuffer) {
+                    fileBuffer = Buffer.from(await file.arrayBuffer());
+                    fileName = file.name || 'document';
+                    fileType = file.type || '';
+                }
+
+                // Check if this is a renewal (non-multiple type with existing VERIFIED submission)
+                const assignment = await prisma.employeeDocumentAssignment.findFirst({
+                    where: { id: parsed.assignment_id, deletedAt: { isSet: false } },
+                });
+                if (!assignment) return c.json({ error: 'Assignment not found' }, 404);
+                if (String(assignment.employeeId) !== String(employeeId)) {
+                    return c.json({ error: 'Unauthorized' }, 403);
+                }
+
+                const docType = await prisma.employeeDocumentType.findFirst({
+                    where: { id: parsed.document_type_id, deletedAt: null },
+                });
+                if (!docType) return c.json({ error: 'Document type not found' }, 404);
+
+                let renewSubmissionId = null;
+                if (!docType.isMultiple) {
+                    const existingVerified = await prisma.employeeDocumentSubmission.findFirst({
+                        where: {
+                            assignmentId: parsed.assignment_id,
+                            status: 'VERIFIED',
+                            deletedAt: null,
+                            replacedBySubmissionId: null,
+                        },
+                    });
+                    if (existingVerified) {
+                        // Check no pending renewal already exists
+                        const pendingRenewal = await prisma.employeeDocumentSubmission.findFirst({
+                            where: {
+                                assignmentId: parsed.assignment_id,
+                                status: 'PENDING_VERIFICATION',
+                                deletedAt: null,
+                            },
+                        });
+                        if (pendingRenewal) {
+                            return c.json({ error: 'A renewal is already awaiting verification for this document.' }, 409);
+                        }
+                        renewSubmissionId = existingVerified.id;
+                    }
+                }
+
+                if (renewSubmissionId) {
+                    // Use RenewDocument gRPC
+                    const res = await grpcCall(employeeDocumentClient, 'RenewDocument', {
+                        organization_id: employee.organization_id,
+                        submission_id: renewSubmissionId,
+                        admin_id: '',
+                        field_values: body.field_values || '',
+                        is_na: body.is_na === 'true',
+                        expiry_date: body.expiry_date || '',
+                        file_buffer: fileBuffer,
+                        file_name: fileName,
+                        file_type: fileType,
+                    });
+                    return c.json(res, 201);
+                } else {
+                    // Use SubmitDocument gRPC
+                    const res = await grpcCall(employeeDocumentClient, 'SubmitDocument', {
+                        organization_id: employee.organization_id,
+                        assignment_id: parsed.assignment_id,
+                        employee_id: employeeId,
+                        document_type_id: parsed.document_type_id,
+                        submitted_by_id: '',
+                        field_values: body.field_values || '',
+                        is_na: body.is_na === 'true',
+                        expiry_date: body.expiry_date || '',
+                        file_buffer: fileBuffer,
+                        file_name: fileName,
+                        file_type: fileType,
+                        admin_id: '',
+                    });
+                    return c.json(res, 201);
+                }
             } catch (e) {
                 if (e instanceof ZodError) return c.json({ error: 'Validation failed', details: e.errors.map(x => ({ field: x.path.join('.'), message: x.message })) }, 400);
                 return c.json({ error: e.message }, grpcToHttpStatus(e.code));

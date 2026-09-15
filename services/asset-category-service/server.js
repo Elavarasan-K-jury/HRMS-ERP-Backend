@@ -19,7 +19,7 @@ const impl = {
                 });
             }
 
-            const existing = await prisma.assetCategories.findFirst({
+            const existingName = await prisma.assetCategories.findFirst({
                 where: {
                     organizationId: organization_id,
                     name,
@@ -27,11 +27,28 @@ const impl = {
                 },
             });
 
-            if (existing) {
+            if (existingName) {
                 return callback({
                     code: grpc.status.ALREADY_EXISTS,
-                    message: 'Asset category already exists',
+                    message: 'Asset category name already exists within this organization',
                 });
+            }
+
+            if (code) {
+                const existingCode = await prisma.assetCategories.findFirst({
+                    where: {
+                        organizationId: organization_id,
+                        code,
+                        deletedAt: null,
+                    },
+                });
+
+                if (existingCode) {
+                    return callback({
+                        code: grpc.status.ALREADY_EXISTS,
+                        message: 'Asset category code already exists within this organization',
+                    });
+                }
             }
 
             const organization = await prisma.organizations.findUnique({
@@ -136,11 +153,17 @@ const impl = {
 
             const prismaSortField = sortMap[sort_by] || "createdAt";
 
-            let where = { deletedAt: null };
-
-            if (organization_id) {
-                where.organizationId = organization_id;
+            if (!organization_id) {
+                return callback({
+                    code: grpc.status.INVALID_ARGUMENT,
+                    message: 'organization_id is required.',
+                });
             }
+
+            let where = {
+                deletedAt: null,
+                organizationId: organization_id,
+            };
 
             if (search) {
                 where.OR = [
@@ -180,7 +203,7 @@ const impl = {
 
     UpdateAssetCategory: async (call, callback) => {
         try {
-            const { id, organization_id, name, code, description, is_active } = call.request;
+            const { id, name, code, description, is_active } = call.request;
 
             if (!/^[0-9a-fA-F]{24}$/.test(id)) {
                 return callback({
@@ -189,24 +212,39 @@ const impl = {
                 });
             }
 
-            const organization = await prisma.organizations.findUnique({
-                where: { id: organization_id },
-            });
-            if (!organization) {
+            const category = await prisma.assetCategories.findUnique({ where: { id } });
+            if (!category || category.deletedAt) {
                 return callback({
                     code: grpc.status.NOT_FOUND,
-                    message: 'Organization not found',
+                    message: 'Asset category not found',
                 });
+            }
+
+            // Check code uniqueness within same org if code is being changed
+            if (code && code !== category.code) {
+                const existingCode = await prisma.assetCategories.findFirst({
+                    where: {
+                        organizationId: category.organizationId,
+                        code,
+                        deletedAt: null,
+                        id: { not: id },
+                    },
+                });
+                if (existingCode) {
+                    return callback({
+                        code: grpc.status.ALREADY_EXISTS,
+                        message: 'Asset category code already exists within this organization',
+                    });
+                }
             }
 
             const updated = await prisma.assetCategories.update({
                 where: { id },
                 data: {
-                    organizationId: organization_id,
-                    name,
-                    code: code ?? null,
-                    description: description ?? null,
-                    isActive: is_active,
+                    ...(name !== undefined && { name }),
+                    ...(code !== undefined && { code }),
+                    ...(description !== undefined && { description }),
+                    ...(is_active !== undefined && { isActive: is_active }),
                     updatedAt: new Date(),
                 },
             });
@@ -233,6 +271,41 @@ const impl = {
                 return callback({
                     code: grpc.status.INVALID_ARGUMENT,
                     message: 'Invalid category id',
+                });
+            }
+
+            const category = await prisma.assetCategories.findUnique({
+                where: { id },
+                include: {
+                    assetModels: {
+                        where: { deletedAt: null },
+                        select: { id: true },
+                    },
+                },
+            });
+
+            if (!category || category.deletedAt) {
+                return callback({
+                    code: grpc.status.NOT_FOUND,
+                    message: 'Asset category not found',
+                });
+            }
+
+            if (category.assetModels && category.assetModels.length > 0) {
+                return callback({
+                    code: grpc.status.FAILED_PRECONDITION,
+                    message: 'Cannot delete category: has active models. Remove all models first.',
+                });
+            }
+
+            // Check for active assets referencing this category
+            const assetCount = await prisma.assets.count({
+                where: { categoriesId: id, deletedAt: null },
+            });
+            if (assetCount > 0) {
+                return callback({
+                    code: grpc.status.FAILED_PRECONDITION,
+                    message: 'Cannot delete category: has active assets. Remove all assets first.',
                 });
             }
 

@@ -28,6 +28,8 @@ message CreateAssetRequest {
   string warranty_expire = 9;
   string status          = 10;
   string location        = 11; // JSON string
+  string generated_asset_id = 12;
+  string custom_attribute_values = 13; // JSON string
 }
 
 message GetAssetRequest {
@@ -103,9 +105,11 @@ message Asset {
   repeated AssetAssignment assignments = 18;
   repeated AssetCondition conditions   = 19;
 
+  string custom_attribute_values = 20; // JSON string
+
   // ✅ Helpful computed flags (optional but great for UI)
-  bool is_deleted        = 20;
-  bool has_assignments   = 21;
+  bool is_deleted        = 21;
+  bool has_assignments   = 22;
 }
 
 // =============================

@@ -25,6 +25,12 @@ service EmployeeService {
   rpc ListLoginLogs(ListLoginLogsRequest) returns (ListLoginLogsResponse);
   rpc ExtendProbation(ExtendProbationRequest) returns (EmployeeResponse);
   rpc ChangeProbationPolicy(ChangeProbationPolicyRequest) returns (EmployeeResponse);
+
+  // Employee Relationships
+  rpc ListEmployeeRelationships(ListEmployeeRelationshipsRequest) returns (ListEmployeeRelationshipsResponse);
+  rpc CreateEmployeeRelationship(CreateEmployeeRelationshipRequest) returns (EmployeeRelationshipResponse);
+  rpc UpdateEmployeeRelationship(UpdateEmployeeRelationshipRequest) returns (EmployeeRelationshipResponse);
+  rpc DeleteEmployeeRelationship(DeleteEmployeeRelationshipRequest) returns (DeleteEmployeeRelationshipResponse);
 }
 
 /* ──────────────────────────────
@@ -179,6 +185,11 @@ message Employee {
   string notice_period_policy_name = 61;
   string notice_period_duration_value = 62;
   string notice_period_duration_unit = 63;
+
+  // About / profile text
+  string about = 64;
+  string what_i_love_about_job = 65;
+  string interests_and_hobbies = 66;
 }
 
 /* ──────────────────────────────
@@ -485,6 +496,11 @@ message UpdateEmployeeRequest {
   optional string pay_grade_id = 39;      // PayGrades.id reference
   optional string band_id = 40;           // Bands.id reference
   optional string notice_period_policy_id = 41; // NoticePeriodPolicy.id reference
+
+  // About / profile text
+  optional string about = 42;
+  optional string what_i_love_about_job = 43;
+  optional string interests_and_hobbies = 44;
 }
 
 message ExtendProbationRequest {
@@ -642,4 +658,79 @@ message ListLoginLogsResponse {
   int32 total_pages = 5;
   bool success = 6;
   string message = 7;
+}
+
+/* ──────────────────────────────
+   👥 Employee Relationships
+──────────────────────────────── */
+
+message EmployeeRelationship {
+  string id = 1;
+  string organization_id = 2;
+  string employee_id = 3;
+  string relationship = 4;   // CHILD | FATHER | FATHER_IN_LAW | MOTHER | MOTHER_IN_LAW | OTHERS | PARTNER | SPOUSE | SELF | SIBLING
+  string first_name = 5;
+  optional string last_name = 6;
+  optional string gender = 7;  // MALE | FEMALE | OTHER
+  optional string email = 8;
+  optional string phone = 9;
+  optional string profession = 10;
+  optional string date_of_birth = 11; // YYYY-MM-DD
+  string created_at = 12;
+  string updated_at = 13;
+}
+
+message ListEmployeeRelationshipsRequest {
+  string employee_id = 1;
+  string organization_id = 2;
+}
+
+message ListEmployeeRelationshipsResponse {
+  repeated EmployeeRelationship relationships = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message CreateEmployeeRelationshipRequest {
+  string employee_id = 1;
+  string organization_id = 2;
+  string relationship = 3;
+  string first_name = 4;
+  optional string last_name = 5;
+  optional string gender = 6;
+  optional string email = 7;
+  optional string phone = 8;
+  optional string profession = 9;
+  optional string date_of_birth = 10;
+}
+
+message UpdateEmployeeRelationshipRequest {
+  string id = 1;
+  string employee_id = 2;
+  string organization_id = 3;
+  optional string relationship = 4;
+  optional string first_name = 5;
+  optional string last_name = 6;
+  optional string gender = 7;
+  optional string email = 8;
+  optional string phone = 9;
+  optional string profession = 10;
+  optional string date_of_birth = 11;
+}
+
+message DeleteEmployeeRelationshipRequest {
+  string id = 1;
+  string employee_id = 2;
+  string organization_id = 3;
+}
+
+message EmployeeRelationshipResponse {
+  EmployeeRelationship relationship = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message DeleteEmployeeRelationshipResponse {
+  bool success = 1;
+  string message = 2;
 }

@@ -1,0 +1,333 @@
+syntax = "proto3";
+
+package organization_document;
+
+import "google/protobuf/timestamp.proto";
+
+service OrganizationDocumentService {
+  // Folders
+  rpc CreateOrgDocFolder(CreateOrgDocFolderRequest) returns (CreateOrgDocFolderResponse);
+  rpc ListOrgDocFolders(ListOrgDocFoldersRequest) returns (ListOrgDocFoldersResponse);
+  rpc GetOrgDocFolder(GetOrgDocFolderRequest) returns (GetOrgDocFolderResponse);
+  rpc UpdateOrgDocFolder(UpdateOrgDocFolderRequest) returns (UpdateOrgDocFolderResponse);
+  rpc DeleteOrgDocFolder(DeleteOrgDocFolderRequest) returns (DeleteOrgDocFolderResponse);
+
+  // Documents
+  rpc CreateOrgDocument(CreateOrgDocumentRequest) returns (CreateOrgDocumentResponse);
+  rpc ListOrgDocuments(ListOrgDocumentsRequest) returns (ListOrgDocumentsResponse);
+  rpc GetOrgDocument(GetOrgDocumentRequest) returns (GetOrgDocumentResponse);
+  rpc UpdateOrgDocument(UpdateOrgDocumentRequest) returns (UpdateOrgDocumentResponse);
+  rpc DeleteOrgDocument(DeleteOrgDocumentRequest) returns (DeleteOrgDocumentResponse);
+
+  // Applicable employees
+  rpc ListApplicableEmployees(ListApplicableEmployeesRequest) returns (ListApplicableEmployeesResponse);
+
+  // Stats
+  rpc GetOrgDocumentStats(GetOrgDocumentStatsRequest) returns (GetOrgDocumentStatsResponse);
+
+  // Targeting options
+  rpc GetTargetingOptions(GetTargetingOptionsRequest) returns (GetTargetingOptionsResponse);
+}
+
+// ===== FOLDER =====
+
+message OrgDocFolder {
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  string description = 4;
+  bool is_confidential = 5;
+  bool is_active = 6;
+  repeated string legal_entity_ids = 7;
+  repeated string branch_ids = 8;
+  repeated string location_ids = 9;
+  repeated string department_ids = 10;
+  repeated string sub_department_ids = 11;
+  repeated string worker_types = 12;
+  string permissions = 13;  // JSON string
+  string created_by_id = 14;
+  string updated_by_id = 15;
+  string created_at = 16;
+  string updated_at = 17;
+  int32 document_count = 18;
+  // Enriched names for targeting
+  repeated string legal_entity_names = 19;
+  repeated string branch_names = 20;
+  repeated string location_names = 21;
+  repeated string department_names = 22;
+  repeated string sub_department_names = 23;
+  string created_by_name = 24;
+  string updated_by_name = 25;
+}
+
+message CreateOrgDocFolderRequest {
+  string organization_id = 1;
+  string name = 2;
+  string description = 3;
+  bool is_confidential = 4;
+  bool is_active = 5;
+  repeated string legal_entity_ids = 6;
+  repeated string branch_ids = 7;
+  repeated string location_ids = 8;
+  repeated string department_ids = 9;
+  repeated string sub_department_ids = 10;
+  repeated string worker_types = 11;
+  string permissions = 12;
+  string admin_id = 13;
+}
+
+message CreateOrgDocFolderResponse {
+  OrgDocFolder folder = 1;
+  string message = 2;
+  bool success = 3;
+}
+
+message ListOrgDocFoldersRequest {
+  string organization_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  string search = 4;
+  string sort_by = 5;
+  string sort_order = 6;
+}
+
+message ListOrgDocFoldersResponse {
+  repeated OrgDocFolder folders = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  bool success = 6;
+  string message = 7;
+}
+
+message GetOrgDocFolderRequest {
+  string organization_id = 1;
+  string folder_id = 2;
+}
+
+message GetOrgDocFolderResponse {
+  OrgDocFolder folder = 1;
+  string message = 2;
+  bool success = 3;
+}
+
+message UpdateOrgDocFolderRequest {
+  string organization_id = 1;
+  string folder_id = 2;
+  string name = 3;
+  string description = 4;
+  bool is_confidential = 5;
+  bool is_active = 6;
+  repeated string legal_entity_ids = 7;
+  repeated string branch_ids = 8;
+  repeated string location_ids = 9;
+  repeated string department_ids = 10;
+  repeated string sub_department_ids = 11;
+  repeated string worker_types = 12;
+  string permissions = 13;
+  string admin_id = 14;
+}
+
+message UpdateOrgDocFolderResponse {
+  OrgDocFolder folder = 1;
+  string message = 2;
+  bool success = 3;
+}
+
+message DeleteOrgDocFolderRequest {
+  string organization_id = 1;
+  string folder_id = 2;
+  string admin_id = 3;
+}
+
+message DeleteOrgDocFolderResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// ===== DOCUMENT =====
+
+message OrgDocument {
+  string id = 1;
+  string organization_id = 2;
+  string folder_id = 3;
+  string name = 4;
+  string description = 5;
+  bool allow_download = 6;
+  bool acknowledgement_required = 7;
+  bool block_until_acknowledged = 8;
+  bool ask_expiry_date = 9;
+  string expiry_date = 10;
+  string file_id = 11;
+  string storage_key = 12;
+  string file_name = 13;
+  string file_type = 14;
+  int32 file_size = 15;
+  string created_by_id = 16;
+  string updated_by_id = 17;
+  bool is_active = 18;
+  string created_at = 19;
+  string updated_at = 20;
+  string file_url = 21;
+  // Enriched
+  string folder_name = 22;
+  string expiry_status = 23;  // NO_EXPIRY | ACTIVE | EXPIRING_SOON | EXPIRED
+  string created_by_name = 24;
+  string updated_by_name = 25;
+}
+
+message CreateOrgDocumentRequest {
+  string organization_id = 1;
+  string folder_id = 2;
+  string name = 3;
+  string description = 4;
+  bool allow_download = 5;
+  bool acknowledgement_required = 6;
+  bool block_until_acknowledged = 7;
+  bool ask_expiry_date = 8;
+  string expiry_date = 9;
+  string admin_id = 10;
+  bytes file_buffer = 11;
+  string file_name = 12;
+  string file_type = 13;
+}
+
+message CreateOrgDocumentResponse {
+  OrgDocument document = 1;
+  string message = 2;
+  bool success = 3;
+}
+
+message ListOrgDocumentsRequest {
+  string organization_id = 1;
+  string folder_id = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  string search = 5;
+  string sort_by = 6;
+  string sort_order = 7;
+  string expiry_status = 8;  // Filter: NO_EXPIRY | ACTIVE | EXPIRING_SOON | EXPIRED | all(empty)
+}
+
+message ListOrgDocumentsResponse {
+  repeated OrgDocument documents = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+  bool success = 6;
+  string message = 7;
+}
+
+message GetOrgDocumentRequest {
+  string organization_id = 1;
+  string document_id = 2;
+}
+
+message GetOrgDocumentResponse {
+  OrgDocument document = 1;
+  string message = 2;
+  bool success = 3;
+}
+
+message UpdateOrgDocumentRequest {
+  string organization_id = 1;
+  string document_id = 2;
+  string name = 3;
+  string description = 4;
+  bool allow_download = 5;
+  bool acknowledgement_required = 6;
+  bool block_until_acknowledged = 7;
+  bool ask_expiry_date = 8;
+  string expiry_date = 9;
+  bool is_active = 10;
+  string admin_id = 11;
+  bytes file_buffer = 12;
+  string file_name = 13;
+  string file_type = 14;
+}
+
+message UpdateOrgDocumentResponse {
+  OrgDocument document = 1;
+  string message = 2;
+  bool success = 3;
+}
+
+message DeleteOrgDocumentRequest {
+  string organization_id = 1;
+  string document_id = 2;
+  string admin_id = 3;
+}
+
+message DeleteOrgDocumentResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// ===== APPLICABLE EMPLOYEES =====
+
+message ApplicableEmployee {
+  string employee_id = 1;
+  string full_name = 2;
+  string employee_code = 3;
+  string email = 4;
+  string branch_name = 5;
+  string department_name = 6;
+  string designation_name = 7;
+  string worker_type = 8;
+}
+
+message ListApplicableEmployeesRequest {
+  string organization_id = 1;
+  string folder_id = 2;
+}
+
+message ListApplicableEmployeesResponse {
+  repeated ApplicableEmployee employees = 1;
+  int32 total = 2;
+  bool success = 3;
+  string message = 4;
+}
+
+// ===== STATS =====
+
+message GetOrgDocumentStatsRequest {
+  string organization_id = 1;
+  string document_id = 2;
+}
+
+message GetOrgDocumentStatsResponse {
+  int32 applicable_employee_count = 1;
+  int32 viewed_count = 2;
+  int32 acknowledged_count = 3;
+  bool success = 4;
+  string message = 5;
+}
+
+// ===== TARGETING OPTIONS =====
+
+message TargetingOption {
+  string id = 1;
+  string name = 2;
+}
+
+message DepartmentWithSubs {
+  string id = 1;
+  string name = 2;
+  repeated TargetingOption sub_departments = 3;
+}
+
+message GetTargetingOptionsRequest {
+  string organization_id = 1;
+}
+
+message GetTargetingOptionsResponse {
+  repeated TargetingOption legal_entities = 1;
+  repeated TargetingOption branches = 2;
+  repeated TargetingOption locations = 3;
+  repeated DepartmentWithSubs departments = 4;
+  repeated TargetingOption worker_types = 5;
+  bool success = 6;
+  string message = 7;
+}

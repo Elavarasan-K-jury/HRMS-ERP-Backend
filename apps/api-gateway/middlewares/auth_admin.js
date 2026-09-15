@@ -10,6 +10,7 @@ const AUTH_EXCLUDED_PATHS = [
   '/swagger',
   '/health',
   '/uploads/',
+  '/employee-documents/my',
 ];
 
 export const authAdmin = async (c, next) => {

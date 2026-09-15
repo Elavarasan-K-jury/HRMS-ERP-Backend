@@ -36,16 +36,18 @@ model Otps {
 }
 
 model Branches {
-  id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String        @map("organization_id") @db.ObjectId
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String         @map("organization_id") @db.ObjectId
   name           String
   code           String?
   description    String?
-  isActive       Boolean       @default(true) @map("is_active")
-  organization   Organizations @relation(fields: [organizationId], references: [id])
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
-  deletedAt      DateTime?     @map("deleted_at")
+  legalEntityId  String?        @map("legal_entity_id") @db.ObjectId
+  isActive       Boolean        @default(true) @map("is_active")
+  organization   Organizations  @relation(fields: [organizationId], references: [id])
+  legalEntity    LegalEntities? @relation(fields: [legalEntityId], references: [id], onDelete: SetNull)
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  deletedAt      DateTime?      @map("deleted_at")
 
   employees OrganizationEmployees[]
 }
@@ -135,8 +137,10 @@ model Organizations {
   maxAdminAccounts          Int?                        @default(3) @map("max_admin_accounts")
   assetCategories           AssetCategories[]
   assetModels               AssetModels[]
+  assetModelAttributeDefinitions AssetModelAttributeDefinition[]
   assets                    Assets[]
   assetAssignment           AssetAssignments[]
+  assetIdSeries             AssetIdSeries[]
   attendanceReports         AttendanceReports[]
   salaryComponentDefinition ComponentDefinition[]
   salaryTemplates           SalaryTemplate[]
@@ -149,22 +153,27 @@ model Organizations {
   branches                  Branches[]
   legalEntities             LegalEntities[]
 
-  adminRoles              AdminRoles[]
-  adminRoleAssignments    AdminRoleAssignments[]
-  employeeRoleAssignments EmployeeRoleAssignments[]
-  auditLogs               AdminAuditLog[]
-  costCenters             CostCenters[]
-  payGrades               PayGrades[]
-  bands                   Bands[]
-  noticePeriodPolicies NoticePeriodPolicy[]
-  usageTypes              UsageType[]
-  expenseCategories       ExpenseCategory[]
-  expensePolicies         ExpensePolicy[]
-   policyExpenseCategories PolicyExpenseCategory[]
-   expensePolicyEmployees  ExpensePolicyEmployee[]
-  employeeDocumentFolders EmployeeDocumentFolder[]
+  adminRoles                  AdminRoles[]
+  adminRoleAssignments        AdminRoleAssignments[]
+  employeeRoleAssignments     EmployeeRoleAssignments[]
+  auditLogs                   AdminAuditLog[]
+  costCenters                 CostCenters[]
+  payGrades                   PayGrades[]
+  bands                       Bands[]
+  noticePeriodPolicies        NoticePeriodPolicy[]
+  usageTypes                  UsageType[]
+  expenseCategories           ExpenseCategory[]
+  expensePolicies             ExpensePolicy[]
+  policyExpenseCategories     PolicyExpenseCategory[]
+  expensePolicyEmployees      ExpensePolicyEmployee[]
+  employeeDocumentFolders     EmployeeDocumentFolder[]
   employeeDocumentAssignments EmployeeDocumentAssignment[]
   employeeDocumentSubmissions EmployeeDocumentSubmission[]
+  employeeRelationships       EmployeeRelationship[]
+  orgDocumentFolders          OrganizationDocumentFolder[]
+  orgDocuments                OrganizationDocument[]
+  orgDocumentViews            OrganizationDocumentView[]
+  orgDocumentAcks             OrganizationDocumentAcknowledgement[]
 }
 
 model CostCenters {
@@ -198,38 +207,36 @@ model PayGrades {
 }
 
 model NoticePeriodPolicy {
-  id             String            @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String            @map("organization_id") @db.ObjectId
-  title            String            
-  description      String?           
-  durationValue    Int               @default(0)
-  durationUnit     String            @default("DAYS")
-  isDefault        Boolean           @default(false)
-  status           String            @default("PENDING")
-  createdAt        DateTime          @default(now()) @map("created_at")
-  updatedAt        DateTime          @updatedAt @map("updated_at")
-  deletedAt        DateTime?         @map("deleted_at")
-  organization     Organizations       @relation(fields: [organizationId], references: [id])
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String        @map("organization_id") @db.ObjectId
+  title          String
+  description    String?
+  durationValue  Int           @default(0)
+  durationUnit   String        @default("DAYS")
+  isDefault      Boolean       @default(false)
+  status         String        @default("PENDING")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  deletedAt      DateTime?     @map("deleted_at")
+  organization   Organizations @relation(fields: [organizationId], references: [id])
+
+  employees NoticePeriodPolicyEmployee[]
 
   @@unique([organizationId, title])
   @@index([organizationId])
-
-  employees NoticePeriodPolicyEmployee[]
 }
 
-
-
 model NoticePeriodPolicyEmployee {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId  String    @map("organization_id") @db.ObjectId
-  policyId        String    @map("policy_id") @db.ObjectId
-  employeeId      String    @map("employee_id") @db.ObjectId
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-  deletedAt       DateTime? @map("deleted_at")
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String    @map("organization_id") @db.ObjectId
+  policyId       String    @map("policy_id") @db.ObjectId
+  employeeId     String    @map("employee_id") @db.ObjectId
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
 
-  policy          NoticePeriodPolicy   @relation(fields: [policyId], references: [id])
-  employee        OrganizationEmployees @relation(fields: [employeeId], references: [id])
+  policy   NoticePeriodPolicy    @relation(fields: [policyId], references: [id])
+  employee OrganizationEmployees @relation(fields: [employeeId], references: [id])
 
   @@unique([policyId, employeeId])
   @@index([policyId])
@@ -237,13 +244,13 @@ model NoticePeriodPolicyEmployee {
 }
 
 model UsageType {
-  id             String   @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String   @map("organization_id") @db.ObjectId
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String    @map("organization_id") @db.ObjectId
   name           String
   description    String?
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
 
   organization      Organizations     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -254,20 +261,20 @@ model UsageType {
 }
 
 model ExpenseCategory {
-  id             String   @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String   @map("organization_id") @db.ObjectId
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String    @map("organization_id") @db.ObjectId
   name           String
-  expenseCode    String   @map("expense_code")
+  expenseCode    String    @map("expense_code")
   icon           String?
   description    String?
-  usageTypeId    String   @map("usage_type_id") @db.ObjectId
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  usageTypeId    String    @map("usage_type_id") @db.ObjectId
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
 
-  organization Organizations @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  usageType    UsageType     @relation(fields: [usageTypeId], references: [id])
+  organization     Organizations           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  usageType        UsageType               @relation(fields: [usageTypeId], references: [id])
   policyCategories PolicyExpenseCategory[]
 
   @@unique([organizationId, name])
@@ -276,61 +283,61 @@ model ExpenseCategory {
 }
 
 model ExpensePolicy {
-  id                      String   @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId          String   @map("organization_id") @db.ObjectId
-  name                    String
-  description             String?
-  baseCurrency            String   @map("base_currency")
-  payoutMode              String?  @map("payout_mode")
-  allowFutureDateClaims   Boolean  @default(false) @map("allow_future_date_claims")
-  approvalRequired        Boolean  @default(false) @map("approval_required")
-  approvalMode            String?  @map("approval_mode") // SAME_FOR_ALL | BY_CATEGORY
-  isActive                Boolean  @default(true) @map("is_active")
-  createdAt               DateTime @default(now()) @map("created_at")
-  updatedAt               DateTime @updatedAt @map("updated_at")
-  deletedAt               DateTime? @map("deleted_at")
+  id                    String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId        String    @map("organization_id") @db.ObjectId
+  name                  String
+    description    String?
+  baseCurrency          String    @map("base_currency")
+  payoutMode            String?   @map("payout_mode")
+  allowFutureDateClaims Boolean   @default(false) @map("allow_future_date_claims")
+  approvalRequired      Boolean   @default(false) @map("approval_required")
+  approvalMode          String?   @map("approval_mode") // SAME_FOR_ALL | BY_CATEGORY
+  isActive              Boolean   @default(true) @map("is_active")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  deletedAt             DateTime? @map("deleted_at")
 
-  organization            Organizations @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  approvalLevels          ExpensePolicyApprovalLevel[]
-  policyCategories        PolicyExpenseCategory[]
-  policyEmployees         ExpensePolicyEmployee[]
+  organization     Organizations                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  approvalLevels   ExpensePolicyApprovalLevel[]
+  policyCategories PolicyExpenseCategory[]
+  policyEmployees  ExpensePolicyEmployee[]
 
   @@unique([organizationId, name])
   @@index([organizationId, isActive])
 }
 
 model ExpensePolicyApprovalLevel {
-  id               String   @id @default(auto()) @map("_id") @db.ObjectId
-  expensePolicyId  String   @map("expense_policy_id") @db.ObjectId
-  level            Int
-  approverType     String   @map("approver_type") // EMPLOYEE | ROLE
-  approverId       String   @map("approver_id") @db.ObjectId
-  approverName     String?  @map("approver_name")
-  autoApprove      Boolean  @default(false) @map("auto_approve")
-  autoApproveDays  Int?     @map("auto_approve_days")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
-  deletedAt        DateTime? @map("deleted_at")
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  expensePolicyId String    @map("expense_policy_id") @db.ObjectId
+  level           Int
+  approverType    String    @map("approver_type") // EMPLOYEE | ROLE
+  approverId      String    @map("approver_id") @db.ObjectId
+  approverName    String?   @map("approver_name")
+  autoApprove     Boolean   @default(false) @map("auto_approve")
+  autoApproveDays Int?      @map("auto_approve_days")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
 
-  expensePolicy    ExpensePolicy @relation(fields: [expensePolicyId], references: [id], onDelete: Cascade)
+  expensePolicy ExpensePolicy @relation(fields: [expensePolicyId], references: [id], onDelete: Cascade)
 
   @@index([expensePolicyId, level])
 }
 
 model PolicyExpenseCategory {
-  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId     String   @map("organization_id") @db.ObjectId
-  expensePolicyId    String   @map("expense_policy_id") @db.ObjectId
-  expenseCategoryId  String   @map("expense_category_id") @db.ObjectId
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
-  deletedAt          DateTime? @map("deleted_at")
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId    String    @map("organization_id") @db.ObjectId
+  expensePolicyId   String    @map("expense_policy_id") @db.ObjectId
+  expenseCategoryId String    @map("expense_category_id") @db.ObjectId
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
 
-  organization       Organizations   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  expensePolicy      ExpensePolicy   @relation(fields: [expensePolicyId], references: [id], onDelete: Cascade)
-  expenseCategory    ExpenseCategory @relation(fields: [expenseCategoryId], references: [id], onDelete: Cascade)
-  approvalLevels     PolicyCategoryApprovalLevel[]
-  rules              ExpenseCategoryRule[]
+  organization    Organizations                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  expensePolicy   ExpensePolicy                 @relation(fields: [expensePolicyId], references: [id], onDelete: Cascade)
+  expenseCategory ExpenseCategory               @relation(fields: [expenseCategoryId], references: [id], onDelete: Cascade)
+  approvalLevels  PolicyCategoryApprovalLevel[]
+  rules           ExpenseCategoryRule[]
 
   @@unique([expensePolicyId, expenseCategoryId])
   @@index([expensePolicyId])
@@ -346,8 +353,8 @@ model ExpensePolicyEmployee {
   updatedAt       DateTime  @updatedAt @map("updated_at")
   deletedAt       DateTime? @map("deleted_at")
 
-  organization  Organizations        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  expensePolicy ExpensePolicy        @relation(fields: [expensePolicyId], references: [id], onDelete: Cascade)
+  organization  Organizations         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  expensePolicy ExpensePolicy         @relation(fields: [expensePolicyId], references: [id], onDelete: Cascade)
   employee      OrganizationEmployees @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([expensePolicyId, employeeId])
@@ -357,67 +364,67 @@ model ExpensePolicyEmployee {
 }
 
 model PolicyCategoryApprovalLevel {
-  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
-  policyCategoryId   String   @map("policy_category_id") @db.ObjectId
-  level              Int
-  approverType       String   @map("approver_type")
-  approverId         String   @map("approver_id") @db.ObjectId
-  approverName       String?  @map("approver_name")
-  autoApprove        Boolean  @default(false) @map("auto_approve")
-  autoApproveDays    Int?     @map("auto_approve_days")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
-  deletedAt          DateTime? @map("deleted_at")
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  policyCategoryId String    @map("policy_category_id") @db.ObjectId
+  level            Int
+  approverType     String    @map("approver_type")
+  approverId       String    @map("approver_id") @db.ObjectId
+  approverName     String?   @map("approver_name")
+  autoApprove      Boolean   @default(false) @map("auto_approve")
+  autoApproveDays  Int?      @map("auto_approve_days")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
 
-  policyCategory     PolicyExpenseCategory @relation(fields: [policyCategoryId], references: [id], onDelete: Cascade)
+  policyCategory PolicyExpenseCategory @relation(fields: [policyCategoryId], references: [id], onDelete: Cascade)
 
   @@index([policyCategoryId, level])
 }
 
 model ExpenseCategoryRule {
-  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
-  policyCategoryId   String   @map("policy_category_id") @db.ObjectId
-  amountCapEnabled   Boolean  @default(false) @map("amount_cap_enabled")
-  amountCapCurrency  String?  @map("amount_cap_currency")
-  amountCapAmount    Float?   @map("amount_cap_amount")
-  amountCapPeriod    String?  @map("amount_cap_period") // Day, Week, Month, Quarter, Half Year, Year, Tenure
-  combinationEnabled Boolean  @default(false) @map("combination_enabled")
-  combinationCategoryId String? @map("combination_category_id") @db.ObjectId
-  combinationPeriod  String?  @map("combination_period")
-  instancesEnabled   Boolean  @default(false) @map("instances_enabled")
-  maxInstances       Int?     @map("max_instances")
-  instancesPeriod    String?  @map("instances_period")
-  expiryEnabled      Boolean  @default(false) @map("expiry_enabled")
-  expiryDays         Int?     @map("expiry_days")
-  costCenterRequired Boolean  @default(false) @map("cost_center_required")
-  commentThresholdEnabled Boolean @default(false) @map("comment_threshold_enabled")
-  commentThresholdAmount Float?  @map("comment_threshold_amount")
-  receiptThresholdEnabled Boolean @default(false) @map("receipt_threshold_enabled")
-  receiptThresholdAmount Float?  @map("receipt_threshold_amount")
-  thresholdApprovalEnabled Boolean @default(false) @map("threshold_approval_enabled")
-  thresholdCurrency  String?  @map("threshold_currency")
-  thresholdAmount    Float?   @map("threshold_amount")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
-  deletedAt          DateTime? @map("deleted_at")
+  id                       String    @id @default(auto()) @map("_id") @db.ObjectId
+  policyCategoryId         String    @map("policy_category_id") @db.ObjectId
+  amountCapEnabled         Boolean   @default(false) @map("amount_cap_enabled")
+  amountCapCurrency        String?   @map("amount_cap_currency")
+  amountCapAmount          Float?    @map("amount_cap_amount")
+  amountCapPeriod          String?   @map("amount_cap_period") // Day, Week, Month, Quarter, Half Year, Year, Tenure
+  combinationEnabled       Boolean   @default(false) @map("combination_enabled")
+  combinationCategoryId    String?   @map("combination_category_id") @db.ObjectId
+  combinationPeriod        String?   @map("combination_period")
+  instancesEnabled         Boolean   @default(false) @map("instances_enabled")
+  maxInstances             Int?      @map("max_instances")
+  instancesPeriod          String?   @map("instances_period")
+  expiryEnabled            Boolean   @default(false) @map("expiry_enabled")
+  expiryDays               Int?      @map("expiry_days")
+  costCenterRequired       Boolean   @default(false) @map("cost_center_required")
+  commentThresholdEnabled  Boolean   @default(false) @map("comment_threshold_enabled")
+  commentThresholdAmount   Float?    @map("comment_threshold_amount")
+  receiptThresholdEnabled  Boolean   @default(false) @map("receipt_threshold_enabled")
+  receiptThresholdAmount   Float?    @map("receipt_threshold_amount")
+  thresholdApprovalEnabled Boolean   @default(false) @map("threshold_approval_enabled")
+  thresholdCurrency        String?   @map("threshold_currency")
+  thresholdAmount          Float?    @map("threshold_amount")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+  deletedAt                DateTime? @map("deleted_at")
 
-  policyCategory     PolicyExpenseCategory @relation(fields: [policyCategoryId], references: [id], onDelete: Cascade)
+  policyCategory PolicyExpenseCategory @relation(fields: [policyCategoryId], references: [id], onDelete: Cascade)
 
   @@index([policyCategoryId])
 }
 
 model Bands {
-  id             String                  @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String                  @map("organization_id") @db.ObjectId
+  id             String                     @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String                     @map("organization_id") @db.ObjectId
   name           String
   description    String?
-  order          Int                     @default(0)
-  organization   Organizations           @relation(fields: [organizationId], references: [id])
+  order          Int                        @default(0)
+  organization   Organizations              @relation(fields: [organizationId], references: [id])
   designations   OrganizationDesignations[]
   employees      OrganizationEmployees[]
-  createdAt      DateTime                @map("created_at")
-  updatedAt      DateTime                @map("updated_at")
-  deletedAt      DateTime?               @map("deleted_at")
+  createdAt      DateTime                   @map("created_at")
+  updatedAt      DateTime                   @map("updated_at")
+  deletedAt      DateTime?                  @map("deleted_at")
 
   @@unique([organizationId, name])
 }
@@ -587,6 +594,19 @@ enum Gender {
   OTHER
 }
 
+enum RelationshipType {
+  CHILD
+  FATHER
+  FATHER_IN_LAW
+  MOTHER
+  MOTHER_IN_LAW
+  OTHERS
+  PARTNER
+  SPOUSE
+  SELF
+  SIBLING
+}
+
 model OrganizationEmployees {
   id                 String    @id @default(auto()) @map("_id") @db.ObjectId
   organizationId     String    @map("organization_id") @db.ObjectId
@@ -616,6 +636,9 @@ model OrganizationEmployees {
   nationality           String?
   personalEmail         String? @map("personal_email")
   professionalSummary   String? @map("professional_summary")
+  about                 String? @map("about")
+  whatILoveAboutJob     String? @map("what_i_love_about_job")
+  interestsAndHobbies   String? @map("interests_and_hobbies")
   currentAddress        Json?   @map("current_address")
   permanentAddress      Json?   @map("permanent_address")
 
@@ -665,6 +688,7 @@ model OrganizationEmployees {
   pollVotes               PostVotes[]
   onboardingProgress      OnboardingProgress[]       @relation("EmployeeOnboardingProgress")
   approvedRequests        AssetRequest[]             @relation("ApprovedBy")
+  requestedAssets         AssetRequest[]
   acknowledgedConditions  AssetCondition[]           @relation("AcknowledgedBy")
   EmployeeShiftAssignment EmployeeShiftAssignment[]
   regularisations         AttendanceRegularisation[]
@@ -672,24 +696,27 @@ model OrganizationEmployees {
   workrequests            WorkdayRequests[]
   loginLogs               LoginLogs[]
 
-  createdAt               DateTime                    @default(now()) @map("created_at")
-  updatedAt               DateTime                    @updatedAt @map("updated_at")
-  deletedAt               DateTime?                   @map("deleted_at")
-  organizationDepartments OrganizationDepartments[]
-  assetConditions         AssetCondition[]
-  attendanceReports       AttendanceReports[]
-  salaryStructures        SalaryStructure[]
-  salaryRevisions         SalaryRevision[]
-  payslips                Payslip[]
-  SharedWithEmployees     FolderSharedWithEmployees[] @relation("employees")
-  SharedByEmployees       FolderSharedWithEmployees[] @relation("addedBy")
-  folders                 Folders[]
-  files                   Files[]
-  ExpenseApprovals        Expenses[]                  @relation("ExpenseApprover")
-  MyExpenses              Expenses[]                  @relation("MyExpenses")
-  roleAssignments         EmployeeRoleAssignments[]   @relation("EmployeeRoleAssignments")
+  createdAt                   DateTime                              @default(now()) @map("created_at")
+  updatedAt                   DateTime                              @updatedAt @map("updated_at")
+  deletedAt                   DateTime?                             @map("deleted_at")
+  organizationDepartments     OrganizationDepartments[]
+  assetConditions             AssetCondition[]
+  attendanceReports           AttendanceReports[]
+  salaryStructures            SalaryStructure[]
+  salaryRevisions             SalaryRevision[]
+  payslips                    Payslip[]
+  SharedWithEmployees         FolderSharedWithEmployees[]           @relation("employees")
+  SharedByEmployees           FolderSharedWithEmployees[]           @relation("addedBy")
+  folders                     Folders[]
+  files                       Files[]
+  ExpenseApprovals            Expenses[]                            @relation("ExpenseApprover")
+  MyExpenses                  Expenses[]                            @relation("MyExpenses")
+  roleAssignments             EmployeeRoleAssignments[]             @relation("EmployeeRoleAssignments")
   employeeDocumentAssignments EmployeeDocumentAssignment[]
   employeeDocumentSubmissions EmployeeDocumentSubmission[]
+  relationships               EmployeeRelationship[]
+  orgDocumentViews            OrganizationDocumentView[]
+  orgDocumentAcks             OrganizationDocumentAcknowledgement[]
 }
 
 model LoginLogs {
@@ -1290,7 +1317,7 @@ model AssetCategories {
   organizationId String        @map("organization_id") @db.ObjectId
   name           String
   code           String
-  description    String
+  description    String?
   isActive       Boolean       @default(true)
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @default(now()) @map("updated_at")
@@ -1298,24 +1325,47 @@ model AssetCategories {
   organization   Organizations @relation(fields: [organizationId], references: [id])
   assetModels    AssetModels[]
   assets         Assets[]
+  assetRequests  AssetRequest[]
 }
 
 model AssetModels {
-  id              String          @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId  String          @map("organization_id") @db.ObjectId
-  categoriesId    String          @map("category_id") @db.ObjectId
+  id              String                        @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String                        @map("organization_id") @db.ObjectId
+  categoriesId    String                        @map("category_id") @db.ObjectId
   brand           String
   modelName       String
   code            String
   description     String
   specs           Json?
-  isActive        Boolean         @default(true)
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @default(now()) @map("updated_at")
-  deletedAt       DateTime?       @map("deleted_at")
+  isActive        Boolean                       @default(true)
+  createdAt       DateTime                      @default(now()) @map("created_at")
+  updatedAt       DateTime                      @default(now()) @map("updated_at")
+  deletedAt       DateTime?                     @map("deleted_at")
   assets          Assets[]
-  assetCategories AssetCategories @relation(fields: [categoriesId], references: [id])
-  organization    Organizations   @relation(fields: [organizationId], references: [id])
+  assetCategories AssetCategories               @relation(fields: [categoriesId], references: [id])
+  organization    Organizations                 @relation(fields: [organizationId], references: [id])
+  assetRequests   AssetRequest[]
+  attributeDefinitions AssetModelAttributeDefinition[]
+}
+
+model AssetModelAttributeDefinition {
+  id             String      @id @default(auto()) @map("_id") @db.ObjectId
+  assetModelId   String      @map("asset_model_id") @db.ObjectId
+  organizationId String      @map("organization_id") @db.ObjectId
+  label          String
+  key            String
+  fieldType      String      @map("field_type")
+  options        Json?
+  isMandatory    Boolean     @default(false) @map("is_mandatory")
+  isUnique       Boolean     @default(false) @map("is_unique")
+  displayOrder   Int         @default(0) @map("display_order")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @default(now()) @map("updated_at")
+  deletedAt      DateTime?   @map("deleted_at")
+  assetModel     AssetModels @relation(fields: [assetModelId], references: [id])
+  organization   Organizations @relation(fields: [organizationId], references: [id])
+
+  @@unique([assetModelId, key])
 }
 
 model Assets {
@@ -1331,6 +1381,7 @@ model Assets {
   warrantyExpire  DateTime
   status          String             @default("Available")
   location        Json?
+  customAttributeValues Json?        @map("custom_attribute_values")
   createdAt       DateTime           @default(now()) @map("created_at")
   updatedAt       DateTime           @default(now()) @map("updated_at")
   deletedAt       DateTime?          @map("deleted_at")
@@ -1359,7 +1410,10 @@ enum priorities {
 model AssetRequest {
   id                String                 @id @default(auto()) @map("_id") @db.ObjectId
   organizationId    String                 @map("organization_id") @db.ObjectId
-  assignmentId      String                 @map("assignment_id") @db.ObjectId
+  employeeId        String                 @map("employee_id") @db.ObjectId
+  categoryId        String?                @map("category_id") @db.ObjectId
+  modelId           String?                @map("model_id") @db.ObjectId
+  assignmentId      String?                @map("assignment_id") @db.ObjectId
   approvedById      String?                @map("approved_by") @db.ObjectId
   reason            String?
   quantity          Int                    @default(1)
@@ -1370,7 +1424,10 @@ model AssetRequest {
   createdAt         DateTime               @default(now()) @map("created_at")
   updatedAt         DateTime               @default(now()) @map("updated_at")
   deletedAt         DateTime?              @map("deleted_at")
-  assignmentDetails AssetAssignments       @relation(fields: [assignmentId], references: [id])
+  employee          OrganizationEmployees @relation(fields: [employeeId], references: [id])
+  assetCategory     AssetCategories?       @relation(fields: [categoryId], references: [id])
+  assetModel        AssetModels?           @relation(fields: [modelId], references: [id])
+  assignmentDetails AssetAssignments?      @relation(fields: [assignmentId], references: [id])
   organization      Organizations          @relation(fields: [organizationId], references: [id])
   approvedBy        OrganizationEmployees? @relation("ApprovedBy", fields: [approvedById], references: [id])
 }
@@ -1378,7 +1435,7 @@ model AssetRequest {
 model AssetAssignments {
   id              String                @id @default(auto()) @map("_id") @db.ObjectId
   organizationId  String                @map("organization_id") @db.ObjectId
-  assetId         String                @map("asset_id ") @db.ObjectId
+  assetId         String                @map("asset_id") @db.ObjectId
   employeeId      String                @map("employee_id") @db.ObjectId
   assignedDate    DateTime              @map("assigned_date")
   returnDate      DateTime?             @map("return_date")
@@ -1417,6 +1474,21 @@ model AssetCondition {
   deletedAt        DateTime?              @map("deleted_at")
   assets           Assets?                @relation(fields: [assetsId], references: [id])
   assetsId         String?                @db.ObjectId
+}
+
+model AssetIdSeries {
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String         @map("organization_id") @db.ObjectId
+  name           String
+  prefix         String         @default("")
+  digits         Int            @default(6)
+  suffix         String         @default("")
+  nextNumber     Int            @default(1) @map("next_number")
+  isActive       Boolean        @default(true) @map("is_active")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  deletedAt      DateTime?      @map("deleted_at")
+  organization   Organizations  @relation(fields: [organizationId], references: [id])
 }
 
 model Posts {
@@ -2505,6 +2577,7 @@ model LegalEntities {
   isMain             Boolean                  @default(true) @map("is_main")
   isActive           Boolean                  @default(true) @map("is_active")
   organization       Organizations            @relation(fields: [organizationId], references: [id])
+  branches           Branches[]
   signatories        LegalEntitySignatories[]
   banks              LegalEntityBanks[]
   createdAt          DateTime                 @default(now()) @map("created_at")
@@ -2571,54 +2644,59 @@ enum EmployeeDocumentStatus {
   EXPIRED
 }
 
+enum DocumentActorType {
+  ADMIN
+  EMPLOYEE
+}
+
 model EmployeeDocumentFolder {
-  id             String           @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String           @map("organization_id") @db.ObjectId
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String    @map("organization_id") @db.ObjectId
   name           String
   description    String?
-  isConfidential Boolean          @default(false) @map("is_confidential")
-  isActive       Boolean          @default(true) @map("is_active")
+  isConfidential Boolean   @default(false) @map("is_confidential")
+  isActive       Boolean   @default(true) @map("is_active")
   permissions    Json?
-  createdById    String?          @map("created_by_id") @db.ObjectId
-  updatedById    String?          @map("updated_by_id") @db.ObjectId
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
-  deletedAt      DateTime?        @map("deleted_at")
+  createdById    String?   @map("created_by_id") @db.ObjectId
+  updatedById    String?   @map("updated_by_id") @db.ObjectId
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
 
-  organization   Organizations           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  documentTypes  EmployeeDocumentType[]
+  organization  Organizations          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  documentTypes EmployeeDocumentType[]
 
   @@unique([organizationId, name])
   @@index([organizationId, isActive])
 }
 
 model EmployeeDocumentType {
-  id                     String                  @id @default(auto()) @map("_id") @db.ObjectId
-  folderId               String                  @map("folder_id") @db.ObjectId
+  id                     String    @id @default(auto()) @map("_id") @db.ObjectId
+  folderId               String    @map("folder_id") @db.ObjectId
   name                   String
   description            String?
-  isMultiple             Boolean                 @default(false) @map("is_multiple")
-  isMandatory            Boolean                 @default(false) @map("is_mandatory")
-  isAppliableNA          Boolean                 @default(false) @map("is_applicable_na")
-  isFileUploadEnabled    Boolean                 @default(false) @map("is_file_upload_enabled")
-  isVerificationRequired Boolean                 @default(false) @map("is_verification_required")
-  askExpiryDate          Boolean                 @default(false) @map("ask_expiry_date")
-  expiryDays             Int?                    @map("expiry_days")
-  expiryPeriod           String?                 @map("expiry_period") // DAY | WEEK | MONTH | YEAR
-  allCountries           Boolean                 @default(true) @map("all_countries")
-  allowedCountries       String[]                @default([]) @map("allowed_countries")
-  displayOrder           Int                     @default(0) @map("display_order")
-  isActive               Boolean                 @default(true) @map("is_active")
-  createdById            String?                 @map("created_by_id") @db.ObjectId
-  updatedById            String?                 @map("updated_by_id") @db.ObjectId
-  createdAt              DateTime                @default(now()) @map("created_at")
-  updatedAt              DateTime                @updatedAt @map("updated_at")
-  deletedAt              DateTime?               @map("deleted_at")
+  isMultiple             Boolean   @default(false) @map("is_multiple")
+  isMandatory            Boolean   @default(false) @map("is_mandatory")
+  isAppliableNA          Boolean   @default(false) @map("is_applicable_na")
+  isFileUploadEnabled    Boolean   @default(false) @map("is_file_upload_enabled")
+  isVerificationRequired Boolean   @default(false) @map("is_verification_required")
+  askExpiryDate          Boolean   @default(false) @map("ask_expiry_date")
+  expiryDays             Int?      @map("expiry_days")
+  expiryPeriod           String?   @map("expiry_period") // DAY | WEEK | MONTH | YEAR
+  allCountries           Boolean   @default(true) @map("all_countries")
+  allowedCountries       String[]  @default([]) @map("allowed_countries")
+  displayOrder           Int       @default(0) @map("display_order")
+  isActive               Boolean   @default(true) @map("is_active")
+  createdById            String?   @map("created_by_id") @db.ObjectId
+  updatedById            String?   @map("updated_by_id") @db.ObjectId
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+  deletedAt              DateTime? @map("deleted_at")
 
-  folder       EmployeeDocumentFolder    @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  fields       EmployeeDocumentField[]
-  assignments  EmployeeDocumentAssignment[]
-  submissions  EmployeeDocumentSubmission[]
+  folder      EmployeeDocumentFolder       @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  fields      EmployeeDocumentField[]
+  assignments EmployeeDocumentAssignment[]
+  submissions EmployeeDocumentSubmission[]
 
   @@unique([folderId, name])
   @@index([folderId, displayOrder])
@@ -2644,20 +2722,20 @@ model EmployeeDocumentField {
 }
 
 model EmployeeDocumentAssignment {
-  id             String                  @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String                  @map("organization_id") @db.ObjectId
-  employeeId     String                  @map("employee_id") @db.ObjectId
-  documentTypeId String                  @map("document_type_id") @db.ObjectId
-  assignedById   String?                 @map("assigned_by_id") @db.ObjectId
-  assignedAt     DateTime?               @map("assigned_at")
-  status         EmployeeDocumentStatus  @default(PENDING)
-  createdAt      DateTime                @default(now()) @map("created_at")
-  updatedAt      DateTime                @updatedAt @map("updated_at")
-  deletedAt      DateTime?               @map("deleted_at")
+  id             String                 @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String                 @map("organization_id") @db.ObjectId
+  employeeId     String                 @map("employee_id") @db.ObjectId
+  documentTypeId String                 @map("document_type_id") @db.ObjectId
+  assignedById   String?                @map("assigned_by_id") @db.ObjectId
+  assignedAt     DateTime?              @map("assigned_at")
+  status         EmployeeDocumentStatus @default(PENDING)
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+  deletedAt      DateTime?              @map("deleted_at")
 
-  organization Organizations           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  employee     OrganizationEmployees    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  documentType EmployeeDocumentType     @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
+  organization Organizations                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     OrganizationEmployees        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  documentType EmployeeDocumentType         @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
   submissions  EmployeeDocumentSubmission[]
 
   @@unique([employeeId, documentTypeId])
@@ -2667,39 +2745,161 @@ model EmployeeDocumentAssignment {
 }
 
 model EmployeeDocumentSubmission {
-  id              String                  @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId  String                  @map("organization_id") @db.ObjectId
-  assignmentId    String                  @map("assignment_id") @db.ObjectId
-  employeeId      String                  @map("employee_id") @db.ObjectId
-  documentTypeId  String                  @map("document_type_id") @db.ObjectId
-  fileId          String?                 @map("file_id") @db.ObjectId
-  storageKey      String?                 @map("storage_key")
-  fileName        String?                 @map("file_name")
-  fileType        String?                 @map("file_type")
-  fieldValues     Json?                   @map("field_values")
-  isNA            Boolean                 @default(false) @map("is_na")
-  status          EmployeeDocumentStatus  @default(PENDING)
-  submittedById   String?                 @map("submitted_by_id") @db.ObjectId
-  submittedAt     DateTime?               @map("submitted_at")
-  verifiedById    String?                 @map("verified_by_id") @db.ObjectId
-  verifiedAt      DateTime?               @map("verified_at")
-  rejectedById    String?                 @map("rejected_by_id") @db.ObjectId
-  rejectedAt      DateTime?               @map("rejected_at")
-  rejectionReason String?                 @map("rejection_reason")
-  replacedBySubmissionId String?          @map("replaced_by_submission_id") @db.ObjectId
-  expiryDate      DateTime?               @map("expiry_date")
-  createdAt       DateTime                @default(now()) @map("created_at")
-  updatedAt       DateTime                @updatedAt @map("updated_at")
-  deletedAt       DateTime?               @map("deleted_at")
+  id                     String                 @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId         String                 @map("organization_id") @db.ObjectId
+  assignmentId           String                 @map("assignment_id") @db.ObjectId
+  employeeId             String                 @map("employee_id") @db.ObjectId
+  documentTypeId         String                 @map("document_type_id") @db.ObjectId
+  fileId                 String?                @map("file_id") @db.ObjectId
+  storageKey             String?                @map("storage_key")
+  fileName               String?                @map("file_name")
+  fileType               String?                @map("file_type")
+  fieldValues            Json?                  @map("field_values")
+  isNA                   Boolean                @default(false) @map("is_na")
+  status                 EmployeeDocumentStatus @default(PENDING)
+  submittedById          String?                @map("submitted_by_id") @db.ObjectId
+  submittedByType        DocumentActorType?     @map("submitted_by_type")
+  submittedAt            DateTime?              @map("submitted_at")
+  verifiedById           String?                @map("verified_by_id") @db.ObjectId
+  verifiedByType         DocumentActorType?     @map("verified_by_type")
+  verifiedAt             DateTime?              @map("verified_at")
+  rejectedById           String?                @map("rejected_by_id") @db.ObjectId
+  rejectedByType         DocumentActorType?     @map("rejected_by_type")
+  rejectedAt             DateTime?              @map("rejected_at")
+  rejectionReason        String?                @map("rejection_reason")
+  replacedBySubmissionId String?                @map("replaced_by_submission_id") @db.ObjectId
+  expiryDate             DateTime?              @map("expiry_date")
+  createdAt              DateTime               @default(now()) @map("created_at")
+  updatedAt              DateTime               @updatedAt @map("updated_at")
+  deletedAt              DateTime?              @map("deleted_at")
 
-  organization Organizations           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organizations              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   assignment   EmployeeDocumentAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  employee     OrganizationEmployees    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  documentType EmployeeDocumentType     @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
+  employee     OrganizationEmployees      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  documentType EmployeeDocumentType       @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
 
   @@index([employeeId])
   @@index([documentTypeId])
   @@index([assignmentId])
   @@index([status])
   @@index([replacedBySubmissionId])
+}
+
+model EmployeeRelationship {
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String           @map("organization_id") @db.ObjectId
+  employeeId     String           @map("employee_id") @db.ObjectId
+  relationship   RelationshipType
+  firstName      String           @map("first_name")
+  lastName       String?          @map("last_name")
+  gender         Gender?
+  email          String?
+  phone          String?
+  profession     String?
+  dateOfBirth    DateTime?        @map("date_of_birth")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  deletedAt      DateTime?        @map("deleted_at")
+
+  organization Organizations         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     OrganizationEmployees @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([organizationId])
+}
+
+model OrganizationDocumentFolder {
+  id             String  @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String  @map("organization_id") @db.ObjectId
+  name           String
+  description    String?
+  isConfidential Boolean @default(false) @map("is_confidential")
+  isActive       Boolean @default(true) @map("is_active")
+
+  legalEntityIds   String[] @default([]) @map("legal_entity_ids")
+  branchIds        String[] @default([]) @map("branch_ids")
+  locationIds      String[] @default([]) @map("location_ids")
+  departmentIds    String[] @default([]) @map("department_ids")
+  subDepartmentIds String[] @default([]) @map("sub_department_ids")
+  workerTypes      String[] @default([]) @map("worker_types")
+
+  permissions Json?
+  createdById String?   @map("created_by_id") @db.ObjectId
+  updatedById String?   @map("updated_by_id") @db.ObjectId
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  organization Organizations          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  documents    OrganizationDocument[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([organizationId, isActive])
+}
+
+model OrganizationDocument {
+  id                      String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId          String    @map("organization_id") @db.ObjectId
+  folderId                String    @map("folder_id") @db.ObjectId
+  name                    String
+  description             String?
+  allowDownload           Boolean   @default(true) @map("allow_download")
+  acknowledgementRequired Boolean   @default(false) @map("acknowledgement_required")
+  blockUntilAcknowledged  Boolean   @default(false) @map("block_until_acknowledged")
+  askExpiryDate           Boolean   @default(false) @map("ask_expiry_date")
+  expiryDate              DateTime? @map("expiry_date")
+  fileId                  String?   @map("file_id") @db.ObjectId
+  storageKey              String?   @map("storage_key")
+  fileName                String?   @map("file_name")
+  fileType                String?   @map("file_type")
+  fileSize                Int?      @map("file_size")
+  createdById             String?   @map("created_by_id") @db.ObjectId
+  updatedById             String?   @map("updated_by_id") @db.ObjectId
+  isActive                Boolean   @default(true) @map("is_active")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+  deletedAt               DateTime? @map("deleted_at")
+
+  organization     Organizations                         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  folder           OrganizationDocumentFolder            @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  views            OrganizationDocumentView[]
+  acknowledgements OrganizationDocumentAcknowledgement[]
+
+  @@index([organizationId])
+  @@index([folderId])
+}
+
+model OrganizationDocumentView {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String   @map("organization_id") @db.ObjectId
+  documentId     String   @map("document_id") @db.ObjectId
+  employeeId     String   @map("employee_id") @db.ObjectId
+  viewedAt       DateTime @default(now()) @map("viewed_at")
+
+  organization Organizations         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  document     OrganizationDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  employee     OrganizationEmployees @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, employeeId])
+  @@index([documentId])
+  @@index([employeeId])
+  @@index([organizationId])
+}
+
+model OrganizationDocumentAcknowledgement {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String   @map("organization_id") @db.ObjectId
+  documentId     String   @map("document_id") @db.ObjectId
+  employeeId     String   @map("employee_id") @db.ObjectId
+  acknowledgedAt DateTime @default(now()) @map("acknowledged_at")
+
+  organization Organizations         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  document     OrganizationDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  employee     OrganizationEmployees @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, employeeId])
+  @@index([documentId])
+  @@index([employeeId])
+  @@index([organizationId])
 }
