@@ -1,6 +1,6 @@
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma, checkDbConnection } from '@jury-hrms/db/client.js';
-import { sendOtpEmail, sendOnboardEmail } from '@jury-hrms/mailer';
+import { sendOtpEmail, sendWelcomeEmail } from '@jury-hrms/mailer';
 import dotenv from 'dotenv';
 dotenv.config();
 import { signAccessToken, signRefreshToken, verifyToken, getAccessExpiresIn } from '@jury-hrms/auth/jwt.js';
@@ -186,7 +186,7 @@ const impl = {
                         organizationId: data.organization_id,
                         deletedAt: null,
                     },
-                    include: { band: true },
+                    include: {},
                 });
 
                 if (!designationExists) {
@@ -195,16 +195,6 @@ const impl = {
                         message: 'Designation not found in organization.',
                     });
                 }
-            }
-
-            // Band is synchronized from the Designation's mapped Band. The
-            // frontend-supplied band_id must match, otherwise reject.
-            const effectiveBandId = designationExists?.bandId || null
-            if (data.band_id && data.band_id !== effectiveBandId) {
-                return callback({
-                    code: grpc.status.INVALID_ARGUMENT,
-                    message: 'Band must match the band mapped to the selected designation.',
-                });
             }
 
             let categoryExists = null;
@@ -387,7 +377,6 @@ const impl = {
                 profileImageFileId: data.profile_image_file_id || null,
                 costCenterId: data.cost_center_id || null,
                 payGradeId: data.pay_grade_id || null,
-                bandId: effectiveBandId,
                 createdAt: new Date(),
                 updatedAt: new Date(),
                 deletedAt: null
@@ -399,9 +388,7 @@ const impl = {
                 include: {
                     organization: true,
                     category: true,
-                    costCenter: true,
                     payGrade: true,
-                    band: true,
                     probationPolicy: true,
                     designation: true,
                     noticePeriodPolicies: {
@@ -444,7 +431,7 @@ const impl = {
 
             if (data.email) {
                 try {
-                    await sendOnboardEmail(
+                    await sendWelcomeEmail(
                         data.full_name || `${data.first_name || ''} ${data.last_name || ''}`.trim(),
                         data.email,
                         `${designationExists.name} (${designationExists.level})`,
@@ -453,7 +440,7 @@ const impl = {
                         'info@jurysoft.com'
                     );
                 } catch (emailErr) {
-                    console.error('Onboard email failed (non-fatal):', emailErr.message);
+                    console.error('Welcome email failed (non-fatal):', emailErr.message);
                 }
             }
 
@@ -463,9 +450,7 @@ const impl = {
                 include: {
                     organization: true,
                     category: true,
-                    costCenter: true,
                     payGrade: true,
-                    band: true,
                     probationPolicy: true,
                     designation: true,
                     location: true,
@@ -510,9 +495,7 @@ const impl = {
                 include: {
                     organization: true,
                     category: true,
-                    costCenter: true,
                     payGrade: true,
-                    band: true,
                     probationPolicy: true,
                     designation: true,
                     location: true,
@@ -559,9 +542,7 @@ const impl = {
                 include: {
                     organization: true,
                     category: true,
-                    costCenter: true,
                     payGrade: true,
-                    band: true,
                     probationPolicy: true,
                     designation: true,
                     location: true,
@@ -666,9 +647,7 @@ const impl = {
                 include: {
                     organization: true,
                     category: true,
-                    costCenter: true,
                     payGrade: true,
-                    band: true,
                     probationPolicy: true,
                     designation: true,
                     location: true,
@@ -723,9 +702,7 @@ const impl = {
                 include: {
                     designation: true,
                     category: true,
-                    costCenter: true,
                     payGrade: true,
-                    band: true,
                     probationPolicy: true,
                     departmentAssignments: {
                         where: { deletedAt: null },
@@ -1006,9 +983,7 @@ const impl = {
                 include: {
                     organization: true,
                     category: true,
-                    costCenter: true,
                     payGrade: true,
-                    band: true,
                     probationPolicy: true,
                     designation: true,
                     location: true,
@@ -1098,7 +1073,7 @@ const impl = {
             let targetDesignation = existing.designationId
                 ? await prisma.organizationDesignations.findFirst({
                     where: { id: existing.designationId, deletedAt: null },
-                    include: { band: true },
+                    include: {},
                 })
                 : null
             if (data.designation_id && data.designation_id !== existing.designationId) {
@@ -1108,7 +1083,7 @@ const impl = {
                         organizationId: data.organization_id || existing.organizationId,
                         deletedAt: null,
                     },
-                    include: { band: true },
+                    include: {},
                 });
 
                 if (!designationExists) {
@@ -1120,15 +1095,6 @@ const impl = {
                 targetDesignation = designationExists;
             }
 
-            // Band is synchronized from the Designation's mapped Band. The
-            // frontend-supplied band_id must match, otherwise reject.
-            const effectiveBandId = targetDesignation?.bandId || null
-            if (data.band_id && data.band_id !== effectiveBandId) {
-                return callback({
-                    code: grpc.status.INVALID_ARGUMENT,
-                    message: 'Band must match the band mapped to the selected designation.',
-                });
-            }
             let nextEmployeeCode = data.employee_code && String(data.employee_code).trim()
                 ? String(data.employee_code).trim()
                 : null
@@ -1248,7 +1214,6 @@ const impl = {
                     ? (data.category_id || null)
                     : (data.is_permanent != null && data.is_permanent ? null : existing.categoryId),
                 designationId: data.designation_id || existing.designationId,
-                bandId: effectiveBandId,
                 employeeCode: nextEmployeeCode || existing.employeeCode || null,
                 managerId: data.manager_id || existing.managerId,
                 branchId: data.branch_id || existing.branchId,
@@ -1323,9 +1288,7 @@ const impl = {
                 include: {
                     organization: true,
                     category: true,
-                    costCenter: true,
                     payGrade: true,
-                    band: true,
                     probationPolicy: true,
                     designation: true,
                     noticePeriodPolicies: {
@@ -1387,9 +1350,7 @@ const impl = {
                 include: {
                     organization: true,
                     category: true,
-                    costCenter: true,
                     payGrade: true,
-                    band: true,
                     probationPolicy: true,
                     designation: true,
                     location: true,
@@ -1485,9 +1446,7 @@ const impl = {
                 include: {
                     organization: true,
                     category: true,
-                    costCenter: true,
                     payGrade: true,
-                    band: true,
                     probationPolicy: true,
                     designation: true,
                     departmentAssignments: {
@@ -1539,9 +1498,7 @@ const impl = {
                 include: {
                     organization: true,
                     category: true,
-                    costCenter: true,
                     payGrade: true,
-                    band: true,
                     probationPolicy: true,
                     designation: true,
                     departmentAssignments: {
@@ -1600,9 +1557,7 @@ const impl = {
                 include: {
                     organization: true,
                     category: true,
-                    costCenter: true,
                     payGrade: true,
-                    band: true,
                     probationPolicy: true,
                     designation: true,
                     departmentAssignments: {
@@ -1656,9 +1611,7 @@ const impl = {
                 include: {
                     organization: true,
                     category: true,
-                    costCenter: true,
                     payGrade: true,
-                    band: true,
                     probationPolicy: true,
                     designation: true,
                     departmentAssignments: {
@@ -1863,9 +1816,7 @@ const impl = {
 include: {
                     organization: true,
                     category: true,
-                    costCenter: true,
                     payGrade: true,
-                    band: true,
                     probationPolicy: true,
                     designation: true,
                     location: true,
@@ -1964,9 +1915,7 @@ include: {
                 include: {
                     organization: true,
                     category: true,
-                    costCenter: true,
                     payGrade: true,
-                    band: true,
                     probationPolicy: true,
                     designation: true,
                     location: true,
@@ -2117,9 +2066,7 @@ include: {
                 include: {
                     organization: true,
                     category: true,
-                    costCenter: true,
                     payGrade: true,
-                    band: true,
                     probationPolicy: true,
                     designation: true,
                     location: true,
@@ -2489,7 +2436,7 @@ function buildLocationLabel(emp) {
 
 // Effective joining date: prefer the employee's own joiningDate, but fall
 // back to the earliest department-assignment start date so the dates always
-// show (employees may have been onboarded via department assignment only).
+// show (employees may have been registered via department assignment only).
 function effectiveJoiningDate(emp) {
     if (emp?.joiningDate) return emp.joiningDate;
     const assignments = emp?.departmentAssignments || [];
@@ -2540,11 +2487,11 @@ function mapEmployee(emp) {
         profile_image: emp?.profileImage ?? '',
         profile_image_file_id: emp?.profileImageFileId ?? '',
         cost_center_id: emp?.costCenterId ?? '',
-        cost_center_name: emp?.costCenter?.name ?? '',
+        cost_center_name: '',
         pay_grade_id: emp?.payGradeId ?? '',
         pay_grade_name: emp?.payGrade?.name ?? '',
         band_id: emp?.bandId ?? '',
-        band_name: emp?.band?.name ?? '',
+        band_name: '',
 
         // ====================== NOTICE PERIOD POLICY ======================
         ...(() => {
@@ -2709,16 +2656,8 @@ function mapEmployee(emp) {
             }
             : null,
 
-        // ====================== BAND ======================
-        band: emp?.band
-            ? {
-                id: emp.band.id ?? '',
-                organization_id: emp.band.organizationId ?? '',
-                name: emp.band.name ?? '',
-                description: emp.band.description ?? '',
-                order: emp.band.order ?? 0,
-            }
-            : null,
+        // ====================== BAND (legacy field) ======================
+        band: null,
 
         // ============== DEPARTMENTS (ARRAY) ==============
         departments: emp?.departmentAssignments?.length

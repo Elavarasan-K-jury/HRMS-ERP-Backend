@@ -10,19 +10,6 @@ function validObjectId(id) {
     return /^[0-9a-fA-F]{24}$/.test(id || '');
 }
 
-async function validateBand(organizationId, bandId) {
-    if (!bandId) return null;
-    const band = await prisma.bands.findFirst({
-        where: { id: bandId, organizationId, deletedAt: null },
-    });
-    if (!band) {
-        const err = new Error('Band not found in organization.');
-        err.code = grpc.status.NOT_FOUND;
-        throw err;
-    }
-    return band;
-}
-
 const impl = {
     CreateDesignation: async (call, callback) => {
         try {
@@ -51,24 +38,6 @@ const impl = {
                     return callback({
                         code: grpc.status.NOT_FOUND,
                         message: 'Department not found in organization.',
-                    });
-                }
-            }
-
-            // Validate band exists if provided (must belong to the same organization)
-            if (data.band_id) {
-                const bandExists = await prisma.bands.findFirst({
-                    where: {
-                        id: data.band_id,
-                        organizationId: data.organization_id,
-                        deletedAt: null,
-                    },
-                });
-
-                if (!bandExists) {
-                    return callback({
-                        code: grpc.status.NOT_FOUND,
-                        message: 'Band not found in organization.',
                     });
                 }
             }
@@ -107,7 +76,6 @@ const impl = {
                 include: {
                     organization: true,
                     department: true,
-                    band: true,
                 },
             });
 
@@ -141,7 +109,7 @@ const impl = {
                 include: {
                     organization: true,
                     department: true,
-                    band: true,
+                    band: false,
                     employees: { where: { deletedAt: null } }
                 },
             });
@@ -226,7 +194,7 @@ const impl = {
                 orderBy: { [sortField]: order },
                 skip,
                 take: limit,
-                include: { organization: true, department: true, band: true, employees: { where: { deletedAt: null } } },
+                include: { organization: true, department: true, employees: { where: { deletedAt: null } } },
             });
 
             const totalPages = Math.ceil(total / limit);
@@ -273,7 +241,7 @@ const impl = {
                     ...where,
                     deletedAt: null,
                 },
-                include: { band: true },
+                include: {},
             });
 
             const mappedDesignations = designations.map(desg => ({
@@ -354,25 +322,6 @@ const impl = {
                 }
             }
 
-            // Validate band if provided (must belong to the same organization)
-            const orgId = data.organization_id || existing.organizationId;
-            if (data.band_id && data.band_id !== existing.bandId) {
-                const bandExists = await prisma.bands.findFirst({
-                    where: {
-                        id: data.band_id,
-                        organizationId: orgId,
-                        deletedAt: null,
-                    },
-                });
-
-                if (!bandExists) {
-                    return callback({
-                        code: grpc.status.NOT_FOUND,
-                        message: 'Band not found in organization.',
-                    });
-                }
-            }
-
             const updateData = {
                 organizationId: orgId,
                 departmentId: data.department_id ?? existing.departmentId,
@@ -386,7 +335,7 @@ const impl = {
             const updated = await prisma.organizationDesignations.update({
                 where: { id: data.id },
                 data: updateData,
-                include: { band: true },
+                include: {},
             });
 
             callback(null, {
@@ -523,23 +472,13 @@ function mapEmployee(emp = {}) {
     };
 }
 
-function mapBand(b = {}) {
-    if (!b || !b.id) return {};
-    return {
-        id: b.id ?? '',
-        name: b.name ?? '',
-        description: b.description ?? '',
-        order: b.order ?? 0,
-    };
-}
-
 function mapDesignationOnly(d = {}) {
     return {
         id: d.id ?? '',
         name: d.name ?? '',
         level: d.level ?? '',
         band_id: d.bandId ?? '',
-        band_name: d.band?.name ?? '',
+        band_name: '',
     };
 }
 function mapDesignation(d = {}) {
@@ -556,7 +495,7 @@ function mapDesignation(d = {}) {
         deleted_at: d.deletedAt ? d.deletedAt.toISOString() : '',
         organization: mapOrg(d.organization),
         department: mapDepartment(d.department),
-        band: mapBand(d.band),
+        band: {},
         employees: Array.isArray(d.employees)
             ? d.employees.map(mapEmployee)
             : [],

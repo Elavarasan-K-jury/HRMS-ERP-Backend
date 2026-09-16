@@ -3,8 +3,8 @@ import mime from 'mime-types';
 import { storageService } from './storage/index.js';
 
 /**
- * Backward-compatible wrapper used by invoice / attendance / subscription
- * services. New code should use the `storageService` from "./storage/index.js".
+ * Backward-compatible wrapper used by existing services.
+ * New code should use the `storageService` from "./storage/index.js".
  */
 export class FileService {
     static async upload(fileBuffer, originalName, storePath = '') {

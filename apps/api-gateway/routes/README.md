@@ -119,12 +119,6 @@ return c.json({ error: error.message }, code);
 | `attendance.routes.js` | — | Attendance |
 | `attendance_logs.routes.js` | — | Attendance Logs |
 | `approval.routes.js` | — | Approval |
-| `asset_category.routes.js` | — | Asset Category |
-| `asset_model.routes.js` | — | Asset Model |
-| `assets.routes.js` | — | Assets |
-| `asset_request.routes.js` | — | Asset Request |
-| `asset_assignment.routes.js` | — | Asset Assignment |
-| `asset_condition.routes.js` | — | Asset Condition |
 | `post_poll.routes.js` | — | Post/Poll |
 | `hierarchy.routes.js` | — | Hierarchy |
 | `leaveType.routes.js` | — | Leave Type |

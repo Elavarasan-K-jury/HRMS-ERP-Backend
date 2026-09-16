@@ -36,7 +36,6 @@ const evaluationMilestoneSchema = z.object({
     is_final_milestone: z.boolean().optional().default(false),
     automatic_trigger_enabled: z.boolean().optional().default(false),
     trigger_after_days: z.number().int().min(0).optional().nullable(),
-    feedback_form_enabled: z.boolean().optional().default(false),
     levels: z.array(evaluationLevelSchema).optional().default([]),
 });
 
@@ -57,11 +56,6 @@ export default function registerProbationPolicyRoutes({ openapi }) {
         employee_category_ids: z.array(z.string()).optional(),
 
         evaluation_required: z.boolean().optional(),
-        show_feedback_form_in_review: z.boolean().optional(),
-        share_feedback_with_employee: z.boolean().optional(),
-        employee_response_allowed: z.boolean().optional(),
-        reviewer_response_allowed: z.boolean().optional(),
-        reviewer_recommendations_allowed: z.boolean().optional(),
         auto_confirm_probation: z.boolean().optional(),
         auto_generate_confirmation_letter: z.boolean().optional(),
         is_default: z.boolean().optional(),
@@ -75,11 +69,6 @@ export default function registerProbationPolicyRoutes({ openapi }) {
             end_date_after_completion: z.boolean().optional().default(false),
             is_active: z.boolean().optional().default(true),
             evaluation_required: z.boolean().optional().default(false),
-            show_feedback_form_in_review: z.boolean().optional().default(false),
-            share_feedback_with_employee: z.boolean().optional().default(false),
-            employee_response_allowed: z.boolean().optional().default(false),
-            reviewer_response_allowed: z.boolean().optional().default(false),
-            reviewer_recommendations_allowed: z.boolean().optional().default(false),
             auto_confirm_probation: z.boolean().optional().default(false),
             auto_generate_confirmation_letter: z.boolean().optional().default(false),
             is_default: z.boolean().optional().default(false),
@@ -114,7 +103,6 @@ export default function registerProbationPolicyRoutes({ openapi }) {
         is_final_milestone: z.boolean(),
         automatic_trigger_enabled: z.boolean(),
         trigger_after_days: z.number().optional().nullable(),
-        feedback_form_enabled: z.boolean(),
         levels: z.array(evaluationLevelResponseSchema).optional(),
     });
 
@@ -133,11 +121,6 @@ export default function registerProbationPolicyRoutes({ openapi }) {
         employee_category_ids: z.array(z.string()).optional(),
         employee_categories: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
         evaluation_required: z.boolean().optional(),
-        show_feedback_form_in_review: z.boolean().optional(),
-        share_feedback_with_employee: z.boolean().optional(),
-        employee_response_allowed: z.boolean().optional(),
-        reviewer_response_allowed: z.boolean().optional(),
-        reviewer_recommendations_allowed: z.boolean().optional(),
         auto_confirm_probation: z.boolean().optional(),
         auto_generate_confirmation_letter: z.boolean().optional(),
         is_default: z.boolean().optional(),
@@ -388,16 +371,6 @@ export default function registerProbationPolicyRoutes({ openapi }) {
                             : (existing.employee_category_ids || []),
                     evaluation_required:
                         body.evaluation_required ?? existing.evaluation_required,
-                    show_feedback_form_in_review:
-                        body.show_feedback_form_in_review ?? existing.show_feedback_form_in_review,
-                    share_feedback_with_employee:
-                        body.share_feedback_with_employee ?? existing.share_feedback_with_employee,
-                    employee_response_allowed:
-                        body.employee_response_allowed ?? existing.employee_response_allowed,
-                    reviewer_response_allowed:
-                        body.reviewer_response_allowed ?? existing.reviewer_response_allowed,
-                    reviewer_recommendations_allowed:
-                        body.reviewer_recommendations_allowed ?? existing.reviewer_recommendations_allowed,
                     auto_confirm_probation:
                         body.auto_confirm_probation ?? existing.auto_confirm_probation,
                     auto_generate_confirmation_letter:

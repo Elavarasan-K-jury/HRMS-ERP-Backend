@@ -29,10 +29,6 @@ const PERMISSIONS = [
   { key: 'designations.view',   name: 'View Designations',   group: 'Designations', description: 'View designation list' },
   { key: 'designations.manage', name: 'Manage Designations', group: 'Designations', description: 'Create/edit/delete designations' },
 
-  // Bands
-  { key: 'bands.view',   name: 'View Bands',   group: 'Bands', description: 'View band list' },
-  { key: 'bands.manage', name: 'Manage Bands', group: 'Bands', description: 'Create/edit/delete bands' },
-
   // Branches
   { key: 'branches.view',   name: 'View Branches',   group: 'Branches', description: 'View branch list' },
   { key: 'branches.manage', name: 'Manage Branches', group: 'Branches', description: 'Create/edit/delete branches' },

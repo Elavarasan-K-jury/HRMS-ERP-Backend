@@ -156,9 +156,6 @@ message Organization {
   int32 max_leave_policies = 19;
   int32 max_admin_accounts = 20;
 
-  string plan_id = 21;
-  string plan_duration = 22;
-
   // 🔐 Org admin login credentials (OTP-based)
   string admin_email = 23;
   string admin_phone = 24;

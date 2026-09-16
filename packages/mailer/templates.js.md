@@ -11,11 +11,11 @@ Generates a clean, minimal OTP email with a monospace-styled code block and expi
 otpHtml('482916', 5);
 ```
 
-### `generateOnboardingEmail({ employeeName, employeeEmail, accessLevel, loginUrl, companyName, supportEmail, logoUrl, showQuickTips, customMessage })`
+### `generateWelcomeEmail({ employeeName, employeeEmail, accessLevel, loginUrl, companyName, supportEmail, logoUrl, showQuickTips, customMessage })`
 Rich welcome email with gradient hero, credentials card, CTA button, and optional quick-tips section.
 
 ```js
-generateOnboardingEmail({
+generateWelcomeEmail({
   employeeName: 'Alice',
   employeeEmail: 'alice@co.com',
   loginUrl: 'https://app.juryhrms.com/login',

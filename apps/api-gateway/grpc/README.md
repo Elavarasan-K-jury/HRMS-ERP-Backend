@@ -51,7 +51,6 @@ export const someClient = new someProto.SomeService(
 | `asset_request.client.js` | `AssetRequestService` | `ASSET_REQ_SERVICE_ADDR` | — |
 | `asset_assignment.client.js` | `AssetAssignmentService` | `ASSET_ASSIGN_SERVICE_ADDR` | — |
 | `asset_condition.client.js` | `AssetConditionService` | `ASSET_CON_SERVICE_ADDR` | — |
-| `post_poll.client.js` | `PostPollService` | `POST_POLL_SERVICE_ADDR` | — |
 | `leaveType.client.js` | `LeaveTypeService` | `LEAVE_TYPE_SERVICE_ADDR` | — |
 | `leaveRequest.client.js` | `LeaveRequestService` | `LEAVE_REQUEST_SERVICE_ADDR` | — |
 | `holiday.client.js` | `HolidayService` | `HOLIDAY_SERVICE_ADDR` | — |

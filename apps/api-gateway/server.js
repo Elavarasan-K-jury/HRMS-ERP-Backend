@@ -22,35 +22,12 @@ log('🔍 ADMIN_SERVICE_ADDR =', process.env.ADMIN_SERVICE_ADDR);
 log('🔍 ORG_DEPT_SERVICE_ADDR =', process.env.ORG_DEPT_SERVICE_ADDR);
 log('🔍 EMP_DEPT_SERVICE_ADDR =', process.env.EMP_DEPT_SERVICE_ADDR);
 log('🔍 ORG_DESG_SERVICE_ADDR =', process.env.ORG_DESG_SERVICE_ADDR);
-log(
-    '🔍 EMP_ONBOARDING_FLOW_SERVICE_ADDR =',
-    process.env.EMP_ONBOARDING_FLOW_SERVICE_ADDR
-);
-log(
-    '🔍 EMP_ONBOARDING_STEP_SERVICE_ADDR =',
-    process.env.EMP_ONBOARDING_STEP_SERVICE_ADDR
-);
-log(
-    '🔍 EMP_ONBOARDING_FEATURE_SERVICE_ADDR =',
-    process.env.EMP_ONBOARDING_FEATURE_SERVICE_ADDR
-);
-log(
-    '🔍 EMP_ONBOARDING_PROGRESS_SERVICE_ADDR =',
-    process.env.EMP_ONBOARDING_PROGRESS_SERVICE_ADDR
-);
 log("🔍 SHIFT_SERVICE =", process.env.SHIFT_SERVICE_ADDR);
 log("🔍 SHIFT_ASSIGNMENT_SERVICE =", process.env.SHIFT_ASSIGNMENT_SERVICE_ADDR);
 log("🔍 SHIFT_POLICY_SERVICE =", process.env.SHIFT_POLICY_SERVICE_ADDR);
 log("🔍 ATTENDANCE_SERVICE =", process.env.ATTENDANCE_SERVICE_ADDR);
 log("🔍 ATTENDANCE_LOG_SERVICE =", process.env.ATTENDANCE_LOG_SERVICE_ADDR);
 log("🔍 APPROVAL_SERVICE =", process.env.APPROVAL_SERVICE_ADDR);
-log('🔍 ASSET_CATEGORY_SERVICE_ADDR =', process.env.ASSET_CAT_SERVICE_ADDR);
-log('🔍 ASSET_MODEL_SERVICE_ADDR =', process.env.ASSET_MOD_SERVICE_ADDR);
-log('🔍 ASSET_SERVICE_ADDR =', process.env.ASSETS_SERVICE_ADDR);
-log('🔍 ASSET_REQUEST_SERVICE_ADDR =', process.env.ASSET_REQ_SERVICE_ADDR);
-log('🔍 ASSET_ASSIGNMENT_SERVICE_ADDR =', process.env.ASSET_ASSIGN_SERVICE_ADDR);
-log('🔍 ASSET_CONDITION_SERVICE_ADDR =', process.env.ASSET_CON_SERVICE_ADDR);
-log('🔍 POST_POLL_SERVICE_ADDR =', process.env.POST_POLL_SERVICE_ADDR);
 log('🔍 LEAVE_TYPES_ADDR =', process.env.LEAVE_TYPE_SERVICE_ADDR);
 log('🔍 LEAVE_REQUESTS_ADDR =', process.env.LEAVE_REQUEST_SERVICE_ADDR);
 log('🔍 HOLIDAYS_ADDR =', process.env.HOLIDAY_SERVICE_ADDR);
@@ -87,31 +64,16 @@ import registerAdminRoutes from './routes/admin.routes.js';
 import registerOrgDepartmentRoutes from './routes/org_department.routes.js';
 import registerOrgDesignationRoutes from './routes/org_designation.routes.js';
 import registerEmployeeDepartmentRoutes from './routes/emp_department.routes.js';
-import registerEmployeeOnboardingFlowRoutes from './routes/emp_onboard_flow.routes.js';
-import registerEmployeeOnboardingStepRoutes from './routes/emp_onboard_step.routes.js';
-import registerEmployeeOnboardingFeatureRoutes from './routes/emp_onboard_feature.routes.js';
-import registerEmployeeOnboardingProgressRoutes from './routes/emp_onboard_progress.routes.js';
 import registerShiftRoutes from './routes/shift.routes.js';
 import registerShiftAssignmentRoutes from './routes/shift_assignment.routes.js';
 import registerShiftPolicyRoutes from './routes/shift_policy.routes.js';
 import registerProbationPolicyRoutes from './routes/probation_policy.routes.js';
-import registerCostCenterRoutes from './routes/cost_center.routes.js';
 import registerPayGradeRoutes from './routes/pay_grade.routes.js';
-import registerBandRoutes from './routes/band.routes.js';
 import registerNoticePeriodPolicyRoutes from './routes/notice_period_policy.routes.js';
 import registerAttendanceRoutes from './routes/attendance.routes.js';
 import registerAttendanceLogRoutes from './routes/attendance_logs.routes.js';
 import registerApprovalRoutes from './routes/approval.routes.js';
-import registerAssetCategoryRoutes from './routes/asset_category.routes.js';
-import registerAssetModelRoutes from './routes/asset_model.routes.js';
-import registerAssetRoutes from './routes/assets.routes.js';
-import registerAssetRequestRoutes from './routes/asset_request.routes.js';
-import registerAssetAssignmentRoutes from './routes/asset_assignment.routes.js';
-import registerAssetConditionRoutes from './routes/asset_condition.routes.js';
-import registerAssetIdSeriesRoutes from './routes/asset_id_series.routes.js';
-import registerAssetAttributeDefinitionRoutes from './routes/asset_attribute_definition.routes.js';
 import registerHierarchyRoutes from './routes/hierarchy.routes.js';
-import registerPostPollRoutes from './routes/post_poll.routes.js';
 import registerHealthRoutes from './routes/health.routes.js';
 import registerLeaveTypeRoutes from './routes/leaveType.routes.js';
 import registerLeaveRequestRoutes from './routes/leaveRequest.routes.js';
@@ -132,9 +94,6 @@ import registerEmployeeProfileSelfRoutes from './routes/employee_profile_self.ro
 import registerOrganizationDocumentRoutes from './routes/organization_document.routes.js';
 import registerFinanceRoutes from './routes/finance.routes.js';
 import registerSalaryRangeRoutes from './routes/salary-range.routes.js';
-import registerSubscriptionPlanRoutes from './routes/subscription-plans.routes.js';
-import registerInvoiceRoutes from './routes/invoices.routes.js';
-import registerOrganizationSubscriptionRoutes from './routes/organization-subscriptions.routes.js';
 import registerStorageRoutes from './routes/storage.routes.js';
 import registerFileRoutes from './routes/file.routes.js';
 import registerPayslipRoutes from './routes/payslip.routes.js';
@@ -252,8 +211,6 @@ const detectServiceByPath = (c) => {
         // PROBATION POLICIES
         { service: "probation_policy", prefixes: ["/probation-policies"] },
 
-        // COST CENTERS
-        { service: "cost_center", prefixes: ["/cost-centers"] },
         { service: "pay_grade", prefixes: ["/pay-grades"] },
 
         // USAGE TYPES & EXPENSE CATEGORIES
@@ -262,9 +219,6 @@ const detectServiceByPath = (c) => {
         { service: "expense_policy", prefixes: ["/expense-policies"] },
         { service: "employee_document", prefixes: ["/employee-documents"] },
         { service: "organization_document", prefixes: ["/organization-documents"] },
-
-        // BANDS
-        { service: "band", prefixes: ["/bands"] },
 
         // DEPARTMENTS
         { service: "department", prefixes: ["/departments", "/department"] },
@@ -277,21 +231,6 @@ const detectServiceByPath = (c) => {
 
         // APPROVAL
         { service: "approval", prefixes: ["/approval"] },
-
-        // ASSETS (group all asset-* + assets)
-        {
-            service: "asset",
-            prefixes: [
-                "/assets",
-                "/asset-assignments",
-                "/asset-categories",
-                "/asset-conditions",
-                "/asset-models",
-                "/asset-requests",
-                "/asset-id-series",
-                "/asset-attribute-definitions",
-            ],
-        },
 
         // ATTENDANCE
         { service: "attendance", prefixes: ["/attendance", "/attendance-policies"] },
@@ -311,9 +250,6 @@ const detectServiceByPath = (c) => {
         // NETWORK POLICIES
         { service: "network_policy", prefixes: ["/network-policies"] },
 
-        // POSTS / POLLS
-        { service: "post", prefixes: ["/posts", "/post-polls"] },
-
         // REPORTS
         { service: "reports", prefixes: ["/reports"] },
 
@@ -332,16 +268,6 @@ const detectServiceByPath = (c) => {
             prefixes: ["/folders", "/files"],
         },
 
-        // EMPLOYEE ONBOARDING (group)
-        {
-            service: "employee_onboarding",
-            prefixes: [
-                "/employee-onboarding-features",
-                "/employee-onboarding-flows",
-                "/employee-onboarding-progress",
-                "/employee-onboarding-steps",
-            ],
-        },
     ];
 
     for (const r of routes) {
@@ -382,10 +308,8 @@ app.use('/admins/*', authAdmin);
 app.use('/probation-policies/*', authAdmin);
 app.use('/notice-period-policies/*', authAdmin);
 
-// Auth middleware for cost center routes
-app.use('/cost-centers/*', authAdmin);
+// Auth middleware for pay-grade and expense routes
 app.use('/pay-grades/*', authAdmin);
-app.use('/bands/*', authAdmin);
 app.use('/usage-types/*', authAdmin);
 app.use('/expense-categories/*', authAdmin);
 app.use('/expense-policies/*', authAdmin);
@@ -396,19 +320,6 @@ app.use('/organization-documents/*', authAdmin);
 
 // Centralized file serving is auth-protected (supports ?token= for <img> tags)
 app.use('/file/*', authAdmin);
-
-// Phase 04: Employee self-service asset endpoints (must be before admin middleware)
-app.use('/employee-assets/*', authEmployee);
-
-// Auth middleware for asset routes (Phase 00: foundation security)
-app.use('/assets/*', authAdmin);
-app.use('/asset-categories/*', authAdmin);
-app.use('/asset-models/*', authAdmin);
-app.use('/asset-assignments/*', authAdmin);
-app.use('/asset-requests/*', authAdmin);
-app.use('/asset-conditions/*', authAdmin);
-app.use('/asset-id-series/*', authAdmin);
-app.use('/asset-attribute-definitions/*', authAdmin);
 
 // Health check
 app.get('/', (c) => c.text('🚀 Jury-HRMS API Gateway is running!'));
@@ -453,26 +364,11 @@ registerAdminRoutes({ openapi: wrapService('admin') });
 registerOrgDepartmentRoutes({ openapi: wrapService('org_department') });
 registerOrgDesignationRoutes({ openapi: wrapService('org_designation') });
 registerEmployeeDepartmentRoutes({ openapi: wrapService('emp_department') });
-registerEmployeeOnboardingFlowRoutes({ openapi: wrapService('emp_onboard_flow') });
-registerEmployeeOnboardingStepRoutes({ openapi: wrapService('emp_onboard_step') });
-registerEmployeeOnboardingFeatureRoutes({ openapi: wrapService('emp_onboard_feature') });
-registerEmployeeOnboardingProgressRoutes({ openapi: wrapService('emp_onboard_progress') });
-registerAssetCategoryRoutes({ openapi: wrapService('asset_category') });
-registerAssetModelRoutes({ openapi: wrapService('asset_model') });
-registerAssetRoutes({ openapi: wrapService('asset') });
-registerAssetRequestRoutes({ openapi: wrapService('asset_request') });
-registerAssetAssignmentRoutes({ openapi: wrapService('asset_assignment') });
-registerAssetConditionRoutes({ openapi: wrapService('asset_condition') });
-registerAssetIdSeriesRoutes({ openapi: wrapService('asset_id_series') });
-registerAssetAttributeDefinitionRoutes({ openapi: wrapService('asset_attribute_definition') });
-registerPostPollRoutes({ openapi: wrapService('post_poll') });
 registerShiftRoutes({ openapi: wrapService('shift') });
 registerShiftAssignmentRoutes({ openapi: wrapService('shift_assignment') });
 registerShiftPolicyRoutes({ openapi: wrapService('shift_policy') });
 registerProbationPolicyRoutes({ openapi: wrapService('probation_policy') });
-registerCostCenterRoutes({ openapi: wrapService('cost_center') });
 registerPayGradeRoutes({ openapi: wrapService('pay_grade') });
-registerBandRoutes({ openapi: wrapService('band') });
 registerNoticePeriodPolicyRoutes({ openapi: wrapService('notice_period_policy') });
 registerAttendanceRoutes({ openapi: wrapService('attendance') });
 registerAttendanceLogRoutes({ openapi: wrapService('attendance_logs') });
@@ -487,9 +383,6 @@ registerSalaryTemplateRoutes({ openapi: wrapService('salary_template') });
 registerSalaryRangeRoutes({ openapi: wrapService('salary_range') });
 registerSalaryRoutes({ openapi: wrapService('salary') });
 registerReportsRoutes({ openapi: wrapService('reports') });
-registerSubscriptionPlanRoutes({ openapi: wrapService('subscription_plan') });
-registerOrganizationSubscriptionRoutes({ openapi: wrapService('organization_subscription') });
-registerInvoiceRoutes({ openapi: wrapService('invoice') });
 registerStorageRoutes({ openapi: wrapService('storage') });
 registerFileRoutes({ openapi: wrapService('storage') });
 registerPayslipRoutes({ openapi: wrapService('payslip') });

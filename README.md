@@ -85,7 +85,6 @@ Backend/
 │   ├── asset-request-service/         # Asset requests
 │   ├── asset-assignment-service/      # Asset assignments
 │   ├── asset-condition-service/       # Asset condition reports
-│   ├── poll-post-service/             # Social posts & polls
 │   ├── salary-and-payroll-service/    # Salary components, templates, payroll
 │   ├── report-service/                # Employee insight reports
 │   ├── storage-service/               # Folder & file management

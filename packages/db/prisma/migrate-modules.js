@@ -11,21 +11,17 @@ import { prisma } from '../client.js';
 const MODULES = [
   // ---- Super Admin scope ----
   { key: 'organizations',   name: 'Organizations',   icon: 'ion:business',              scope: 'super_admin',  sortOrder: 1 },
-  { key: 'plans',           name: 'Plans',           icon: 'heroicons:receipt-percent',   scope: 'super_admin',  sortOrder: 2 },
-  { key: 'invoices',        name: 'Invoices',        icon: 'ion:document-text',           scope: 'super_admin',  sortOrder: 3 },
-  { key: 'payments',        name: 'Payments',        icon: 'ion:cash',                    scope: 'super_admin',  sortOrder: 4 },
-  { key: 'discounts',       name: 'Discounts',       icon: 'heroicons:percent-badge',     scope: 'super_admin',  sortOrder: 5 },
-  { key: 'admins',          name: 'Admins',          icon: 'ion:person-add-outline',      scope: 'super_admin',  sortOrder: 6 },
-  { key: 'roles',           name: 'Roles & Permissions', icon: 'ion:key-outline',         scope: 'super_admin',  sortOrder: 7 },
-  { key: 'audit',           name: 'Audit Logs',      icon: 'ion:document-text-outline',   scope: 'super_admin',  sortOrder: 8 },
-  { key: 'modules',         name: 'Modules',         icon: 'ion:grid-outline',           scope: 'super_admin',  sortOrder: 9 },
+  { key: 'discounts',       name: 'Discounts',       icon: 'heroicons:percent-badge',     scope: 'super_admin',  sortOrder: 2 },
+  { key: 'admins',          name: 'Admins',          icon: 'ion:person-add-outline',      scope: 'super_admin',  sortOrder: 3 },
+  { key: 'roles',           name: 'Roles & Permissions', icon: 'ion:key-outline',         scope: 'super_admin',  sortOrder: 4 },
+  { key: 'audit',           name: 'Audit Logs',      icon: 'ion:document-text-outline',   scope: 'super_admin',  sortOrder: 5 },
+  { key: 'modules',         name: 'Modules',         icon: 'ion:grid-outline',           scope: 'super_admin',  sortOrder: 6 },
 
   // ---- Organization scope ----
   { key: 'dashboard',       name: 'Dashboard',       icon: 'ion:pie-chart',              scope: 'organization', sortOrder: 1 },
   { key: 'departments',     name: 'Departments',     icon: 'lucide:git-fork',            scope: 'organization', sortOrder: 2 },
   { key: 'branches',        name: 'Branches',        icon: 'lucide:building-2',          scope: 'organization', sortOrder: 3 },
   { key: 'designations',    name: 'Designations',    icon: 'ion:briefcase-outline',      scope: 'organization', sortOrder: 4 },
-  { key: 'bands',           name: 'Bands',           icon: 'ion:git-branch-outline',     scope: 'organization', sortOrder: 4 },
   { key: 'hierarchy',       name: 'Hierarchy',       icon: 'ion:people-outline',         scope: 'organization', sortOrder: 5 },
   { key: 'employees',       name: 'Employees',       icon: 'ion:people',                 scope: 'organization', sortOrder: 6 },
   { key: 'attendance',      name: 'Attendance',      icon: 'ion:clock',                  scope: 'organization', sortOrder: 7 },

@@ -113,7 +113,6 @@ function buildMilestoneCreate(milestones = [], organizationId) {
             isFinalMilestone: Boolean(m.is_final_milestone),
             automaticTriggerEnabled: Boolean(m.automatic_trigger_enabled),
             triggerAfterDays: Number.isInteger(m.trigger_after_days) ? m.trigger_after_days : null,
-            feedbackFormEnabled: Boolean(m.feedback_form_enabled),
             createdAt: now,
             updatedAt: now,
             deletedAt: null,
@@ -172,7 +171,6 @@ function mapEvaluationMilestone(m) {
         is_final_milestone: m.isFinalMilestone ?? false,
         automatic_trigger_enabled: m.automaticTriggerEnabled ?? false,
         trigger_after_days: m.triggerAfterDays ?? 0,
-        feedback_form_enabled: m.feedbackFormEnabled ?? false,
         levels,
     };
 }
@@ -254,11 +252,6 @@ function mapProbationPolicy(policy) {
         employee_categories: cats.map(c => ({ id: c.id, name: c.name })),
 
         evaluation_required: policy.evaluationRequired ?? false,
-        show_feedback_form_in_review: policy.showFeedbackFormInReview ?? false,
-        share_feedback_with_employee: policy.shareFeedbackWithEmployee ?? false,
-        employee_response_allowed: policy.employeeResponseAllowed ?? false,
-        reviewer_response_allowed: policy.reviewerResponseAllowed ?? false,
-        reviewer_recommendations_allowed: policy.reviewerRecommendationsAllowed ?? false,
         auto_confirm_probation: policy.autoConfirmProbation ?? false,
         auto_generate_confirmation_letter: policy.autoGenerateConfirmationLetter ?? false,
         is_default: policy.isDefault ?? false,
@@ -316,11 +309,6 @@ const impl = {
                 policy_type = 'PROBATION',
                 employee_category_ids = [],
                 evaluation_required = false,
-                show_feedback_form_in_review = false,
-                share_feedback_with_employee = false,
-                employee_response_allowed = false,
-                reviewer_response_allowed = false,
-                reviewer_recommendations_allowed = false,
                 auto_confirm_probation = false,
                 auto_generate_confirmation_letter = false,
                 is_default = false,
@@ -401,11 +389,6 @@ const impl = {
                     isActive: is_active,
                     policyType: policy_type,
                     evaluationRequired: evaluation_required,
-                    showFeedbackFormInReview: show_feedback_form_in_review,
-                    shareFeedbackWithEmployee: share_feedback_with_employee,
-                    employeeResponseAllowed: employee_response_allowed,
-                    reviewerResponseAllowed: reviewer_response_allowed,
-                    reviewerRecommendationsAllowed: reviewer_recommendations_allowed,
                     autoConfirmProbation: auto_confirm_probation,
                     autoGenerateConfirmationLetter: auto_generate_confirmation_letter,
                     isDefault: is_default,
@@ -529,11 +512,6 @@ const impl = {
                 policy_type,
                 employee_category_ids,
                 evaluation_required,
-                show_feedback_form_in_review,
-                share_feedback_with_employee,
-                employee_response_allowed,
-                reviewer_response_allowed,
-                reviewer_recommendations_allowed,
                 auto_confirm_probation,
                 auto_generate_confirmation_letter,
                 is_default,
@@ -572,26 +550,6 @@ const impl = {
                     typeof evaluation_required === 'boolean'
                         ? evaluation_required
                         : existing.evaluationRequired,
-                showFeedbackFormInReview:
-                    typeof show_feedback_form_in_review === 'boolean'
-                        ? show_feedback_form_in_review
-                        : existing.showFeedbackFormInReview,
-                shareFeedbackWithEmployee:
-                    typeof share_feedback_with_employee === 'boolean'
-                        ? share_feedback_with_employee
-                        : existing.shareFeedbackWithEmployee,
-                employeeResponseAllowed:
-                    typeof employee_response_allowed === 'boolean'
-                        ? employee_response_allowed
-                        : existing.employeeResponseAllowed,
-                reviewerResponseAllowed:
-                    typeof reviewer_response_allowed === 'boolean'
-                        ? reviewer_response_allowed
-                        : existing.reviewerResponseAllowed,
-                reviewerRecommendationsAllowed:
-                    typeof reviewer_recommendations_allowed === 'boolean'
-                        ? reviewer_recommendations_allowed
-                        : existing.reviewerRecommendationsAllowed,
                 autoConfirmProbation:
                     typeof auto_confirm_probation === 'boolean'
                         ? auto_confirm_probation
@@ -681,11 +639,6 @@ const impl = {
                     policyType: merged.policyType,
                     isDefault: merged.isDefault,
                     evaluationRequired: merged.evaluationRequired,
-                    showFeedbackFormInReview: merged.showFeedbackFormInReview,
-                    shareFeedbackWithEmployee: merged.shareFeedbackWithEmployee,
-                    employeeResponseAllowed: merged.employeeResponseAllowed,
-                    reviewerResponseAllowed: merged.reviewerResponseAllowed,
-                    reviewerRecommendationsAllowed: merged.reviewerRecommendationsAllowed,
                     autoConfirmProbation: merged.autoConfirmProbation,
                     autoGenerateConfirmationLetter: merged.autoGenerateConfirmationLetter,
                     ...(shouldReassignCategories

@@ -1,6 +1,6 @@
 # `mailer/index.js` — High-Level Email Sending Functions
 
-Provides ready-to-use email functions for OTP, onboarding, invoices, finance, and expense notifications. All functions build subject/text/html and delegate to `sendRaw`.
+Provides ready-to-use email functions for OTP, welcome emails, invoices, finance, and expense notifications. All functions build subject/text/html and delegate to `sendRaw`.
 
 ## Exports
 
@@ -14,8 +14,8 @@ Sends an OTP verification email with a 5-minute default expiry.
 await sendOtpEmail('user@example.com', '123456');
 ```
 
-### `sendOnboardEmail(employeeName, employeeEmail, accessLevel, loginUrl, companyName, supportEmail)`
-Sends an onboarding welcome email with login credentials.
+### `sendWelcomeEmail(employeeName, employeeEmail, accessLevel, loginUrl, companyName, supportEmail)`
+Sends a welcome email with login credentials to newly created employees.
 
 ### `sendInvoiceEmail({ to, organizationName, invoiceNumber, amount, currency, billingPeriodStart, billingPeriodEnd, dueDate, pdfBuffer, supportEmail, paymentLink })`
 Sends an invoice email with a PDF attachment. Ensures `pdfBuffer` is a proper `Buffer`, attaches it as `invoice-{number}.pdf`.

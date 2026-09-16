@@ -42,13 +42,6 @@ message CreateProbationPolicyRequest {
   // Each milestone carries its own auto-trigger (days after probation starts).
   bool   evaluation_required        = 14;
 
-  // Feedback form settings (Step 2)
-  bool   show_feedback_form_in_review   = 15;
-  bool   share_feedback_with_employee   = 16;
-  bool   employee_response_allowed      = 17;
-  bool   reviewer_response_allowed      = 18;
-  bool   reviewer_recommendations_allowed = 19;
-
   // Confirmation configuration (Step 3)
   bool   auto_confirm_probation           = 20;
   bool   auto_generate_confirmation_letter = 21;
@@ -85,13 +78,6 @@ message UpdateProbationPolicyRequest {
 
   // Evaluation configuration (Step 2)
   bool   evaluation_required        = 15;
-
-  // Feedback form settings (Step 2)
-  bool   show_feedback_form_in_review   = 16;
-  bool   share_feedback_with_employee   = 17;
-  bool   employee_response_allowed      = 18;
-  bool   reviewer_response_allowed      = 19;
-  bool   reviewer_recommendations_allowed = 20;
 
   // Confirmation configuration (Step 3)
   bool   auto_confirm_probation           = 21;
@@ -141,13 +127,6 @@ message ProbationPolicy {
   // Evaluation configuration (Step 2)
   bool   evaluation_required        = 16;
 
-  // Feedback form settings (Step 2)
-  bool   show_feedback_form_in_review   = 17;
-  bool   share_feedback_with_employee   = 18;
-  bool   employee_response_allowed      = 19;
-  bool   reviewer_response_allowed      = 20;
-  bool   reviewer_recommendations_allowed = 21;
-
   // Confirmation configuration (Step 3)
   bool   auto_confirm_probation           = 22;
   bool   auto_generate_confirmation_letter = 23;
@@ -170,7 +149,6 @@ message EvaluationMilestone {
   bool   is_final_milestone      = 3;
   bool   automatic_trigger_enabled = 4;
   int32  trigger_after_days      = 5;
-  bool   feedback_form_enabled   = 6;
   repeated EvaluationLevel levels = 7;
 }
 

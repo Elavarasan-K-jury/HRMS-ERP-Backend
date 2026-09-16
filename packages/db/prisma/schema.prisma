@@ -103,7 +103,6 @@ model Organizations {
   employees                     OrganizationEmployees[]
   employeeNumberSeries          EmployeeNumberSeries[]
   categories                    EmployeeCategories[]
-  onboardingFlows               EmployeeOnboardingFlows[]       @relation("OrganizationOnboardings")
   shifts                        Shifts[]
   holidays                      Holidays[]
   leaveTypes                    LeaveTypes[]
@@ -118,13 +117,10 @@ model Organizations {
   approvalInstances             ApprovalInstance[]
   approvers                     ApprovalFlowApprovers[]
   leaveRequests                 LeaveRequests[]
-  workrequests                  WorkdayRequests[]
-  approvalflows                 ApprovalFlows[]
-  posts                         Posts[]
-  assetconditions               AssetCondition[]
-  assetRequests                 AssetRequest[]
+   workrequests                  WorkdayRequests[]
+   approvalflows                 ApprovalFlows[]
 
-  smsNotification      Boolean @default(false)
+   smsNotification      Boolean @default(false)
   emailNotification    Boolean @default(true)
   whatsappNotification Boolean @default(false)
   pushNotification     Boolean @default(true)
@@ -135,17 +131,10 @@ model Organizations {
   maxPayrollRunsPerMonth    Int?                        @default(1) @map("max_payout_runs_per_month")
   maxLeavePolicies          Int?                        @default(5) @map("max_leave_policies")
   maxAdminAccounts          Int?                        @default(3) @map("max_admin_accounts")
-  assetCategories           AssetCategories[]
-  assetModels               AssetModels[]
-  assetModelAttributeDefinitions AssetModelAttributeDefinition[]
-  assets                    Assets[]
-  assetAssignment           AssetAssignments[]
-  assetIdSeries             AssetIdSeries[]
   attendanceReports         AttendanceReports[]
   salaryComponentDefinition ComponentDefinition[]
   salaryTemplates           SalaryTemplate[]
   organizationFinanc        OrgaizationFinance?
-  organizationSubscriptions OrganizationSubscriptions[]
   folders                   Folders[]
   files                     Files[]
   payslipTemplates          PayslipTemplates[]
@@ -157,9 +146,7 @@ model Organizations {
   adminRoleAssignments        AdminRoleAssignments[]
   employeeRoleAssignments     EmployeeRoleAssignments[]
   auditLogs                   AdminAuditLog[]
-  costCenters                 CostCenters[]
   payGrades                   PayGrades[]
-  bands                       Bands[]
   noticePeriodPolicies        NoticePeriodPolicy[]
   usageTypes                  UsageType[]
   expenseCategories           ExpenseCategory[]
@@ -174,22 +161,6 @@ model Organizations {
   orgDocuments                OrganizationDocument[]
   orgDocumentViews            OrganizationDocumentView[]
   orgDocumentAcks             OrganizationDocumentAcknowledgement[]
-}
-
-model CostCenters {
-  id             String                  @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String                  @map("organization_id") @db.ObjectId
-  name           String
-  code           String
-  description    String?
-  isActive       Boolean                 @default(true) @map("is_active")
-  organization   Organizations           @relation(fields: [organizationId], references: [id])
-  employees      OrganizationEmployees[]
-  createdAt      DateTime                @map("created_at")
-  updatedAt      DateTime                @map("updated_at")
-  deletedAt      DateTime?               @map("deleted_at")
-
-  @@unique([organizationId, code])
 }
 
 model PayGrades {
@@ -413,22 +384,6 @@ model ExpenseCategoryRule {
   @@index([policyCategoryId])
 }
 
-model Bands {
-  id             String                     @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String                     @map("organization_id") @db.ObjectId
-  name           String
-  description    String?
-  order          Int                        @default(0)
-  organization   Organizations              @relation(fields: [organizationId], references: [id])
-  designations   OrganizationDesignations[]
-  employees      OrganizationEmployees[]
-  createdAt      DateTime                   @map("created_at")
-  updatedAt      DateTime                   @map("updated_at")
-  deletedAt      DateTime?                  @map("deleted_at")
-
-  @@unique([organizationId, name])
-}
-
 model OrgaizationFinance {
   id                             String        @id @default(auto()) @map("_id") @db.ObjectId
   organizationId                 String        @unique @map("organization_id") @db.ObjectId
@@ -484,7 +439,6 @@ model OrganizationDesignations {
   description       String?
   organization      Organizations            @relation(fields: [organizationId], references: [id])
   department        OrganizationDepartments? @relation(fields: [departmentId], references: [id])
-  band              Bands?                   @relation(fields: [bandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   employees         OrganizationEmployees[]  @relation("DesignationEmployees")
   createdAt         DateTime                 @map("created_at")
   updatedAt         DateTime                 @map("updated_at")
@@ -527,65 +481,6 @@ model EmployeeNumberSeries {
   updatedAt    DateTime      @updatedAt @map("updated_at")
   deletedAt    DateTime?     @map("deleted_at")
   organization Organizations @relation(fields: [organizationId], references: [id])
-}
-
-model EmployeeOnboardingFlows {
-  id             String                    @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String                    @map("organization_id") @db.ObjectId
-  organization   Organizations             @relation("OrganizationOnboardings", fields: [organizationId], references: [id])
-  name           String
-  description    String?
-  steps          Int?
-  estimatedDays  Int?                      @map("estimated_days")
-  stepsList      EmployeeOnboardingSteps[]
-  progress       OnboardingProgress[]      @relation("FlowProgress")
-  createdAt      DateTime                  @default(now()) @map("created_at")
-  updatedAt      DateTime                  @updatedAt @map("updated_at")
-  deletedAt      DateTime?                 @map("deleted_at")
-}
-
-model EmployeeOnboardingSteps {
-  id           String                   @id @default(auto()) @map("_id") @db.ObjectId
-  onboardingId String                   @map("onboarding_id") @db.ObjectId
-  onboarding   EmployeeOnboardingFlows  @relation(fields: [onboardingId], references: [id])
-  name         String
-  isActive     Boolean                  @default(true) @map("is_active")
-  features     OnboardingStepFeatures[]
-  progress     OnboardingProgress[]     @relation("StepProgress")
-  createdAt    DateTime                 @default(now()) @map("created_at")
-  updatedAt    DateTime                 @updatedAt @map("updated_at")
-  deletedAt    DateTime?                @map("deleted_at")
-}
-
-model OnboardingStepFeatures {
-  id          String                  @id @default(auto()) @map("_id") @db.ObjectId
-  stepId      String                  @map("step_id") @db.ObjectId
-  featureName String                  @map("feature_name")
-  featureType String                  @map("feature_type")
-  isRequired  Boolean?                @default(true) @map("is_required")
-  hasOptions  Boolean                 @default(false) @map("has_options")
-  options     Json?
-  step        EmployeeOnboardingSteps @relation(fields: [stepId], references: [id])
-  progress    OnboardingProgress[]    @relation("FeatureProgress")
-  createdAt   DateTime                @default(now()) @map("created_at")
-  updatedAt   DateTime                @updatedAt @map("updated_at")
-  deletedAt   DateTime?               @map("deleted_at")
-}
-
-model OnboardingProgress {
-  id               String                  @id @default(auto()) @map("_id") @db.ObjectId
-  employeeId       String                  @map("employee_id") @db.ObjectId
-  flowId           String                  @map("flow_id") @db.ObjectId
-  stepId           String                  @map("step_id") @db.ObjectId
-  stepFeatureId    String                  @map("step_feature_id") @db.ObjectId
-  stepFeatureValue String?                 @map("step_feature_value")
-  employee         OrganizationEmployees   @relation("EmployeeOnboardingProgress", fields: [employeeId], references: [id])
-  flow             EmployeeOnboardingFlows @relation("FlowProgress", fields: [flowId], references: [id])
-  step             EmployeeOnboardingSteps @relation("StepProgress", fields: [stepId], references: [id])
-  feature          OnboardingStepFeatures  @relation("FeatureProgress", fields: [stepFeatureId], references: [id])
-  createdAt        DateTime                @default(now()) @map("created_at")
-  updatedAt        DateTime                @updatedAt @map("updated_at")
-  deletedAt        DateTime?               @map("deleted_at")
 }
 
 enum Gender {
@@ -654,7 +549,6 @@ model OrganizationEmployees {
   headingDepartments OrganizationDepartments[] @relation("DepartmentHead")
 
   costCenterId String?      @map("cost_center_id") @db.ObjectId
-  costCenter   CostCenters? @relation(fields: [costCenterId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   payGradeId String?    @map("pay_grade_id") @db.ObjectId
   payGrade   PayGrades? @relation(fields: [payGradeId], references: [id], onDelete: SetNull, onUpdate: NoAction)
@@ -663,7 +557,6 @@ model OrganizationEmployees {
   policyAssignments    ExpensePolicyEmployee[]
 
   bandId String? @map("band_id") @db.ObjectId
-  band   Bands?  @relation(fields: [bandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   managerId  String?                 @map("manager_id") @db.ObjectId
   manager    OrganizationEmployees?  @relation("ManagerEmployees", fields: [managerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -677,20 +570,9 @@ model OrganizationEmployees {
   category                EmployeeCategories?        @relation(fields: [categoryId], references: [id])
   probationPolicy         ProbationPolicies?         @relation(fields: [probationPolicyId], references: [id])
   designation             OrganizationDesignations?  @relation("DesignationEmployees", fields: [designationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  assetAssignment         AssetAssignments[]
   attendance              Attendance[]
-  departmentAssignments   EmployeeDepartments[]
-  pollPosts               Posts[]
-  pollLikes               PostLikes[]
-  pollComments            PostComments[]
-  pollSaves               PostSaves[]
-  pollShares              PostShares[]
-  pollVotes               PostVotes[]
-  onboardingProgress      OnboardingProgress[]       @relation("EmployeeOnboardingProgress")
-  approvedRequests        AssetRequest[]             @relation("ApprovedBy")
-  requestedAssets         AssetRequest[]
-  acknowledgedConditions  AssetCondition[]           @relation("AcknowledgedBy")
-  EmployeeShiftAssignment EmployeeShiftAssignment[]
+   departmentAssignments   EmployeeDepartments[]
+   EmployeeShiftAssignment EmployeeShiftAssignment[]
   regularisations         AttendanceRegularisation[]
   leaveRequests           LeaveRequests[]
   workrequests            WorkdayRequests[]
@@ -700,7 +582,6 @@ model OrganizationEmployees {
   updatedAt                   DateTime                              @updatedAt @map("updated_at")
   deletedAt                   DateTime?                             @map("deleted_at")
   organizationDepartments     OrganizationDepartments[]
-  assetConditions             AssetCondition[]
   attendanceReports           AttendanceReports[]
   salaryStructures            SalaryStructure[]
   salaryRevisions             SalaryRevision[]
@@ -1180,13 +1061,6 @@ model ProbationPolicies {
   // so there is no policy-level trigger here.
   evaluationRequired Boolean @default(false) @map("evaluation_required")
 
-  // ============ Feedback form settings (Step 2) ============
-  showFeedbackFormInReview       Boolean @default(false) @map("show_feedback_form_in_review")
-  shareFeedbackWithEmployee      Boolean @default(false) @map("share_feedback_with_employee")
-  employeeResponseAllowed        Boolean @default(false) @map("employee_response_allowed")
-  reviewerResponseAllowed        Boolean @default(false) @map("reviewer_response_allowed")
-  reviewerRecommendationsAllowed Boolean @default(false) @map("reviewer_recommendations_allowed")
-
   // ============ Confirmation configuration (Step 3) ============
   autoConfirmProbation           Boolean @default(false) @map("auto_confirm_probation")
   autoGenerateConfirmationLetter Boolean @default(false) @map("auto_generate_confirmation_letter")
@@ -1220,7 +1094,6 @@ model ProbationEvaluationMilestones {
   isFinalMilestone        Boolean @default(false) @map("is_final_milestone")
   automaticTriggerEnabled Boolean @default(false) @map("automatic_trigger_enabled")
   triggerAfterDays        Int?    @map("trigger_after_days")
-  feedbackFormEnabled     Boolean @default(false) @map("feedback_form_enabled")
 
   organization    Organizations               @relation(fields: [organizationId], references: [id])
   probationPolicy ProbationPolicies           @relation(fields: [probationPolicyId], references: [id], onDelete: Cascade)
@@ -1310,289 +1183,6 @@ model WorkdayRequests {
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
-}
-
-model AssetCategories {
-  id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String        @map("organization_id") @db.ObjectId
-  name           String
-  code           String
-  description    String?
-  isActive       Boolean       @default(true)
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @default(now()) @map("updated_at")
-  deletedAt      DateTime?     @map("deleted_at")
-  organization   Organizations @relation(fields: [organizationId], references: [id])
-  assetModels    AssetModels[]
-  assets         Assets[]
-  assetRequests  AssetRequest[]
-}
-
-model AssetModels {
-  id              String                        @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId  String                        @map("organization_id") @db.ObjectId
-  categoriesId    String                        @map("category_id") @db.ObjectId
-  brand           String
-  modelName       String
-  code            String
-  description     String
-  specs           Json?
-  isActive        Boolean                       @default(true)
-  createdAt       DateTime                      @default(now()) @map("created_at")
-  updatedAt       DateTime                      @default(now()) @map("updated_at")
-  deletedAt       DateTime?                     @map("deleted_at")
-  assets          Assets[]
-  assetCategories AssetCategories               @relation(fields: [categoriesId], references: [id])
-  organization    Organizations                 @relation(fields: [organizationId], references: [id])
-  assetRequests   AssetRequest[]
-  attributeDefinitions AssetModelAttributeDefinition[]
-}
-
-model AssetModelAttributeDefinition {
-  id             String      @id @default(auto()) @map("_id") @db.ObjectId
-  assetModelId   String      @map("asset_model_id") @db.ObjectId
-  organizationId String      @map("organization_id") @db.ObjectId
-  label          String
-  key            String
-  fieldType      String      @map("field_type")
-  options        Json?
-  isMandatory    Boolean     @default(false) @map("is_mandatory")
-  isUnique       Boolean     @default(false) @map("is_unique")
-  displayOrder   Int         @default(0) @map("display_order")
-  createdAt      DateTime    @default(now()) @map("created_at")
-  updatedAt      DateTime    @default(now()) @map("updated_at")
-  deletedAt      DateTime?   @map("deleted_at")
-  assetModel     AssetModels @relation(fields: [assetModelId], references: [id])
-  organization   Organizations @relation(fields: [organizationId], references: [id])
-
-  @@unique([assetModelId, key])
-}
-
-model Assets {
-  id              String             @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId  String             @map("organization_id") @db.ObjectId
-  categoriesId    String             @map("category_id") @db.ObjectId
-  modelId         String             @map("model_id") @db.ObjectId
-  serialNumber    String
-  assetTag        String
-  userName        String?
-  password        String?
-  purchaseDate    DateTime
-  warrantyExpire  DateTime
-  status          String             @default("Available")
-  location        Json?
-  customAttributeValues Json?        @map("custom_attribute_values")
-  createdAt       DateTime           @default(now()) @map("created_at")
-  updatedAt       DateTime           @default(now()) @map("updated_at")
-  deletedAt       DateTime?          @map("deleted_at")
-  assetAssignment AssetAssignments[]
-  assetcondition  AssetCondition[]
-  assetCategory   AssetCategories    @relation(fields: [categoriesId], references: [id])
-  assetModel      AssetModels        @relation(fields: [modelId], references: [id])
-  organization    Organizations      @relation(fields: [organizationId], references: [id])
-}
-
-enum requestStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-enum priorities {
-  CRITICAL
-  URGENT
-  HIGH
-  MEDIUM
-  LOW
-  NEGLIGIBLE
-}
-
-model AssetRequest {
-  id                String                 @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId    String                 @map("organization_id") @db.ObjectId
-  employeeId        String                 @map("employee_id") @db.ObjectId
-  categoryId        String?                @map("category_id") @db.ObjectId
-  modelId           String?                @map("model_id") @db.ObjectId
-  assignmentId      String?                @map("assignment_id") @db.ObjectId
-  approvedById      String?                @map("approved_by") @db.ObjectId
-  reason            String?
-  quantity          Int                    @default(1)
-  priority          priorities             @default(MEDIUM)
-  status            requestStatus          @default(PENDING)
-  approvedAt        DateTime?              @map("approved_at")
-  rejectionReason   String?
-  createdAt         DateTime               @default(now()) @map("created_at")
-  updatedAt         DateTime               @default(now()) @map("updated_at")
-  deletedAt         DateTime?              @map("deleted_at")
-  employee          OrganizationEmployees @relation(fields: [employeeId], references: [id])
-  assetCategory     AssetCategories?       @relation(fields: [categoryId], references: [id])
-  assetModel        AssetModels?           @relation(fields: [modelId], references: [id])
-  assignmentDetails AssetAssignments?      @relation(fields: [assignmentId], references: [id])
-  organization      Organizations          @relation(fields: [organizationId], references: [id])
-  approvedBy        OrganizationEmployees? @relation("ApprovedBy", fields: [approvedById], references: [id])
-}
-
-model AssetAssignments {
-  id              String                @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId  String                @map("organization_id") @db.ObjectId
-  assetId         String                @map("asset_id") @db.ObjectId
-  employeeId      String                @map("employee_id") @db.ObjectId
-  assignedDate    DateTime              @map("assigned_date")
-  returnDate      DateTime?             @map("return_date")
-  conditionAssign Json?
-  status          String                @default("Active")
-  notes           String
-  createdAt       DateTime              @default(now()) @map("created_at")
-  updatedAt       DateTime              @default(now()) @map("updated_at")
-  deletedAt       DateTime?             @map("deleted_at")
-  assetcondition  AssetCondition[]
-  asset           Assets                @relation(fields: [assetId], references: [id])
-  organization    Organizations         @relation(fields: [organizationId], references: [id])
-  employee        OrganizationEmployees @relation(fields: [employeeId], references: [id])
-  assetRequests   AssetRequest[]
-}
-
-model AssetCondition {
-  id               String                 @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId   String                 @map("organization_id") @db.ObjectId
-  assignmentId     String                 @map("assignment_id") @db.ObjectId
-  employeeId       String                 @map("employee_id") @db.ObjectId
-  acknowledgedById String?                @map("acknowledged_by") @db.ObjectId
-  reportDate       DateTime               @map("report_date")
-  description      String
-  ratings          String?                @default("Good")
-  images           Json?
-  actionTaken      String
-  acknowledgedBy   OrganizationEmployees? @relation("AcknowledgedBy", fields: [acknowledgedById], references: [id])
-  assignment       AssetAssignments       @relation(fields: [assignmentId], references: [id])
-  organization     Organizations          @relation(fields: [organizationId], references: [id])
-  employee         OrganizationEmployees  @relation(fields: [employeeId], references: [id])
-  acknowledgedDate DateTime?
-  status           String                 @default("Reported")
-  createdAt        DateTime               @default(now()) @map("created_at")
-  updatedAt        DateTime               @default(now()) @map("updated_at")
-  deletedAt        DateTime?              @map("deleted_at")
-  assets           Assets?                @relation(fields: [assetsId], references: [id])
-  assetsId         String?                @db.ObjectId
-}
-
-model AssetIdSeries {
-  id             String         @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String         @map("organization_id") @db.ObjectId
-  name           String
-  prefix         String         @default("")
-  digits         Int            @default(6)
-  suffix         String         @default("")
-  nextNumber     Int            @default(1) @map("next_number")
-  isActive       Boolean        @default(true) @map("is_active")
-  createdAt      DateTime       @default(now()) @map("created_at")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
-  deletedAt      DateTime?      @map("deleted_at")
-  organization   Organizations  @relation(fields: [organizationId], references: [id])
-}
-
-model Posts {
-  id             String @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String @map("organization_id") @db.ObjectId
-  employeeId     String @map("employee_id") @db.ObjectId
-
-  title       String?
-  description String
-  image       String?
-  tags        String[] @default([])
-
-  isVotingPoll Boolean @default(false) @map("is_voting_poll")
-
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-
-  // Relations
-  employee     OrganizationEmployees @relation(fields: [employeeId], references: [id])
-  organization Organizations         @relation(fields: [organizationId], references: [id])
-
-  options  PostOptions[]
-  votes    PostVotes[]
-  likes    PostLikes[]
-  comments PostComments[]
-  saves    PostSaves[]
-  shares   PostShares[]
-}
-
-model PostLikes {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
-  postId     String    @map("post_id") @db.ObjectId
-  employeeId String    @map("employee_id") @db.ObjectId
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
-  deletedAt  DateTime? @map("deleted_at")
-
-  poll     Posts                 @relation(fields: [postId], references: [id])
-  employee OrganizationEmployees @relation(fields: [employeeId], references: [id])
-}
-
-model PostComments {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
-  postId     String    @map("post_id") @db.ObjectId
-  employeeId String    @map("employee_id") @db.ObjectId
-  comment    String
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
-  deletedAt  DateTime? @map("deleted_at")
-
-  poll     Posts                 @relation(fields: [postId], references: [id])
-  employee OrganizationEmployees @relation(fields: [employeeId], references: [id])
-}
-
-model PostSaves {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
-  postId     String    @map("post_id") @db.ObjectId
-  employeeId String    @map("employee_id") @db.ObjectId
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
-  deletedAt  DateTime? @map("deleted_at")
-
-  poll     Posts                 @relation(fields: [postId], references: [id])
-  employee OrganizationEmployees @relation(fields: [employeeId], references: [id])
-}
-
-model PostShares {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
-  postId     String    @map("post_id") @db.ObjectId
-  employeeId String    @map("employee_id") @db.ObjectId
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
-  deletedAt  DateTime? @map("deleted_at")
-
-  poll     Posts                 @relation(fields: [postId], references: [id])
-  employee OrganizationEmployees @relation(fields: [employeeId], references: [id])
-}
-
-model PostOptions {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
-  postId     String    @map("post_id") @db.ObjectId
-  label      String // e.g. "React" or "Goa"
-  votesCount Int       @default(0)
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
-  deletedAt  DateTime? @map("deleted_at")
-
-  poll  Posts       @relation(fields: [postId], references: [id])
-  votes PostVotes[]
-}
-
-model PostVotes {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
-  postId     String    @map("post_id") @db.ObjectId
-  optionId   String    @map("option_id") @db.ObjectId
-  employeeId String    @map("employee_id") @db.ObjectId
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
-  deletedAt  DateTime? @map("deleted_at")
-
-  poll     Posts                 @relation(fields: [postId], references: [id])
-  option   PostOptions           @relation(fields: [optionId], references: [id])
-  employee OrganizationEmployees @relation(fields: [employeeId], references: [id])
 }
 
 // ============================================================================
@@ -2116,199 +1706,6 @@ model OrganizationUsageEvent {
   @@index([organizationId, feature])
   @@index([occurredAt])
   @@index([success, statusCode])
-}
-
-enum BillingInterval {
-  MONTHLY
-  YEARLY
-}
-
-enum SubscriptionStatus {
-  TRIAL
-  ACTIVE
-  PAST_DUE
-  SUSPENDED
-  CANCELLED
-  EXPIRED
-}
-
-enum InvoiceStatus {
-  DRAFT
-  ISSUED
-  PAID
-  FAILED
-  CANCELLED
-}
-
-model SubscriptionPlans {
-  id   String @id @default(auto()) @map("_id") @db.ObjectId
-  name String
-
-  description String?
-  isActive    Boolean @default(true)
-
-  // Pricing
-  monthlyPrice Float?
-  yearlyPrice  Float?
-
-  gst Float? @default(18)
-
-  trialDays Int @default(14)
-
-  adminOnly Boolean @default(false)
-
-  // Metadata
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-
-  // Relations
-  features      SubscriptionPlanFeatures[]
-  subscriptions OrganizationSubscriptions[]
-}
-
-model SubscriptionPlanFeatures {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-
-  planId String            @map("plan_id") @db.ObjectId
-  plan   SubscriptionPlans @relation(fields: [planId], references: [id], onDelete: Cascade)
-
-  key   String // max_employees, max_storage_gb, api_rate_limit
-  value Float? // numeric limits
-  unit  String? // employees, gb, requests/min
-
-  isUnlimited Boolean @default(false)
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @default(now())
-  deletedAt DateTime?
-}
-
-model OrganizationSubscriptions {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-
-  organizationId String        @map("organization_id") @db.ObjectId
-  organization   Organizations @relation(fields: [organizationId], references: [id], onDelete: NoAction)
-
-  planId String            @map("plan_id") @db.ObjectId
-  plan   SubscriptionPlans @relation(fields: [planId], references: [id])
-
-  status SubscriptionStatus @default(TRIAL)
-
-  billingInterval BillingInterval @default(MONTHLY)
-
-  startDate   DateTime  @default(now())
-  endDate     DateTime?
-  trialEndsAt DateTime?
-
-  cancelAtPeriodEnd Boolean   @default(false)
-  cancelledAt       DateTime?
-
-  // Pricing snapshot (important!)
-  priceAtPurchase Float
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-
-  // Relations
-  invoices Invoices[]
-  usage    SubscriptionUsageSnapshot[]
-  history  SubscriptionChangeLog[]
-}
-
-enum paymentStatuses {
-  SUCCESS
-  PENDING
-  FAILED
-}
-
-model Invoices {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-
-  subscriptionId String                    @map("subscription_id") @db.ObjectId
-  subscription   OrganizationSubscriptions @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-
-  invoiceNumber String @unique
-
-  amount   Float
-  tax      Float? @default(0)
-  total    Float? @default(0)
-  currency String @default("INR")
-
-  status InvoiceStatus @default(DRAFT)
-
-  invoiceUrl String?
-  invoiceKey String?
-
-  billingPeriodStart DateTime
-  billingPeriodEnd   DateTime
-
-  issuedAt DateTime?
-  paidAt   DateTime?
-
-  paymentOrderId       String?
-  paymentLink          String?
-  paymentLinkExpiredBy DateTime?
-
-  paymentStatus   paymentStatuses? @default(PENDING)
-  paymentRef      String?
-  paymentProvider String? // razorpay, stripe
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-}
-
-model SubscriptionUsageSnapshot {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-
-  subscriptionId String                    @map("subscription_id") @db.ObjectId
-  subscription   OrganizationSubscriptions @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-
-  periodStart DateTime
-  periodEnd   DateTime
-
-  metricKey  String // api_requests, storage_gb, employees
-  usedValue  Float
-  limitValue Float?
-  isExceeded Boolean @default(false)
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-
-  @@index([subscriptionId, periodStart])
-}
-
-model SubscriptionChangeLog {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-
-  subscriptionId String                    @map("subscription_id") @db.ObjectId
-  subscription   OrganizationSubscriptions @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-
-  oldPlanId String?
-  newPlanId String?
-
-  changeType String // UPGRADE | DOWNGRADE | RENEW | CANCEL
-
-  effectiveDate DateTime
-  reason        String?
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-}
-
-model InvoiceCounter {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-
-  year Int @unique
-  seq  Int @default(0)
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
 }
 
 enum folderVisibility {

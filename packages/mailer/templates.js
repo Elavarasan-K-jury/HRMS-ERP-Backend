@@ -90,7 +90,7 @@ export function otpHtml(otp, ttlMinutes = 5) {
   `;
 }
 
-export function generateOnboardingEmail({
+export function generateWelcomeEmail({
   employeeName,
   employeeEmail,
   accessLevel = "Standard Employee",
@@ -350,7 +350,7 @@ export function generateOnboardingEmail({
                 <ul>
                     <li>Complete your profile within the first 24 hours</li>
                     <li>Enable two-factor authentication for extra security</li>
-                    <li>Check out our onboarding guide in the dashboard</li>
+                    <li>Check out the getting started guide in the dashboard</li>
                 </ul>
             </div>
             ` : ''}
@@ -374,7 +374,7 @@ export function generateOnboardingEmail({
 
 // Usage example:
 /*
-const html = generateOnboardingEmail({
+const html = generateWelcomeEmail({
   employeeName: "Sarah Chen",
   employeeEmail: "sarah.chen@company.com",
   accessLevel: "Senior Developer",
@@ -391,232 +391,6 @@ await sendEmail({
   html: html
 });
 */
-
-export function generateInvoiceEmail({
-  organizationName,
-  invoiceNumber,
-  amount,
-  currency = "INR",
-  billingPeriodStart,
-  billingPeriodEnd,
-  dueDate,
-  supportEmail,
-  paymentLink,
-  paymentLinkExpiredBy,
-}) {
-  const hasPaymentLink = Boolean(paymentLink);
-
-  const expiryDate = paymentLinkExpiredBy
-    ? new Date(paymentLinkExpiredBy)
-    : null;
-
-  const isExpired =
-    expiryDate && expiryDate.getTime() < Date.now();
-
-  const expiryText = expiryDate
-    ? expiryDate.toLocaleString("en-IN", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    })
-    : null;
-
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-      background: #f5f7fa;
-      padding: 20px;
-      color: #2c3e50;
-    }
-    .container {
-      max-width: 600px;
-      margin: 0 auto;
-      background: #ffffff;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-      overflow: hidden;
-    }
-    .header {
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      padding: 20px;
-      color: #667eea;
-    }
-    .header h1 {
-      margin: 0;
-      font-size: 20px;
-    }
-    .content {
-      padding: 24px;
-    }
-    .content p {
-      font-size: 14px;
-      line-height: 1.6;
-      margin: 10px 0;
-    }
-    .invoice-box {
-      background: #f8f9fc;
-      padding: 16px;
-      border-radius: 6px;
-      margin: 16px 0;
-      border: 1px solid rgba(102, 126, 234, 0.15);
-    }
-    .row {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 8px;
-      font-size: 14px;
-    }
-    .row strong {
-      font-weight: 600;
-    }
-    .row.expired {
-      color: #dc2626;
-    }
-    .total {
-      font-size: 16px;
-      font-weight: 700;
-      color: #667eea;
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px dashed rgba(102, 126, 234, 0.35);
-    }
-    .cta-wrap {
-      margin: 18px 0 8px;
-      text-align: center;
-    }
-    .btn {
-      display: inline-block;
-      background: #667eea;
-      color: #ffffff !important;
-      text-decoration: none;
-      padding: 12px 18px;
-      border-radius: 8px;
-      font-weight: 700;
-      font-size: 14px;
-    }
-    .btn.disabled {
-      background: #9ca3af;
-      pointer-events: none;
-    }
-    .small {
-      font-size: 12px;
-      color: #6b7280;
-      margin-top: 10px;
-    }
-    .warning {
-      background: #fff7ed;
-      border: 1px solid #fed7aa;
-      color: #9a3412;
-      padding: 10px 12px;
-      border-radius: 6px;
-      font-size: 13px;
-      margin-top: 12px;
-    }
-    .link-box {
-      margin-top: 10px;
-      word-break: break-all;
-      background: #f8f9fc;
-      border: 1px solid rgba(102, 126, 234, 0.15);
-      padding: 10px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      color: #334155;
-    }
-    .footer {
-      background: #f8f9fc;
-      padding: 16px 24px;
-      font-size: 12px;
-      color: #525f7f;
-    }
-    .footer a {
-      color: #667eea;
-      text-decoration: none;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Invoice Generated</h1>
-    </div>
-
-    <div class="content">
-      <p>Hello <strong>${organizationName}</strong>,</p>
-
-      <p>Your invoice <strong>${invoiceNumber}</strong> has been generated for the billing period:</p>
-
-      <div class="invoice-box">
-        <div class="row">
-          <span>Billing Period</span>
-          <strong>${billingPeriodStart} → ${billingPeriodEnd}</strong>
-        </div>
-        <div class="row">
-          <span>Due Date</span>
-          <strong>${dueDate}</strong>
-        </div>
-        ${expiryText
-      ? `<div class="row ${isExpired ? 'expired' : ''}">
-              <span>Payment Link Expires</span>
-              <strong>${expiryText}</strong>
-            </div>`
-      : ""
-    }
-        <div class="row total">
-          <span>Total Amount</span>
-          <span>₹${amount} ${currency}</span>
-        </div>
-      </div>
-
-      ${hasPaymentLink
-      ? `
-        <div class="cta-wrap">
-          <a
-            class="btn ${isExpired ? "disabled" : ""}"
-            href="${isExpired ? "#" : paymentLink}"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            ${isExpired ? "Payment Link Expired" : "Pay Now"}
-          </a>
-
-          ${isExpired
-        ? `<div class="warning">
-                   This payment link has expired. Please request a new payment link or contact support.
-                 </div>`
-        : `
-              <div class="link-box">
-                If the button doesn't work, copy and paste this link into your browser:<br/>
-                <a href="${paymentLink}" target="_blank" rel="noopener noreferrer">${paymentLink}</a>
-              </div>
-              `
-      }
-        </div>
-        `
-      : `
-        <p><strong>Payment link is currently unavailable.</strong> Please use the attached invoice PDF and contact support to complete payment.</p>
-        `
-    }
-
-      <p>The invoice PDF is attached with this email.</p>
-      <p>Please ensure payment is completed before the due date to avoid service interruption.</p>
-
-      <p>Thank you,<br/>Jury HRMS Team</p>
-    </div>
-
-    <div class="footer">
-      Need help? Contact us at <a href="mailto:${supportEmail}">${supportEmail}</a>
-    </div>
-  </div>
-</body>
-</html>
-`;
-}
 
 export function financeEnabledHtml(userName = "there") {
   const year = new Date().getFullYear();

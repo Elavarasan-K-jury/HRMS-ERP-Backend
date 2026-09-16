@@ -15,25 +15,13 @@ export async function generateEmployeeReportHTML(employeeId) {
                 include: { department: true, reporting: true }
             },
             attendance: { orderBy: { date: "asc" } },
-            pollPosts: true,
-            pollLikes: true,
-            pollComments: true,
-            pollVotes: true,
             salaryStructures: { where: { isCurrentActive: true } },
             category: true,
-            assetAssignment: true,
-            pollSaves: true,
-            pollShares: true,
-            onboardingProgress: true,
-            assetRequests: true,
-            approvedRequests: true,
-            acknowledgedConditions: true,
             EmployeeShiftAssignment: true,
             regularisations: true,
             leaveRequests: true,
             workrequests: true,
             organizationDepartments: true,
-            assetConditions: true,
             attendanceReports: true,
             salaryRevisions: true,
             payslips: true
@@ -55,18 +43,6 @@ export async function generateEmployeeReportHTML(employeeId) {
     const presentPct = attendanceTotal ? Math.round((presentDays / attendanceTotal) * 100) : 0;
     const absentPct = attendanceTotal ? Math.round((absentDays / attendanceTotal) * 100) : 0;
     const halfPct = attendanceTotal ? Math.round((halfDays / attendanceTotal) * 100) : 0;
-
-    // Engagement metrics
-    const engagementScore =
-        employee.pollPosts.length * 10 +
-        employee.pollLikes.length * 2 +
-        employee.pollComments.length * 3 +
-        employee.pollVotes.length * 2 +
-        employee.pollSaves.length * 2 +
-        employee.pollShares.length * 5;
-
-    const engagementLevel = engagementScore > 80 ? "High" : engagementScore > 40 ? "Medium" : "Low";
-    const engagementColor = engagementScore > 80 ? "#10b981" : engagementScore > 40 ? "#f59e0b" : "#ef4444";
 
     // Salary breakdown
     const salary = employee.salaryStructures[0];
@@ -104,11 +80,10 @@ export async function generateEmployeeReportHTML(employeeId) {
     const approvedLeaves = employee.leaveRequests.filter(l => l.status === "APPROVED").length;
     const totalLeaveDays = employee.leaveRequests.reduce((sum, l) => sum + (l.totalDays || 0), 0);
 
-    // Performance score (0-100)
+    // Performance score (0-100) — rebalanced after Engage removal: 50% attendance + 50% work hours
     const performanceScore = Math.min(100, Math.round(
-        (parseFloat(attendanceRate) * 0.4) +
-        (Math.min(engagementScore, 100) * 0.3) +
-        (avgWorkHours >= 8 ? 30 : (avgWorkHours / 8) * 30)
+        (parseFloat(attendanceRate) * 0.5) +
+        (avgWorkHours >= 8 ? 50 : (avgWorkHours / 8) * 50)
     ));
 
     /* ==========================================================
@@ -246,7 +221,6 @@ export async function generateEmployeeReportHTML(employeeId) {
     <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
       ${metricCard("Attendance", `${attendanceRate}%`, presentPct, "#10b981", "📊")}
       ${metricCard("Avg Work Hours", `${avgWorkHours}h`, Math.min((parseFloat(avgWorkHours) / 8) * 100, 100), "#3b82f6", "⏰")}
-      ${metricCard("Engagement", engagementScore, Math.min(engagementScore, 100), engagementColor, "🔥")}
       ${metricCard("Leave Balance", totalLeaveDays, Math.min(totalLeaveDays * 10, 100), "#f59e0b", "🏖️")}
     </div>
 
@@ -486,31 +460,10 @@ export async function generateEmployeeReportHTML(employeeId) {
           </div>
         </div>
 
-        <!-- ENGAGEMENT BREAKDOWN -->
-        <div class="glass rounded-lg p-6 shadow-xl">
-          <h2 class="text-xl font-bold text-slate-900 mb-6">Engagement Activity</h2>
-          <div class="space-y-2">
-            ${engagementStat("Posts", employee.pollPosts.length, "📝")}
-            ${engagementStat("Comments", employee.pollComments.length, "💬")}
-            ${engagementStat("Likes", employee.pollLikes.length, "❤️")}
-            ${engagementStat("Votes", employee.pollVotes.length, "🗳️")}
-            ${engagementStat("Shares", employee.pollShares.length, "🔄")}
-          </div>
-          
-          <div class="mt-4 p-4 rounded-xl" style="background: linear-gradient(135deg, ${engagementColor}25, ${engagementColor}15);">
-            <div class="text-center">
-              <div class="text-sm text-slate-600 mb-1">Engagement Level</div>
-              <div class="text-2xl font-bold" style="color: ${engagementColor};">${engagementLevel}</div>
-            </div>
-          </div>
-        </div>
-
         <!-- QUICK STATS -->
         <div class="glass rounded-lg p-6 shadow-xl">
           <h2 class="text-xl font-bold text-slate-900 mb-6">Quick Stats</h2>
           <div class="grid grid-cols-2 gap-3">
-            ${quickStat("Assets", employee.assetAssignment.length)}
-            ${quickStat("Requests", employee.assetRequests.length)}
             ${quickStat("Shifts", employee.EmployeeShiftAssignment.length)}
             ${quickStat("Payslips", employee.payslips.length)}
           </div>
@@ -645,16 +598,6 @@ const detailRow = (label, value) => `
 <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
   <span class="text-sm text-slate-600">${label}</span>
   <span class="text-sm font-semibold text-slate-900">${value ?? "—"}</span>
-</div>
-`;
-
-const engagementStat = (label, count, emoji) => `
-<div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-  <div class="flex items-center gap-2">
-    <span class="text-lg">${emoji}</span>
-    <span class="text-sm text-slate-600">${label}</span>
-  </div>
-  <span class="text-lg font-bold text-slate-900">${count}</span>
 </div>
 `;
 

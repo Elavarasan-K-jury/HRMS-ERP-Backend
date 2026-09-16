@@ -36,7 +36,6 @@ const SUB_MODULES = [
       { key: 'list', name: 'Employees', icon: 'ion:people', sortOrder: 1 },
       { key: 'categories', name: 'Employee Categories', icon: 'ion:albums-outline', sortOrder: 2 },
       { key: 'probation_policies', name: 'Probation Policies', icon: 'ion:hourglass-outline', sortOrder: 3 },
-      { key: 'onboarding', name: 'Onboarding', icon: 'ion:person-add-outline', sortOrder: 4 },
     ],
   },
 ];
