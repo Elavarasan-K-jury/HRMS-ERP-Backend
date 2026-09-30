@@ -159,7 +159,9 @@ export async function rateLimiter(c, next) {
     ---------------------------------------------- */
     let LIMIT = DEFAULT_LIMIT;
 
-    if (organizationId) {
+    // Only look up per-org limits for well-formed ObjectIDs — Prisma throws
+    // INTERNAL on malformed ids (raw 500 before the route handler runs).
+    if (organizationId && /^[0-9a-fA-F]{24}$/.test(organizationId)) {
         const org = await prisma.organizations.findUnique({
             where: { id: organizationId },
             select: { maxApiRatePerMin: true }

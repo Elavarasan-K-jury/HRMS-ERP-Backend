@@ -5,6 +5,7 @@ dotenv.config();
 
 const PORT = process.env.ORG_SERVICE_PORT || 5051;
 const organizationProto = loadProto('organization');
+const ipNetworkProto = loadProto('organization_ip_network');
 
 /* ------------------------------------------------------------------ */
 /* 🧩 Audit Log Helper                                                 */
@@ -902,6 +903,213 @@ function mapOrg(org, admin) {
 }
 
 /* ------------------------------------------------------------------ */
+/* 🌐 Organization IP Network (IP configuration master)                */
+/* ------------------------------------------------------------------ */
+
+const IP_NETWORK_TYPES = ['SINGLE', 'RANGE'];
+const IPV4_REGEX = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/;
+
+function isValidIpv4(ip) {
+    return typeof ip === 'string' && IPV4_REGEX.test(ip.trim());
+}
+
+function ipToInt(ip) {
+    return ip.trim().split('.').reduce((acc, octet) => (acc * 256) + Number(octet), 0);
+}
+
+function ipNetworkRange(row) {
+    const lo = ipToInt(row.fromIp);
+    const hi = row.ipType === 'RANGE' && row.toIp ? ipToInt(row.toIp) : lo;
+    return { lo, hi };
+}
+
+function validateIpNetworkPayload(input) {
+    if (!input.name) return 'Name is required';
+    if (input.name.length > 100) return 'Name must be at most 100 characters';
+    if (!IP_NETWORK_TYPES.includes(input.ip_type)) return 'ip_type must be SINGLE or RANGE';
+    if (!isValidIpv4(input.from_ip)) return 'from_ip must be a valid IPv4 address';
+    if (input.ip_type === 'SINGLE') {
+        if (input.to_ip) return 'to_ip must be empty when ip_type is SINGLE';
+        return null;
+    }
+    if (!input.to_ip) return 'to_ip is required when ip_type is RANGE';
+    if (!isValidIpv4(input.to_ip)) return 'to_ip must be a valid IPv4 address';
+    if (ipToInt(input.from_ip) > ipToInt(input.to_ip)) {
+        return 'From IP must be less than or equal to To IP';
+    }
+    return null;
+}
+
+async function findIpNetworkConflict(organizationId, input, excludeId) {
+    const rows = await prisma.organizationIpNetwork.findMany({
+        where: { organizationId, deletedAt: null },
+    });
+    const incomingName = input.name.toLowerCase();
+    const incomingLo = ipToInt(input.from_ip);
+    const incomingHi = input.ip_type === 'RANGE' ? ipToInt(input.to_ip) : incomingLo;
+    for (const row of rows) {
+        if (excludeId && row.id === excludeId) continue;
+        if (row.name.trim().toLowerCase() === incomingName) {
+            return 'An IP configuration with this name already exists';
+        }
+        const existing = ipNetworkRange(row);
+        if (incomingLo <= existing.hi && existing.lo <= incomingHi) {
+            return `IP range overlaps with "${row.name}"`;
+        }
+    }
+    return null;
+}
+
+function normalizeIpNetworkRequest(req) {
+    return {
+        name: (req.name || '').trim(),
+        ip_type: (req.ip_type || '').trim(),
+        from_ip: (req.from_ip || '').trim(),
+        to_ip: (req.to_ip || '').trim(),
+    };
+}
+
+function mapIpNetwork(row) {
+    return {
+        id: row.id,
+        organization_id: row.organizationId,
+        name: row.name,
+        ip_type: row.ipType,
+        from_ip: row.fromIp,
+        to_ip: row.toIp || '',
+        is_enabled: !!row.isEnabled,
+        created_at: row.createdAt ? row.createdAt.toISOString() : '',
+        updated_at: row.updatedAt ? row.updatedAt.toISOString() : '',
+    };
+}
+
+const ipNetworkImpl = {
+    CreateOrganizationIpNetwork: async (call, cb) => {
+        try {
+            const req = call.request || {};
+            const organizationId = (req.organization_id || '').trim();
+            if (!OBJECT_ID_REGEX.test(organizationId)) {
+                return cb({ code: grpc.status.INVALID_ARGUMENT, message: 'Valid organization_id is required' });
+            }
+            const input = normalizeIpNetworkRequest(req);
+            const validationError = validateIpNetworkPayload(input);
+            if (validationError) {
+                return cb({ code: grpc.status.INVALID_ARGUMENT, message: validationError });
+            }
+            const conflict = await findIpNetworkConflict(organizationId, input, null);
+            if (conflict) {
+                return cb({ code: grpc.status.ALREADY_EXISTS, message: conflict });
+            }
+            const row = await prisma.organizationIpNetwork.create({
+                data: {
+                    organizationId,
+                    name: input.name,
+                    ipType: input.ip_type,
+                    fromIp: input.from_ip,
+                    toIp: input.ip_type === 'RANGE' ? input.to_ip : null,
+                    isEnabled: !!req.is_enabled,
+                    deletedAt: null,
+                },
+            });
+            cb(null, { network: mapIpNetwork(row), message: 'IP configuration created', success: true });
+        } catch (e) {
+            cb({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
+
+    ListOrganizationIpNetworks: async (call, cb) => {
+        try {
+            const organizationId = ((call.request || {}).organization_id || '').trim();
+            if (!OBJECT_ID_REGEX.test(organizationId)) {
+                return cb({ code: grpc.status.INVALID_ARGUMENT, message: 'Valid organization_id is required' });
+            }
+            const rows = await prisma.organizationIpNetwork.findMany({
+                where: { organizationId, deletedAt: null },
+                orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+            });
+            cb(null, {
+                networks: rows.map(mapIpNetwork),
+                total: rows.length,
+                success: true,
+                message: '',
+            });
+        } catch (e) {
+            cb({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
+
+    UpdateOrganizationIpNetwork: async (call, cb) => {
+        try {
+            const req = call.request || {};
+            const organizationId = (req.organization_id || '').trim();
+            const id = (req.id || '').trim();
+            if (!OBJECT_ID_REGEX.test(organizationId)) {
+                return cb({ code: grpc.status.INVALID_ARGUMENT, message: 'Valid organization_id is required' });
+            }
+            if (!OBJECT_ID_REGEX.test(id)) {
+                return cb({ code: grpc.status.INVALID_ARGUMENT, message: 'Valid id is required' });
+            }
+            const input = normalizeIpNetworkRequest(req);
+            const validationError = validateIpNetworkPayload(input);
+            if (validationError) {
+                return cb({ code: grpc.status.INVALID_ARGUMENT, message: validationError });
+            }
+            const existing = await prisma.organizationIpNetwork.findFirst({
+                where: { id, organizationId, deletedAt: null },
+            });
+            if (!existing) {
+                return cb({ code: grpc.status.NOT_FOUND, message: 'IP configuration not found' });
+            }
+            const conflict = await findIpNetworkConflict(organizationId, input, id);
+            if (conflict) {
+                return cb({ code: grpc.status.ALREADY_EXISTS, message: conflict });
+            }
+            const row = await prisma.organizationIpNetwork.update({
+                where: { id },
+                data: {
+                    name: input.name,
+                    ipType: input.ip_type,
+                    fromIp: input.from_ip,
+                    toIp: input.ip_type === 'RANGE' ? input.to_ip : null,
+                    isEnabled: !!req.is_enabled,
+                },
+            });
+            cb(null, { network: mapIpNetwork(row), message: 'IP configuration updated', success: true });
+        } catch (e) {
+            cb({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
+
+    DeleteOrganizationIpNetwork: async (call, cb) => {
+        try {
+            const req = call.request || {};
+            const organizationId = (req.organization_id || '').trim();
+            const id = (req.id || '').trim();
+            if (!OBJECT_ID_REGEX.test(organizationId)) {
+                return cb({ code: grpc.status.INVALID_ARGUMENT, message: 'Valid organization_id is required' });
+            }
+            if (!OBJECT_ID_REGEX.test(id)) {
+                return cb({ code: grpc.status.INVALID_ARGUMENT, message: 'Valid id is required' });
+            }
+            const existing = await prisma.organizationIpNetwork.findFirst({
+                where: { id, organizationId, deletedAt: null },
+            });
+            if (!existing) {
+                return cb({ code: grpc.status.NOT_FOUND, message: 'IP configuration not found' });
+            }
+            await prisma.organizationIpNetwork.update({
+                where: { id },
+                data: { deletedAt: new Date() },
+            });
+            cb(null, { success: true, message: 'IP configuration deleted' });
+        } catch (e) {
+            cb({ code: grpc.status.INTERNAL, message: e.message });
+        }
+    },
+};
+
+/* ------------------------------------------------------------------ */
 /* 🧩 Graceful Server Setup                                            */
 /* ------------------------------------------------------------------ */
 async function main() {
@@ -909,6 +1117,7 @@ async function main() {
     const server = new grpc.Server();
 
     server.addService(organizationProto.OrganizationService.service, impl);
+    server.addService(ipNetworkProto.OrganizationIpNetworkService.service, ipNetworkImpl);
 
     await new Promise((resolve, reject) => {
         server.bindAsync(

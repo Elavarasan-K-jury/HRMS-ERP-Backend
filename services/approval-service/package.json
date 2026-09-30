@@ -6,6 +6,7 @@
     "dependencies": {
         "@jury-hrms/db": "*",
         "@jury-hrms/proto": "*",
+        "@jury-hrms/redis": "*",
         "@prisma/client": "latest"
     }
 }

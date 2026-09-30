@@ -96,7 +96,8 @@ message FlowLevelInput {
 
 message CreateFlowRequest {
   string organization_id = 1;
-  string entity_type     = 2; // LEAVE / REGULARISATION / WORKDAY
+  string name            = 4;
+  string entity_type     = 2; // LEAVE / REGULARISATION / WORKDAY / EXIT
   repeated FlowLevelInput levels = 3;
 }
 
@@ -141,6 +142,7 @@ message ApprovalFlow {
   string id              = 1;
   string organization_id = 2;
   string entity_type     = 3;
+  string name            = 8;
   OrganizationSummary organization = 4;
   repeated FlowLevel levels = 5;
   string created_at      = 6;
@@ -173,6 +175,7 @@ service ApprovalInstanceService {
   rpc Approve         (ApproveRequest)        returns (ApprovalInstanceResponse);
   rpc Reject          (RejectRequest)         returns (ApprovalInstanceResponse);
   rpc ListPending     (ListPendingRequest)    returns (ListPendingResponse);
+  rpc BulkAction      (BulkActionRequest)     returns (BulkActionResponse);
 }
 
 // ---------- Instance requests ----------
@@ -256,4 +259,26 @@ message ListPendingResponse {
   int32 total_pages  = 5;
   bool success       = 6;
   string message     = 7;
+}
+
+// ---------- Bulk Action ----------
+message BulkActionRequest {
+  repeated string approval_ids = 1;
+  string action                = 2; // APPROVE or REJECT
+  string approver_id           = 3;
+  string remarks               = 4;
+}
+
+message BulkActionResult {
+  string id     = 1;
+  bool success  = 2;
+  string error  = 3;
+}
+
+message BulkActionResponse {
+  repeated BulkActionResult results = 1;
+  int32 processed                   = 2;
+  int32 failed                      = 3;
+  bool success                      = 4;
+  string message                    = 5;
 }

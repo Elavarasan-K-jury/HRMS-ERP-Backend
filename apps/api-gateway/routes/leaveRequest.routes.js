@@ -1,5 +1,18 @@
 import { z, ZodError } from "zod";
 import { leaveRequestClient } from "../grpc/leaveRequest.client.js";
+import { prisma } from "@jury-hrms/db/client.js";
+
+async function resolveOrgId(c, employeeId) {
+    let organizationId = c.get("organizationId");
+    if (organizationId) return organizationId;
+    const eid = employeeId || c.get("employeeId");
+    if (!eid) return null;
+    const emp = await prisma.organizationEmployees.findFirst({
+        where: { id: eid },
+        select: { organizationId: true },
+    });
+    return emp?.organizationId || null;
+}
 
 export default function registerLeaveRequestRoutes({ openapi }) {
 
@@ -9,7 +22,7 @@ export default function registerLeaveRequestRoutes({ openapi }) {
 
     const applyLeaveSchema = z.object({
         employee_id: z.string(),
-        organization_id: z.string(),
+        organization_id: z.string().optional(),
         leave_type_id: z.string(),
         start_date: z.string(),
         end_date: z.string(),
@@ -38,17 +51,17 @@ export default function registerLeaveRequestRoutes({ openapi }) {
 
     const listSchema = z.object({
         employee_id: z.string(),
-        organization_id: z.string()
+        organization_id: z.string().optional()
     });
 
     const balanceSchema = z.object({
         employee_id: z.string(),
-        organization_id: z.string()
+        organization_id: z.string().optional()
     });
 
     const calendarSchema = z.object({
         employee_id: z.string(),
-        organization_id: z.string(),
+        organization_id: z.string().optional(),
         month: z.string().regex(/^\d{4}-\d{2}$/, "Month must be YYYY-MM")
     });
 
@@ -86,6 +99,10 @@ export default function registerLeaveRequestRoutes({ openapi }) {
         async (c) => {
             try {
                 const data = applyLeaveSchema.parse(await c.req.json());
+
+                if (!data.organization_id) {
+                    data.organization_id = await resolveOrgId(c, data.employee_id);
+                }
 
                 const resp = await new Promise((resolve, reject) => {
                     leaveRequestClient.ApplyLeave(data, (err, res) =>
@@ -225,7 +242,124 @@ export default function registerLeaveRequestRoutes({ openapi }) {
     );
 
     /* ----------------------------------------------------
-     🟡 Get Leave By ID
+     🟦 List Leaves
+    ---------------------------------------------------- */
+    openapi(
+        {
+            method: "get",
+            path: "/leave",
+            tags: ["Leave"],
+            summary: "List leave requests",
+            request: {
+                query: listSchema
+            },
+            responses: {
+                200: {
+                    description: "List of leave requests",
+                    content: { "application/json": { schema: z.any() } }
+                }
+            }
+        },
+        async (c) => {
+            try {
+                const query = listSchema.parse(c.req.query());
+                if (!query.organization_id) {
+                    query.organization_id = await resolveOrgId(c, query.employee_id);
+                }
+
+                const resp = await new Promise((resolve, reject) => {
+                    leaveRequestClient.ListLeaveRequests(query, (err, res) =>
+                        err ? reject(err) : resolve(res)
+                    );
+                });
+
+                return c.json(resp);
+            } catch (error) {
+                return c.json({ error: error.message }, 500);
+            }
+        }
+    );
+
+    /* ----------------------------------------------------
+     🟪 Leave Balance — MUST be registered before /leave/{id}
+    ---------------------------------------------------- */
+    openapi(
+        {
+            method: "get",
+            path: "/leave/balance",
+            tags: ["Leave"],
+            summary: "Fetch leave balance",
+            request: {
+                query: balanceSchema
+            },
+            responses: {
+                200: {
+                    description: "Leave balance",
+                    content: { "application/json": { schema: z.any() } }
+                }
+            }
+        },
+        async (c) => {
+            try {
+                const query = balanceSchema.parse(c.req.query());
+                if (!query.organization_id) {
+                    query.organization_id = await resolveOrgId(c, query.employee_id);
+                }
+
+                const resp = await new Promise((resolve, reject) => {
+                    leaveRequestClient.GetLeaveBalance(query, (err, res) =>
+                        err ? reject(err) : resolve(res)
+                    );
+                });
+
+                return c.json(resp);
+            } catch (error) {
+                return c.json({ error: error.message }, 500);
+            }
+        }
+    );
+
+    /* ----------------------------------------------------
+     🗓 Leave Calendar — MUST be registered before /leave/{id}
+    ---------------------------------------------------- */
+    openapi(
+        {
+            method: "get",
+            path: "/leave/calendar",
+            tags: ["Leave"],
+            summary: "Fetch leave calendar for a month",
+            request: {
+                query: calendarSchema
+            },
+            responses: {
+                200: {
+                    description: "Leave calendar",
+                    content: { "application/json": { schema: z.any() } }
+                }
+            }
+        },
+        async (c) => {
+            try {
+                const query = calendarSchema.parse(c.req.query());
+                if (!query.organization_id) {
+                    query.organization_id = await resolveOrgId(c, query.employee_id);
+                }
+
+                const resp = await new Promise((resolve, reject) => {
+                    leaveRequestClient.GetLeaveCalendar(query, (err, res) =>
+                        err ? reject(err) : resolve(res)
+                    );
+                });
+
+                return c.json(resp);
+            } catch (error) {
+                return c.json({ error: error.message }, 500);
+            }
+        }
+    );
+
+    /* ----------------------------------------------------
+     🟡 Get Leave By ID — MUST be registered after static paths
     ---------------------------------------------------- */
     openapi(
         {
@@ -264,109 +398,55 @@ export default function registerLeaveRequestRoutes({ openapi }) {
     );
 
     /* ----------------------------------------------------
-     🟦 List Leaves
+     🟡 Edit Leave Request (PATCH)
     ---------------------------------------------------- */
+    const editLeaveSchema = z.object({
+        employee_id: z.string(),
+        leave_type_id: z.string().optional(),
+        start_date: z.string().optional(),
+        end_date: z.string().optional(),
+        is_half_day: z.boolean().optional(),
+        half_day_type: z.enum(["FIRST_HALF", "SECOND_HALF"]).optional(),
+        reason: z.string().optional()
+    });
+
     openapi(
         {
-            method: "get",
-            path: "/leave",
+            method: "patch",
+            path: "/leave/requests/{id}",
             tags: ["Leave"],
-            summary: "List leave requests",
+            summary: "Edit a pending leave request",
             request: {
-                query: listSchema
+                params: z.object({ id: z.string() }),
+                body: {
+                    content: {
+                        "application/json": { schema: editLeaveSchema }
+                    }
+                }
             },
             responses: {
                 200: {
-                    description: "List of leave requests",
+                    description: "Leave updated",
                     content: { "application/json": { schema: z.any() } }
                 }
             }
         },
         async (c) => {
             try {
-                const query = listSchema.parse(c.req.query());
+                const id = c.req.param("id");
+                const body = await c.req.json();
+                const parsed = editLeaveSchema.parse(body);
 
                 const resp = await new Promise((resolve, reject) => {
-                    leaveRequestClient.ListLeaveRequests(query, (err, res) =>
-                        err ? reject(err) : resolve(res)
+                    leaveRequestClient.EditLeaveRequest(
+                        { request_id: id, ...parsed },
+                        (err, res) => err ? reject(err) : resolve(res)
                     );
                 });
 
                 return c.json(resp);
             } catch (error) {
-                return c.json({ error: error.message }, 500);
-            }
-        }
-    );
-
-    /* ----------------------------------------------------
-     🟪 Leave Balance
-    ---------------------------------------------------- */
-    openapi(
-        {
-            method: "get",
-            path: "/leave/balance",
-            tags: ["Leave"],
-            summary: "Fetch leave balance",
-            request: {
-                query: balanceSchema
-            },
-            responses: {
-                200: {
-                    description: "Leave balance",
-                    content: { "application/json": { schema: z.any() } }
-                }
-            }
-        },
-        async (c) => {
-            try {
-                const query = balanceSchema.parse(c.req.query());
-
-                const resp = await new Promise((resolve, reject) => {
-                    leaveRequestClient.GetLeaveBalance(query, (err, res) =>
-                        err ? reject(err) : resolve(res)
-                    );
-                });
-
-                return c.json(resp);
-            } catch (error) {
-                return c.json({ error: error.message }, 500);
-            }
-        }
-    );
-
-    /* ----------------------------------------------------
-     🗓 Leave Calendar
-    ---------------------------------------------------- */
-    openapi(
-        {
-            method: "get",
-            path: "/leave/calendar",
-            tags: ["Leave"],
-            summary: "Fetch leave calendar for a month",
-            request: {
-                query: calendarSchema
-            },
-            responses: {
-                200: {
-                    description: "Leave calendar",
-                    content: { "application/json": { schema: z.any() } }
-                }
-            }
-        },
-        async (c) => {
-            try {
-                const query = calendarSchema.parse(c.req.query());
-
-                const resp = await new Promise((resolve, reject) => {
-                    leaveRequestClient.GetLeaveCalendar(query, (err, res) =>
-                        err ? reject(err) : resolve(res)
-                    );
-                });
-
-                return c.json(resp);
-            } catch (error) {
-                return c.json({ error: error.message }, 500);
+                return handleError(c, error);
             }
         }
     );

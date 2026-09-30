@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package organization_ip_network;
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Organization IP Network Service – CRUD (org-scoped IP configuration master)
+//  Owned by organization-service; served via gateway route /ip-networks
+// ─────────────────────────────────────────────────────────────────────────────
+service OrganizationIpNetworkService {
+  rpc CreateOrganizationIpNetwork (CreateOrganizationIpNetworkRequest) returns (OrganizationIpNetworkResponse);
+  rpc ListOrganizationIpNetworks  (ListOrganizationIpNetworksRequest) returns (ListOrganizationIpNetworksResponse);
+  rpc UpdateOrganizationIpNetwork (UpdateOrganizationIpNetworkRequest) returns (OrganizationIpNetworkResponse);
+  rpc DeleteOrganizationIpNetwork (DeleteOrganizationIpNetworkRequest) returns (DeleteOrganizationIpNetworkResponse);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Request Messages
+// ─────────────────────────────────────────────────────────────────────────────
+message CreateOrganizationIpNetworkRequest {
+  string organization_id = 1;
+  string name            = 2;
+  string ip_type         = 3;  // "SINGLE" | "RANGE"
+  string from_ip         = 4;
+  string to_ip           = 5;  // required when ip_type = "RANGE"
+  bool   is_enabled      = 6;
+}
+
+message ListOrganizationIpNetworksRequest {
+  string organization_id = 1;
+}
+
+message UpdateOrganizationIpNetworkRequest {
+  string id              = 1;
+  string organization_id = 2;
+  string name            = 3;
+  string ip_type         = 4;
+  string from_ip         = 5;
+  string to_ip           = 6;
+  bool   is_enabled      = 7;
+}
+
+message DeleteOrganizationIpNetworkRequest {
+  string id              = 1;
+  string organization_id = 2;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Response Messages
+// ─────────────────────────────────────────────────────────────────────────────
+message OrganizationIpNetwork {
+  string id              = 1;
+  string organization_id = 2;
+  string name            = 3;
+  string ip_type         = 4;
+  string from_ip         = 5;
+  string to_ip           = 6;
+  bool   is_enabled      = 7;
+  string created_at      = 8;
+  string updated_at      = 9;
+}
+
+message OrganizationIpNetworkResponse {
+  OrganizationIpNetwork network = 1;
+  string                message = 2;
+  bool                  success = 3;
+}
+
+message ListOrganizationIpNetworksResponse {
+  repeated OrganizationIpNetwork networks = 1;
+  int32                          total    = 2;
+  bool                           success  = 3;
+  string                         message  = 4;
+}
+
+message DeleteOrganizationIpNetworkResponse {
+  bool   success = 1;
+  string message = 2;
+}

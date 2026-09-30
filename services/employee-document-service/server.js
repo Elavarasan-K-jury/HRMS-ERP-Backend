@@ -366,7 +366,7 @@ const impl = {
             });
             if (!type) return callback({ code: grpc.status.NOT_FOUND, message: 'Document type not found' });
 
-            const assignmentCount = await prisma.employeeDocumentAssignment.count({ where: { documentTypeId: document_type_id, deletedAt: { isSet: false } } });
+            const assignmentCount = await prisma.employeeDocumentAssignment.count({ where: { documentTypeId: document_type_id, deletedAt: null } });
             callback(null, { document_type: mapDocumentType({ ...type, _count: { fields: type.fields.length, assignments: assignmentCount } }), message: 'Document type found', success: true });
         } catch (e) {
             if (e.code) return callback({ code: e.code, message: e.message });
@@ -422,7 +422,7 @@ const impl = {
                 },
             });
             const fieldCount = await prisma.employeeDocumentField.count({ where: { documentTypeId: data.id, deletedAt: null } });
-            const assignmentCount = await prisma.employeeDocumentAssignment.count({ where: { documentTypeId: data.id, deletedAt: { isSet: false } } });
+            const assignmentCount = await prisma.employeeDocumentAssignment.count({ where: { documentTypeId: data.id, deletedAt: null } });
             callback(null, { document_type: mapDocumentType({ ...updated, _count: { fields: fieldCount, assignments: assignmentCount } }), message: 'Document type updated successfully', success: true });
         } catch (e) {
             if (e.code === 'P2002') return callback({ code: grpc.status.ALREADY_EXISTS, message: `Document type '${call.request?.name?.trim() || 'this name'}' already exists in this folder.` });
@@ -800,12 +800,13 @@ const impl = {
             }
 
     const assignments = await prisma.employeeDocumentAssignment.findMany({
-            where: { employeeId: employee_id, organizationId: organization_id, deletedAt: { isSet: false } },
+            where: { employeeId: employee_id, organizationId: organization_id, deletedAt: null },
             include: { documentType: { include: { folder: true } } },
             orderBy: { createdAt: 'desc' },
         });
 
-            const result = assignments.map(a => mapAssignmentWithType(a));
+            const active = assignments.filter(a => a.documentType && !a.documentType.deletedAt && a.documentType.folder && !a.documentType.folder.deletedAt);
+            const result = active.map(a => mapAssignmentWithType(a));
             callback(null, { assignments: result, total: result.length, success: true, message: 'Assignments found' });
         } catch (e) {
             console.error('ListEmployeeAssignments Error:', e);
@@ -829,7 +830,7 @@ const impl = {
             }
 
             const assignments = await prisma.employeeDocumentAssignment.findMany({
-                where: { documentTypeId: document_type_id, organizationId: organization_id, deletedAt: { isSet: false } },
+                where: { documentTypeId: document_type_id, organizationId: organization_id, deletedAt: null },
                 orderBy: { createdAt: 'desc' },
             });
             const empIds = assignments.map(a => a.employeeId);
@@ -879,7 +880,7 @@ const impl = {
 
             // 1. Fetch all active assignments for this org
             const assignments = await prisma.employeeDocumentAssignment.findMany({
-                where: { organizationId: organization_id, deletedAt: { isSet: false } },
+                where: { organizationId: organization_id, deletedAt: null },
                 include: { documentType: { include: { folder: true } } },
                 orderBy: { createdAt: 'desc' },
             });
@@ -887,6 +888,8 @@ const impl = {
             // 2. Group by employee
             const byEmployee = new Map();
             for (const a of assignments) {
+                if (!a.documentType || a.documentType.deletedAt) continue;
+                if (!a.documentType.folder || a.documentType.folder.deletedAt) continue;
                 const empId = a.employeeId;
                 if (!byEmployee.has(empId)) byEmployee.set(empId, []);
                 byEmployee.get(empId).push(a);
@@ -994,7 +997,7 @@ const impl = {
             if (!isObjectId(assignment_id)) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid assignment id' });
 
             const assignment = await prisma.employeeDocumentAssignment.findFirst({
-                where: { id: assignment_id, deletedAt: { isSet: false } },
+                where: { id: assignment_id, deletedAt: null },
                 include: { documentType: { include: { folder: true } } },
             });
             if (!assignment) return callback({ code: grpc.status.NOT_FOUND, message: 'Assignment not found' });
@@ -1015,7 +1018,7 @@ const impl = {
             if (!isObjectId(organization_id)) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid organization_id.' });
             if (!isObjectId(assignment_id)) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid assignment id' });
 
-            const assignment = await prisma.employeeDocumentAssignment.findFirst({ where: { id: assignment_id, deletedAt: { isSet: false } } });
+            const assignment = await prisma.employeeDocumentAssignment.findFirst({ where: { id: assignment_id, deletedAt: null } });
             if (!assignment) return callback({ code: grpc.status.NOT_FOUND, message: 'Assignment not found' });
             if (String(assignment.organizationId) !== String(organization_id)) {
                 return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Assignment does not belong to this organization.' });
@@ -1044,7 +1047,7 @@ const impl = {
             // Fetch active (non-deleted) assignments belonging to the org with enriched data.
             // We intentionally avoid N+1 by loading assignments + their type/folder/employee in one pass,
             // then computing which of those have an active submission with a single grouped query.
-            const whereAssignment = { organizationId: organization_id, deletedAt: { isSet: false } };
+            const whereAssignment = { organizationId: organization_id, deletedAt: null };
             if (employee_id && isObjectId(employee_id)) whereAssignment.employeeId = employee_id;
             if (document_type_id && isObjectId(document_type_id)) whereAssignment.documentTypeId = document_type_id;
 
@@ -1184,7 +1187,7 @@ const impl = {
             const expiryDate = data.expiry_date ? new Date(data.expiry_date) : null;
 
             // --- Validate ownership chain: assignment -> employee + type -> folder -> org ---
-            const assignment = await prisma.employeeDocumentAssignment.findFirst({ where: { id: assignment_id, deletedAt: { isSet: false } } });
+            const assignment = await prisma.employeeDocumentAssignment.findFirst({ where: { id: assignment_id, deletedAt: null } });
             if (!assignment) return callback({ code: grpc.status.NOT_FOUND, message: 'Assignment not found' });
             if (String(assignment.organizationId) !== String(organization_id)) return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Assignment does not belong to this organization.' });
             if (String(assignment.employeeId) !== String(employee_id)) return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Assignment does not belong to this employee.' });
@@ -1203,7 +1206,7 @@ const impl = {
             // --- Single-type duplicate protection (only for non-multiple) ---
             if (!type.isMultiple) {
                 const activeSub = await prisma.employeeDocumentSubmission.findFirst({
-                    where: { assignmentId: assignment_id, deletedAt: { isSet: false }, status: { in: ['PENDING_VERIFICATION', 'PENDING', 'VERIFIED'] } },
+                    where: { assignmentId: assignment_id, deletedAt: null, status: { in: ['PENDING_VERIFICATION', 'PENDING', 'VERIFIED'] } },
                 });
                 if (activeSub) return callback({ code: grpc.status.ALREADY_EXISTS, message: 'This document has already been submitted and is awaiting review.' });
             }
@@ -1350,7 +1353,7 @@ const impl = {
             const { organization_id, assignment_id } = call.request;
             if (!isObjectId(organization_id)) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid organization_id.' });
             if (!isObjectId(assignment_id)) return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid assignment id' });
-            const assignment = await prisma.employeeDocumentAssignment.findFirst({ where: { id: assignment_id, deletedAt: { isSet: false } } });
+            const assignment = await prisma.employeeDocumentAssignment.findFirst({ where: { id: assignment_id, deletedAt: null } });
             if (!assignment) return callback({ code: grpc.status.NOT_FOUND, message: 'Assignment not found' });
             if (String(assignment.organizationId) !== String(organization_id)) return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Assignment does not belong to this organization.' });
             const submissions = await prisma.employeeDocumentSubmission.findMany({ where: { assignmentId: assignment_id, organizationId: organization_id, deletedAt: null }, orderBy: { createdAt: 'desc' } });
@@ -1740,7 +1743,7 @@ const impl = {
             if (existing.status !== 'VERIFIED') return callback({ code: grpc.status.FAILED_PRECONDITION, message: `Only verified documents can be renewed (current status: '${existing.status}').` });
 
             // --- Derive employee/assignment/type from the existing submission (never trust client) ---
-            const assignment = await prisma.employeeDocumentAssignment.findFirst({ where: { id: existing.assignmentId, deletedAt: { isSet: false } } });
+            const assignment = await prisma.employeeDocumentAssignment.findFirst({ where: { id: existing.assignmentId, deletedAt: null } });
             if (!assignment) return callback({ code: grpc.status.NOT_FOUND, message: 'Assignment not found' });
             if (String(assignment.organizationId) !== String(organization_id)) return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Assignment does not belong to this organization.' });
 

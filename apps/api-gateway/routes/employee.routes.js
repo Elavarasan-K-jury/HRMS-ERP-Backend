@@ -2,6 +2,9 @@ import { z, ZodError } from 'zod';
 import { grpc } from '@jury-hrms/proto';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { employeeClient } from '../grpc/employee.client.js';
+import { PrismaClient } from '@jury-hrms/db';
+
+const prisma = new PrismaClient();
 
 function grpcToHttpStatus(code) {
     switch (code) {
@@ -429,6 +432,17 @@ export default function registerEmployeeRoutes(app) {
                     department_id: z.string().optional(),
                     branch_id: z.string().optional(),
                     location_id: z.string().optional(),
+                    shift_id: z.string().optional(),
+                    weekly_off_policy_id: z.string().optional(),
+                    assignment_date: z
+                        .string()
+                        .regex(/^\d{4}-\d{2}-\d{2}$/, 'assignment_date must be a YYYY-MM-DD business date')
+                        .refine((s) => {
+                            const d = new Date(`${s}T00:00:00.000Z`);
+                            return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+                        }, 'assignment_date must be a valid calendar date')
+                        .optional(),
+                    include_current_assignments: z.coerce.boolean().optional().default(false),
                     search: z.string().optional(),
                     sort_by: z.string().optional().default('created_at'),
                     sort_order: z.enum(['asc', 'desc']).optional().default('desc'),
@@ -482,6 +496,9 @@ export default function registerEmployeeRoutes(app) {
                             department_id: query.department_id,
                             branch_id: query.branch_id,
                             location_id: query.location_id,
+                            shift_id: query.shift_id,
+                            weekly_off_policy_id: query.weekly_off_policy_id,
+                            assignment_date: query.assignment_date || '',
                             page: query.page,
                             limit: query.limit,
                             search: query.search,
@@ -494,6 +511,168 @@ export default function registerEmployeeRoutes(app) {
                         }
                     );
                 });
+
+                // Batched hydration of current shift + weekly off for this page only (no N+1)
+                if (query.include_current_assignments && Array.isArray(response.employees) && response.employees.length) {
+                    const pageIds = response.employees.map(e => e.id).filter(id => id && /^[0-9a-fA-F]{24}$/.test(id));
+                    if (pageIds.length) {
+                        const now = new Date();
+                        // End-date bounds compare against the START of the current UTC
+                        // day: valid_to/effective_to are stored as UTC-midnight dates
+                        // and are inclusive, so a window ending today must still count.
+                        const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+                        // Optional as-of business date (date-only, inclusive bounds; UTC-midnight
+                        // parsed so browser-local timezones never shift the day).
+                        const asOfDate = query.assignment_date
+                            ? new Date(`${query.assignment_date}T00:00:00.000Z`)
+                            : null;
+                        const objectIdRegexLocal = /^[0-9a-fA-F]{24}$/;
+                        const shiftWhereBase = {
+                            employeeId: { in: pageIds },
+                            deletedAt: null,
+                            ...(query.shift_id && objectIdRegexLocal.test(query.shift_id)
+                                ? { shiftId: query.shift_id }
+                                : {}),
+                            shift: { deletedAt: null },
+                        };
+                        const [shiftRows, woRows, asOfRows, woAsOfRows] = await Promise.all([
+                            prisma.employeeShiftAssignment.findMany({
+                                where: {
+                                    ...shiftWhereBase,
+                                    validFrom: { lte: now },
+                                    OR: [{ validTo: null }, { validTo: { gte: dayStart } }],
+                                },
+                                include: { shift: true },
+                                orderBy: [{ validFrom: 'desc' }, { createdAt: 'desc' }],
+                            }),
+                            prisma.employeeWeeklyOffAssignment.findMany({
+                                where: {
+                                    employeeId: { in: pageIds },
+                                    deletedAt: null,
+                                    effectiveFrom: { lte: now },
+                                    OR: [{ effectiveTo: null }, { effectiveTo: { gte: dayStart } }],
+                                    ...(query.weekly_off_policy_id && objectIdRegexLocal.test(query.weekly_off_policy_id)
+                                        ? { weeklyOffPolicyId: query.weekly_off_policy_id }
+                                        : {}),
+                                    weeklyOffPolicy: { deletedAt: null },
+                                },
+                                include: { weeklyOffPolicy: true },
+                                orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
+                            }),
+                            // Scheduled/as-of shift resolution (opt-in via assignment_date)
+                            asOfDate
+                                ? prisma.employeeShiftAssignment.findMany({
+                                    where: {
+                                        ...shiftWhereBase,
+                                        validFrom: { lte: asOfDate },
+                                        OR: [{ validTo: null }, { validTo: { gte: asOfDate } }],
+                                    },
+                                    include: { shift: true },
+                                    orderBy: [{ validFrom: 'desc' }, { createdAt: 'desc' }],
+                                })
+                                : Promise.resolve([]),
+                            // As-of weekly-off resolution (opt-in via assignment_date):
+                            // weekly off shown for the SELECTED business date, not "today".
+                            asOfDate
+                                ? prisma.employeeWeeklyOffAssignment.findMany({
+                                    where: {
+                                        employeeId: { in: pageIds },
+                                        deletedAt: null,
+                                        effectiveFrom: { lte: asOfDate },
+                                        OR: [{ effectiveTo: null }, { effectiveTo: { gte: asOfDate } }],
+                                        ...(query.weekly_off_policy_id && objectIdRegexLocal.test(query.weekly_off_policy_id)
+                                            ? { weeklyOffPolicyId: query.weekly_off_policy_id }
+                                            : {}),
+                                        weeklyOffPolicy: { deletedAt: null },
+                                    },
+                                    include: { weeklyOffPolicy: true },
+                                    orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
+                                })
+                                : Promise.resolve([]),
+                        ]);
+
+                        const shiftByEmp = new Map();
+                        for (const row of shiftRows) {
+                            if (!shiftByEmp.has(row.employeeId)) shiftByEmp.set(row.employeeId, row);
+                        }
+                        const woByEmp = new Map();
+                        for (const row of woRows) {
+                            if (!woByEmp.has(row.employeeId)) woByEmp.set(row.employeeId, row);
+                        }
+                        const asOfByEmp = new Map();
+                        for (const row of asOfRows) {
+                            if (!asOfByEmp.has(row.employeeId)) asOfByEmp.set(row.employeeId, row);
+                        }
+                        const woAsOfByEmp = new Map();
+                        for (const row of woAsOfRows) {
+                            if (!woAsOfByEmp.has(row.employeeId)) woAsOfByEmp.set(row.employeeId, row);
+                        }
+
+                        // Restrict hydrated shifts/policies to current organization when known
+                        const orgId = query.organization_id;
+                        const hhmm = (d) => {
+                            if (!d) return '';
+                            const dt = new Date(d);
+                            if (Number.isNaN(dt.getTime())) return '';
+                            return `${String(dt.getUTCHours()).padStart(2, '0')}:${String(dt.getUTCMinutes()).padStart(2, '0')}`;
+                        };
+                        // Business dates are stored as UTC midnight (YYYY-MM-DD contract);
+                        // String(Date).slice(0, 10) would yield locale text like "Wed Sep 23".
+                        const isoDay = (d) => {
+                            if (!d) return '';
+                            const dt = new Date(d);
+                            if (Number.isNaN(dt.getTime())) return '';
+                            return dt.toISOString().slice(0, 10);
+                        };
+                        const shiftPayload = (sRow) => sRow?.shift
+                            ? {
+                                id: sRow.shift.id,
+                                name: sRow.shift.name || '',
+                                start_time: hhmm(sRow.shift.startTime),
+                                end_time: hhmm(sRow.shift.endTime),
+                                break_minutes: sRow.shift.breakMinutes ?? 0,
+                                assignment_id: sRow.id,
+                                valid_from: isoDay(sRow.validFrom),
+                                valid_to: isoDay(sRow.validTo),
+                            }
+                            : null;
+                        response.employees = response.employees.map(emp => {
+                            const sRow = shiftByEmp.get(emp.id);
+                            const wRow = woByEmp.get(emp.id);
+                            const aRow = asOfByEmp.get(emp.id);
+                            const waRow = woAsOfByEmp.get(emp.id);
+                            const shiftOk = sRow?.shift && (!orgId || sRow.shift.organizationId === orgId);
+                            const woOk = wRow?.weeklyOffPolicy && (!orgId || wRow.weeklyOffPolicy.organizationId === orgId);
+                            const asOfOk = aRow?.shift && (!orgId || aRow.shift.organizationId === orgId);
+                            const woAsOfOk = waRow?.weeklyOffPolicy && (!orgId || waRow.weeklyOffPolicy.organizationId === orgId);
+                            const weeklyOffPayload = (w) => ({
+                                id: w.weeklyOffPolicy.id,
+                                name: w.weeklyOffPolicy.name || '',
+                                assignment_id: w.id,
+                                effective_from: isoDay(w.effectiveFrom),
+                                effective_to: isoDay(w.effectiveTo),
+                            });
+                            return {
+                                ...emp,
+                                business_unit: emp.organization?.name || '',
+                                current_shift: shiftOk
+                                    ? shiftPayload(sRow)
+                                    : null,
+                                current_weekly_off: woOk
+                                    ? weeklyOffPayload(wRow)
+                                    : null,
+                                // Present only when assignment_date was requested; NEVER labeled
+                                // as current — callers keep current_weekly_off for "today" semantics.
+                                ...(asOfDate
+                                    ? {
+                                        shift_for_date: asOfOk ? shiftPayload(aRow) : null,
+                                        weekly_off_for_date: woAsOfOk ? weeklyOffPayload(waRow) : null,
+                                    }
+                                    : {}),
+                            };
+                        });
+                    }
+                }
 
                 return c.json(response, 200);
             } catch (error) {
@@ -1286,4 +1465,445 @@ export default function registerEmployeeRoutes(app) {
             }
         },
     );
+
+    // ======================== EMPLOYEE HOLIDAY POLICY ASSIGNMENT ========================
+
+    const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id');
+
+    // GET /employees/:employeeId/holiday-policy — current assignment
+    app.openapi({
+        method: 'get', path: '/employees/:employeeId/holiday-policy', tags: ['Employee Holiday Policy'],
+        summary: 'Get current holiday policy assignment for an employee',
+    }, async (c) => {
+        try {
+            const employeeId = c.req.param('employeeId');
+            const organizationId = c.req.query('organization_id');
+
+            if (!objectIdSchema.safeParse(employeeId).success) {
+                return c.json({ error: 'Invalid employee id' }, 400);
+            }
+            if (!objectIdSchema.safeParse(organizationId).success) {
+                return c.json({ error: 'Invalid organization_id' }, 400);
+            }
+
+            const now = new Date();
+            const assignment = await prisma.employeeHolidayPolicyAssignment.findFirst({
+                where: {
+                    employeeId,
+                    organizationId,
+                    effectiveFrom: { lte: now },
+                },
+                include: { policy: { select: { id: true, name: true, isActive: true } } },
+                orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
+            });
+
+            return c.json({
+                assignment: assignment ? {
+                    id: assignment.id,
+                    policy_id: assignment.policyId,
+                    policy_name: assignment.policy?.name || '',
+                    policy_is_active: assignment.policy?.isActive ?? true,
+                    effective_from: assignment.effectiveFrom?.toISOString() || '',
+                    note: assignment.note || '',
+                    change_type: assignment.changeType || 'ASSIGNMENT',
+                    created_at: assignment.createdAt?.toISOString() || '',
+                } : null,
+            });
+        } catch (error) {
+            console.error('[HolidayPolicyAssignment] GET current error:', error);
+            return c.json({ error: error.message }, 500);
+        }
+    });
+
+    // GET /employees/:employeeId/holiday-policy/history — full history
+    app.openapi({
+        method: 'get', path: '/employees/:employeeId/holiday-policy/history', tags: ['Employee Holiday Policy'],
+        summary: 'Get holiday policy assignment history for an employee',
+    }, async (c) => {
+        try {
+            const employeeId = c.req.param('employeeId');
+            const organizationId = c.req.query('organization_id');
+
+            if (!objectIdSchema.safeParse(employeeId).success) {
+                return c.json({ error: 'Invalid employee id' }, 400);
+            }
+            if (!objectIdSchema.safeParse(organizationId).success) {
+                return c.json({ error: 'Invalid organization_id' }, 400);
+            }
+
+            const assignments = await prisma.employeeHolidayPolicyAssignment.findMany({
+                where: {
+                    employeeId,
+                    organizationId,
+                },
+                include: { policy: { select: { id: true, name: true } } },
+                orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
+            });
+
+            return c.json({
+                assignments: assignments.map(a => ({
+                    id: a.id,
+                    policy_id: a.policyId,
+                    policy_name: a.policy?.name || '',
+                    effective_from: a.effectiveFrom?.toISOString() || '',
+                    note: a.note || '',
+                    change_type: a.changeType || 'ASSIGNMENT',
+                    created_at: a.createdAt?.toISOString() || '',
+                })),
+            });
+        } catch (error) {
+            console.error('[HolidayPolicyAssignment] GET history error:', error);
+            return c.json({ error: error.message }, 500);
+        }
+    });
+
+    // POST /employees/:employeeId/holiday-policy — create assignment, calendar change, or correction
+    app.openapi({
+        method: 'post', path: '/employees/:employeeId/holiday-policy', tags: ['Employee Holiday Policy'],
+        summary: 'Create, change, or correct holiday policy assignment for an employee',
+    }, async (c) => {
+        try {
+            const employeeId = c.req.param('employeeId');
+            const body = await c.req.json();
+
+            const parsed = z.object({
+                organization_id: objectIdSchema,
+                policy_id: objectIdSchema,
+                change_type: z.enum(['ASSIGNMENT', 'CALENDAR_CHANGE', 'CORRECTION']).default('CALENDAR_CHANGE'),
+                effective_from: z.string().optional(),
+                note: z.string().min(1, 'Note is required').transform(s => s.trim()),
+            }).parse(body);
+
+            if (!objectIdSchema.safeParse(employeeId).success) {
+                return c.json({ error: 'Invalid employee id' }, 400);
+            }
+
+            const employee = await prisma.organizationEmployees.findFirst({
+                where: { id: employeeId, organizationId: parsed.organization_id },
+            });
+            if (!employee) {
+                return c.json({ error: 'Employee not found in this organization' }, 404);
+            }
+
+            const policy = await prisma.holidayPolicies.findFirst({
+                where: { id: parsed.policy_id, organizationId: parsed.organization_id, isActive: true },
+            });
+            if (!policy) {
+                return c.json({ error: 'Holiday policy not found in this organization' }, 404);
+            }
+
+            if (parsed.change_type === 'CALENDAR_CHANGE') {
+                const now = new Date();
+                const current = await prisma.employeeHolidayPolicyAssignment.findFirst({
+                    where: {
+                        employeeId,
+                        organizationId: parsed.organization_id,
+                        effectiveFrom: { lte: now },
+                    },
+                    orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
+                });
+                if (!current) {
+                    return c.json({ error: 'No current holiday policy assignment found. Use ASSIGNMENT instead.' }, 400);
+                }
+                if (current.policyId === parsed.policy_id) {
+                    return c.json({ error: 'Cannot change to the same policy' }, 400);
+                }
+            }
+
+            if (parsed.change_type === 'CORRECTION') {
+                const now = new Date();
+                const current = await prisma.employeeHolidayPolicyAssignment.findFirst({
+                    where: {
+                        employeeId,
+                        organizationId: parsed.organization_id,
+                        effectiveFrom: { lte: now },
+                    },
+                    orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
+                });
+                if (!current) {
+                    return c.json({ error: 'No current holiday policy assignment found. Cannot correct without an existing assignment.' }, 400);
+                }
+                if (current.policyId !== parsed.policy_id) {
+                    return c.json({ error: 'Correction must use the same policy as the current assignment. Use Calendar Change to switch policies.' }, 400);
+                }
+                if (!parsed.effective_from) {
+                    return c.json({ error: 'Effective from date is required for correction' }, 400);
+                }
+
+                const correctionDate = new Date(parsed.effective_from);
+                if (isNaN(correctionDate.getTime())) {
+                    return c.json({ error: 'Invalid effective from date' }, 400);
+                }
+
+                if (correctionDate > now) {
+                    return c.json({ error: 'Correction effective date cannot be in the future' }, 400);
+                }
+
+                const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                if (correctionDate > todayStart) {
+                    correctionDate.setTime(todayStart.getTime());
+                }
+
+                const existingOnDate = await prisma.employeeHolidayPolicyAssignment.findFirst({
+                    where: {
+                        employeeId,
+                        organizationId: parsed.organization_id,
+                        effectiveFrom: correctionDate,
+                    },
+                    orderBy: [{ createdAt: 'desc' }],
+                });
+
+                if (existingOnDate) {
+                    if (existingOnDate.policyId === parsed.policy_id) {
+                        return c.json({
+                            assignment: {
+                                id: existingOnDate.id,
+                                policy_id: existingOnDate.policyId,
+                                policy_name: policy.name,
+                                effective_from: existingOnDate.effectiveFrom?.toISOString() || '',
+                                note: existingOnDate.note || '',
+                                change_type: existingOnDate.changeType,
+                                created_at: existingOnDate.createdAt?.toISOString() || '',
+                            },
+                            message: 'An identical correction already exists for this date',
+                        });
+                    } else {
+                        return c.json({ error: `A different policy is already assigned on ${parsed.effective_from}. Use Calendar Change instead.` }, 400);
+                    }
+                }
+
+                const assignment = await prisma.employeeHolidayPolicyAssignment.create({
+                    data: {
+                        organizationId: parsed.organization_id,
+                        policyId: parsed.policy_id,
+                        employeeId,
+                        effectiveFrom: correctionDate,
+                        note: parsed.note,
+                        changeType: 'CORRECTION',
+                        deletedAt: null,
+                    },
+                    include: { policy: { select: { id: true, name: true } } },
+                });
+
+                return c.json({
+                    assignment: {
+                        id: assignment.id,
+                        policy_id: assignment.policyId,
+                        policy_name: assignment.policy?.name || '',
+                        effective_from: assignment.effectiveFrom?.toISOString() || '',
+                        note: assignment.note || '',
+                        change_type: assignment.changeType,
+                        created_at: assignment.createdAt?.toISOString() || '',
+                    },
+                    message: 'Holiday policy correction recorded successfully',
+                }, 201);
+            }
+
+            const effectiveFrom = parsed.effective_from ? new Date(parsed.effective_from) : new Date();
+
+            const existingDuplicate = await prisma.employeeHolidayPolicyAssignment.findFirst({
+                where: {
+                    employeeId,
+                    organizationId: parsed.organization_id,
+                    policyId: parsed.policy_id,
+                    effectiveFrom,
+                    changeType: parsed.change_type,
+                },
+                orderBy: [{ createdAt: 'desc' }],
+            });
+
+            if (existingDuplicate) {
+                return c.json({
+                    assignment: {
+                        id: existingDuplicate.id,
+                        policy_id: existingDuplicate.policyId,
+                        policy_name: policy.name,
+                        effective_from: existingDuplicate.effectiveFrom?.toISOString() || '',
+                        note: existingDuplicate.note || '',
+                        change_type: existingDuplicate.changeType,
+                        created_at: existingDuplicate.createdAt?.toISOString() || '',
+                    },
+                    message: `An identical ${parsed.change_type.toLowerCase().replace('_', ' ')} already exists for this date`,
+                });
+            }
+
+            const assignment = await prisma.employeeHolidayPolicyAssignment.create({
+                data: {
+                    organizationId: parsed.organization_id,
+                    policyId: parsed.policy_id,
+                    employeeId,
+                    effectiveFrom,
+                    note: parsed.note,
+                    changeType: parsed.change_type,
+                    deletedAt: null,
+                },
+                include: { policy: { select: { id: true, name: true } } },
+            });
+
+            return c.json({
+                assignment: {
+                    id: assignment.id,
+                    policy_id: assignment.policyId,
+                    policy_name: assignment.policy?.name || '',
+                    effective_from: assignment.effectiveFrom?.toISOString() || '',
+                    note: assignment.note || '',
+                    change_type: assignment.changeType,
+                    created_at: assignment.createdAt?.toISOString() || '',
+                },
+                message: parsed.change_type === 'ASSIGNMENT'
+                    ? 'Holiday policy assigned successfully'
+                    : 'Holiday calendar changed successfully',
+            }, 201);
+        } catch (error) {
+            if (error instanceof ZodError) {
+                return c.json({ error: 'Validation failed', details: error.errors.map(x => ({ field: x.path.join('.'), message: x.message })) }, 400);
+            }
+            console.error('[HolidayPolicyAssignment] POST error:', error);
+            return c.json({ error: error.message }, 500);
+        }
+    });
+
+    // GET /holiday-policies/employee-counts — current assignment counts per policy
+    app.openapi({
+        method: 'get', path: '/holiday-policies/employee-counts', tags: ['Employee Holiday Policy'],
+        summary: 'Get employee counts per holiday policy',
+    }, async (c) => {
+        try {
+            const organizationId = c.req.query('organization_id');
+            if (!objectIdSchema.safeParse(organizationId).success) {
+                return c.json({ error: 'Invalid organization_id' }, 400);
+            }
+
+            const now = new Date();
+
+            const employees = await prisma.organizationEmployees.findMany({
+                where: { organizationId, isActive: true },
+                select: { id: true },
+            });
+
+            const employeeIds = employees.map(e => e.id);
+            if (employeeIds.length === 0) {
+                return c.json({ counts: {}, total: 0 });
+            }
+
+            const counts = {};
+            let totalAssigned = 0;
+
+            for (const empId of employeeIds) {
+                const latest = await prisma.employeeHolidayPolicyAssignment.findFirst({
+                    where: {
+                        employeeId: empId,
+                        organizationId,
+                        effectiveFrom: { lte: now },
+                    },
+                    orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
+                    select: { policyId: true },
+                });
+                if (latest) {
+                    counts[latest.policyId] = (counts[latest.policyId] || 0) + 1;
+                    totalAssigned++;
+                }
+            }
+
+            return c.json({ counts, total: totalAssigned });
+        } catch (error) {
+            console.error('[HolidayPolicyAssignment] GET counts error:', error);
+            return c.json({ error: error.message }, 500);
+        }
+    });
+
+    // GET /holiday-policies/:policyId/assigned-employees — employees currently assigned to a policy
+    app.openapi({
+        method: 'get', path: '/holiday-policies/:policyId/assigned-employees', tags: ['Employee Holiday Policy'],
+        summary: 'Get employees assigned to a specific holiday policy',
+    }, async (c) => {
+        try {
+            const policyId = c.req.param('policyId');
+            const organizationId = c.req.query('organization_id');
+
+            if (!objectIdSchema.safeParse(policyId).success) {
+                return c.json({ error: 'Invalid policy id' }, 400);
+            }
+            if (!objectIdSchema.safeParse(organizationId).success) {
+                return c.json({ error: 'Invalid organization_id' }, 400);
+            }
+
+            const now = new Date();
+
+            const assignments = await prisma.employeeHolidayPolicyAssignment.findMany({
+                where: {
+                    policyId,
+                    organizationId,
+                    effectiveFrom: { lte: now },
+                },
+                include: {
+                    employee: {
+                        select: {
+                            id: true,
+                            fullName: true,
+                            employeeCode: true,
+                            manager: {
+                                select: { id: true, fullName: true },
+                            },
+                            branch: {
+                                select: { id: true, name: true },
+                            },
+                            location: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    entityType: true,
+                                    isHeadquarters: true,
+                                    formattedAddress: true,
+                                    city: true,
+                                    state: true,
+                                    country: true,
+                                },
+                            },
+                            departmentAssignments: {
+                                select: { department: { select: { name: true } } },
+                                take: 1,
+                            },
+                        },
+                    },
+                },
+                orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
+            });
+
+            const seen = new Set();
+            const employees = [];
+            for (const a of assignments) {
+                if (seen.has(a.employeeId)) continue;
+                seen.add(a.employeeId);
+                const dept = a.employee?.departmentAssignments?.[0]?.department?.name || '';
+                const loc = a.employee?.location;
+                let locationLabel = '';
+                if (loc) {
+                    const base = loc.name || loc.formattedAddress || [loc.city, loc.state, loc.country].filter(Boolean).join(', ') || '';
+                    if (loc.entityType === 'branch') {
+                        const branchName = a.employee?.branch?.name;
+                        locationLabel = branchName ? `${branchName} — ${base}` : base;
+                    } else if (loc.entityType === 'organization') {
+                        locationLabel = `Organization${loc.isHeadquarters ? ' (HQ)' : ''} — ${base}`;
+                    } else {
+                        locationLabel = base;
+                    }
+                }
+                employees.push({
+                    id: a.employee?.id || '',
+                    full_name: a.employee?.fullName || '',
+                    employee_code: a.employee?.employeeCode || '',
+                    department: dept,
+                    reporting_to: a.employee?.manager?.fullName || '',
+                    location: locationLabel,
+                    effective_from: a.effectiveFrom?.toISOString() || '',
+                });
+            }
+
+            return c.json({ employees });
+        } catch (error) {
+            console.error('[HolidayPolicyAssignment] GET assigned employees error:', error);
+            return c.json({ error: error.message }, 500);
+        }
+    });
 }

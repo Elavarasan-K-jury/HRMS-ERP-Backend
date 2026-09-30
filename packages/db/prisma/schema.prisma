@@ -109,8 +109,9 @@ model Organizations {
   geoFences                     GeoFences[]
   attendancePolicies            AttendancePolicies[]
   shiftPolicies                 ShiftPolicies[]
-  holidayPolicies               HolidayPolicies[]
-  probationPolicies             ProbationPolicies[]
+   holidayPolicies               HolidayPolicies[]
+   holidayPolicyAssignments      EmployeeHolidayPolicyAssignment[]
+   probationPolicies             ProbationPolicies[]
   probationEvaluationMilestones ProbationEvaluationMilestones[]
   networkpolicies               NetworkPolicies[]
   approvalLogs                  ApprovalLogs[]
@@ -119,6 +120,8 @@ model Organizations {
   leaveRequests                 LeaveRequests[]
    workrequests                  WorkdayRequests[]
    approvalflows                 ApprovalFlows[]
+    regularisations               AttendanceRegularisation[]
+    weeklyOffPolicies             WeeklyOffPolicy[]
 
    smsNotification      Boolean @default(false)
   emailNotification    Boolean @default(true)
@@ -161,6 +164,7 @@ model Organizations {
   orgDocuments                OrganizationDocument[]
   orgDocumentViews            OrganizationDocumentView[]
   orgDocumentAcks             OrganizationDocumentAcknowledgement[]
+  ipNetworks                  OrganizationIpNetwork[]
 }
 
 model PayGrades {
@@ -553,8 +557,9 @@ model OrganizationEmployees {
   payGradeId String?    @map("pay_grade_id") @db.ObjectId
   payGrade   PayGrades? @relation(fields: [payGradeId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
-  noticePeriodPolicies NoticePeriodPolicyEmployee[]
-  policyAssignments    ExpensePolicyEmployee[]
+  noticePeriodPolicies           NoticePeriodPolicyEmployee[]
+  policyAssignments              ExpensePolicyEmployee[]
+  holidayPolicyAssignments       EmployeeHolidayPolicyAssignment[]
 
   bandId String? @map("band_id") @db.ObjectId
 
@@ -573,6 +578,7 @@ model OrganizationEmployees {
   attendance              Attendance[]
    departmentAssignments   EmployeeDepartments[]
    EmployeeShiftAssignment EmployeeShiftAssignment[]
+   weeklyOffAssignments    EmployeeWeeklyOffAssignment[]
   regularisations         AttendanceRegularisation[]
   leaveRequests           LeaveRequests[]
   workrequests            WorkdayRequests[]
@@ -638,6 +644,9 @@ enum AttendanceStatus {
   LATE
   HALF_DAY
   HOLIDAY
+  REGULARISED
+  WEEKLY_OFF
+  LEAVE
 }
 
 enum LogType {
@@ -724,20 +733,30 @@ model AttendanceLogs {
   attendance   Attendance @relation(fields: [attendanceId], references: [id])
 }
 
+enum ShiftType {
+  FIXED
+  FLEXIBLE
+}
+
 model Shifts {
-  id               String                    @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId   String                    @db.ObjectId
-  name             String
-  startTime        DateTime
-  endTime          DateTime
-  breakMinutes     Int?
-  applicableDays   Json?                     @map("applicable_days")
-  weeklyOff        String[]
-  organization     Organizations             @relation(fields: [organizationId], references: [id])
-  shiftAssignments EmployeeShiftAssignment[]
-  createdAt        DateTime                  @default(now()) @map("created_at")
-  updatedAt        DateTime                  @updatedAt @map("updated_at")
-  deletedAt        DateTime?                 @map("deleted_at")
+  id                    String                    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId        String                    @db.ObjectId
+  name                  String
+  code                  String?
+  description           String?
+  shiftType             ShiftType                 @default(FIXED) @map("shift_type")
+  startTime             DateTime
+  endTime               DateTime
+  breakMinutes          Int?
+  applicableDays        Json?                     @map("applicable_days")
+  weeklyOff             String[]
+  grossHours            Float?                    @map("gross_hours")
+  maxShiftDurationHours Int?                      @map("max_shift_duration_hours")
+  organization          Organizations             @relation(fields: [organizationId], references: [id])
+  shiftAssignments      EmployeeShiftAssignment[]
+  createdAt             DateTime                  @default(now()) @map("created_at")
+  updatedAt             DateTime                  @updatedAt @map("updated_at")
+  deletedAt             DateTime?                 @map("deleted_at")
 }
 
 enum RegularisationStatus {
@@ -747,26 +766,33 @@ enum RegularisationStatus {
 }
 
 model AttendanceRegularisation {
-  id           String                 @id @default(auto()) @map("_id") @db.ObjectId
-  attendanceId String                 @db.ObjectId
-  employeeId   String                 @db.ObjectId
-  reason       String
-  status       RegularisationStatus   @default(PENDING)
-  requestedAt  DateTime               @default(now())
-  approvedAt   DateTime?
-  approvedBy   String?                @map("approved_by") @db.ObjectId
-  remarks      String?
-  attendance   Attendance?            @relation(fields: [attendanceId], references: [id])
-  employee     OrganizationEmployees? @relation(fields: [employeeId], references: [id])
-  createdAt    DateTime               @default(now()) @map("created_at")
-  updatedAt    DateTime               @updatedAt @map("updated_at")
-  deletedAt    DateTime?              @map("deleted_at")
+  id                 String                 @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId     String                 @map("organization_id") @db.ObjectId
+  attendanceId       String                 @db.ObjectId
+  employeeId         String                 @db.ObjectId
+  date               DateTime               @db.Date
+  type               String                 // ADJUST_LOGS | EXEMPT_PENALTY
+  requestedInTime    DateTime?              @map("requested_in_time")
+  requestedOutTime   DateTime?              @map("requested_out_time")
+  note               String
+  status             RegularisationStatus   @default(PENDING)
+  approvalInstanceId String?                @map("approval_instance_id") @db.ObjectId
+  isBulkAction       Boolean                @default(false) @map("is_bulk_action")
+  createdBy          String                 @map("created_by") @db.ObjectId
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+  deletedAt          DateTime?              @map("deleted_at")
+
+  attendance Attendance?            @relation(fields: [attendanceId], references: [id])
+  employee   OrganizationEmployees? @relation(fields: [employeeId], references: [id])
+  organization Organizations       @relation(fields: [organizationId], references: [id])
 }
 
 model ApprovalFlows {
   id                String               @id @default(auto()) @map("_id") @db.ObjectId
   organizationId    String               @map("organization_id") @db.ObjectId
-  entityType        String // LEAVE, REGULARISATION, etc.
+  name              String               @default("")
+  entityType        String // LEAVE, REGULARISATION, WORKDAY, EXIT
   organization      Organizations        @relation(fields: [organizationId], references: [id])
   levels            ApprovalFlowLevels[]
   approvalInstances ApprovalInstance[]
@@ -851,13 +877,13 @@ model Holidays {
   id             String @id @default(auto()) @map("_id") @db.ObjectId
   organizationId String @db.ObjectId
 
-  policyId String?          @map("policy_id") @db.ObjectId // 👈 NEW
+  policyId String?          @map("policy_id") @db.ObjectId
   policy   HolidayPolicies? @relation(fields: [policyId], references: [id])
 
-  date   DateTime
-  name   String
-  region String?
-  type   HolidayType @default(PUBLIC)
+  date           DateTime
+  name           String
+  type           HolidayType @default(PUBLIC)
+  leaveOptional  Boolean     @default(false) @map("leave_optional")
 
   organization Organizations @relation(fields: [organizationId], references: [id])
   createdAt    DateTime      @default(now()) @map("created_at")
@@ -876,6 +902,39 @@ model EmployeeShiftAssignment {
   createdAt  DateTime              @default(now()) @map("created_at")
   updatedAt  DateTime              @updatedAt @map("updated_at")
   deletedAt  DateTime?             @map("deleted_at")
+
+  @@index([employeeId, validFrom])
+}
+
+model WeeklyOffPolicy {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String    @map("organization_id") @db.ObjectId
+  name           String
+  code           String
+  description    String?
+  effectiveFrom  DateTime? @map("effective_from")
+  // Dual-compat JSON: legacy [{day,type}] items also carry day_of_week + day_offs[{frequency,day_type}]
+  offDays        Json
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organizations              @relation(fields: [organizationId], references: [id])
+  assignments  EmployeeWeeklyOffAssignment[]
+}
+
+model EmployeeWeeklyOffAssignment {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId        String    @map("employee_id") @db.ObjectId
+  weeklyOffPolicyId String    @map("weekly_off_policy_id") @db.ObjectId
+  effectiveFrom     DateTime  @map("effective_from")
+  effectiveTo       DateTime? @map("effective_to")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  employee       OrganizationEmployees @relation(fields: [employeeId], references: [id])
+  weeklyOffPolicy WeeklyOffPolicy      @relation(fields: [weeklyOffPolicyId], references: [id])
 }
 
 model GeoFences {
@@ -928,6 +987,8 @@ model LeaveTypes {
   maxConsecutiveDays Int?    @default(7)
   sandwichRule       Boolean @default(true)
 
+  defaultAnnualAllocation Float? @map("default_annual_allocation") // null = unlimited, 0 = zero days, >0 = allocated days
+
   accrualEnabled     Boolean @default(true)
   accrualFrequency   String  @default("monthly") // daily | monthly | yearly
   accrueAfterDays    Int?    @default(30)
@@ -952,13 +1013,17 @@ model LeaveRequests {
   startDate DateTime @map("start_date")
   endDate   DateTime @map("end_date")
 
-  totalDays   Float?   @map("total_days") // full + half days
-  isHalfDay   Boolean? @default(false)
-  halfDayType String?  @default("FIRST_HALF") // FIRST_HALF | SECOND_HALF
+  totalDays    Float?   @map("total_days") // full + half days
+  isHalfDay    Boolean? @default(false)
+  halfDayType  String?  @default("FIRST_HALF") // FIRST_HALF | SECOND_HALF
+  startHalfDay String?  @map("start_half_day") // FIRST_HALF | SECOND_HALF | null (full day)
+  endHalfDay   String?  @map("end_half_day")   // FIRST_HALF | SECOND_HALF | null (full day)
 
   reason    String?
   documents Json? // uploaded files
   status    LeaveStatus @default(PENDING)
+
+  notifyEmployeeIds String? @map("notify_employee_ids") // JSON array of employee IDs to notify
 
   cancellationReason String?
   cancelledAt        DateTime?
@@ -980,22 +1045,44 @@ model LeaveRequests {
   leaveType    LeaveTypes            @relation(fields: [leaveTypeId], references: [id])
 }
 
+model LeaveBalance {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId     String   @map("employee_id") @db.ObjectId
+  leaveTypeId    String   @map("leave_type_id") @db.ObjectId
+  organizationId String   @map("organization_id") @db.ObjectId
+  year           Int
+  allocated      Float?   // null = unlimited (leave type has no allocation), 0 = zero days, >0 = allocated days
+  used           Float    @default(0)
+  pending        Float    @default(0)   // reserved by pending requests, released on reject/cancel
+  carriedForward Float    @default(0)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([employeeId, leaveTypeId, year])
+  @@map("leave_balance")
+}
+
 model AttendancePolicies {
-  id                 String  @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId     String  @map("organization_id") @db.ObjectId
-  name               String // "Default Attendance Policy"
-  graceMinutes       Int?    @default(10) // Late grace period
-  halfDayMinutes     Int?    @default(240) // 4 hours
-  fullDayMinutes     Int?    @default(480) // 8 hours
-  allowGeoCheckIn    Boolean @default(true)
-  allowOutsideGeo    Boolean @default(false)
-  autoMarkAbsent     Boolean @default(true)
-  checkInBufferMin   Int?    @default(15)
-  checkOutBufferMin  Int?    @default(15)
-  roundingStrategy   String? // e.g. "nearest_15_min"
-  overtimeAllowed    Boolean @default(false)
-  minOvertimeMinutes Int?    @default(30)
-  isActive           Boolean @default(true)
+  id                     String  @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId         String  @map("organization_id") @db.ObjectId
+  name                   String // "Default Attendance Policy"
+  graceMinutes           Int?    @default(10) // Late grace period
+  halfDayMinutes         Int?    @default(240) // 4 hours
+  fullDayMinutes         Int?    @default(480) // 8 hours
+  allowGeoCheckIn        Boolean @default(true)
+  allowOutsideGeo        Boolean @default(false)
+  autoMarkAbsent         Boolean @default(true)
+  checkInBufferMin       Int?    @default(15)
+  checkOutBufferMin      Int?    @default(15)
+  roundingStrategy       String? // e.g. "nearest_15_min"
+  overtimeAllowed        Boolean @default(false)
+  minOvertimeMinutes     Int?    @default(30)
+  allowRegularisation    Boolean @default(true) // whether employees can submit regularisation requests
+  regularisationMode     String  @default("BOTH") // ADJUST_LOGS | EXEMPT_PENALTY | BOTH
+  maxRegularisationRequests Int? // Maximum number of regularisation requests an employee can submit within the period defined below. null = unlimited
+  regularisationPeriod   String  @default("MONTHLY") // MONTHLY | WEEKLY | YEARLY — bucket for maxRegularisationRequests
+  regularisationWindowDays Int?  @default(30) // hard cutoff: cannot regularise beyond this
+  isActive               Boolean @default(true)
 
   organization Organizations @relation(fields: [organizationId], references: [id])
   createdAt    DateTime      @default(now()) @map("created_at")
@@ -1025,17 +1112,37 @@ model ShiftPolicies {
 model HolidayPolicies {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
   organizationId String   @map("organization_id") @db.ObjectId
-  name           String // "India North Region Policy"
-  region         String
-  applicableTo   String[] // list of branch codes or dept IDs
+  name           String
   isActive       Boolean  @default(true)
 
-  organization Organizations @relation(fields: [organizationId], references: [id])
-  holidays     Holidays[] // 👈 NEW
+  organization Organizations         @relation(fields: [organizationId], references: [id])
+  holidays     Holidays[]
+  assignments  EmployeeHolidayPolicyAssignment[]
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
+}
+
+model EmployeeHolidayPolicyAssignment {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String    @map("organization_id") @db.ObjectId
+  policyId       String    @map("policy_id") @db.ObjectId
+  employeeId     String    @map("employee_id") @db.ObjectId
+  effectiveFrom  DateTime  @map("effective_from")
+  note           String?
+  changeType     String    @default("ASSIGNMENT") @map("change_type")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organizations         @relation(fields: [organizationId], references: [id])
+  policy       HolidayPolicies       @relation(fields: [policyId], references: [id])
+  employee     OrganizationEmployees @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+  @@index([policyId])
+  @@index([organizationId])
 }
 
 model ProbationPolicies {
@@ -1145,6 +1252,22 @@ model NetworkPolicies {
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
   deletedAt      DateTime?     @map("deleted_at")
+}
+
+model OrganizationIpNetwork {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String        @map("organization_id") @db.ObjectId
+  name           String
+  ipType         String        @map("ip_type") // "SINGLE" | "RANGE"
+  fromIp         String        @map("from_ip")
+  toIp           String?       @map("to_ip") // required when ipType = "RANGE"
+  isEnabled      Boolean       @default(true) @map("is_enabled")
+  organization   Organizations @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  deletedAt      DateTime?     @map("deleted_at")
+
+  @@index([organizationId])
 }
 
 enum WorkdayType {

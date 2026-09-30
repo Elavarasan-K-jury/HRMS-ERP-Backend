@@ -54,10 +54,13 @@ import { requestLogger } from './middlewares/req_logged.js';
 import { withServiceMetrics } from './middlewares/service_metrics.js';
 import { usageMiddleware } from './middlewares/usage_tracking.js';
 import { authAdmin } from './middlewares/auth_admin.js';
+import { authAdminOrEmployee } from './middlewares/auth_admin_employee.js';
 import { authEmployee } from './middlewares/auth_employee.js';
+import { organizationIpEnforcement } from './middlewares/organization_ip_enforcement.js';
 
 
 import registerOrganizationRoutes from './routes/organization.routes.js';
+import registerIpNetworkRoutes from './routes/ip_network.routes.js';
 import registerEmployeeCategoryRoutes from './routes/employee_category.routes.js';
 import registerEmployeeRoutes from './routes/employee.routes.js';
 import registerAdminRoutes from './routes/admin.routes.js';
@@ -67,11 +70,14 @@ import registerEmployeeDepartmentRoutes from './routes/emp_department.routes.js'
 import registerShiftRoutes from './routes/shift.routes.js';
 import registerShiftAssignmentRoutes from './routes/shift_assignment.routes.js';
 import registerShiftPolicyRoutes from './routes/shift_policy.routes.js';
+import registerWeeklyOffPolicyRoutes from './routes/weeklyOffPolicy.routes.js';
+import registerWeeklyOffAssignmentRoutes from './routes/weeklyOffAssignment.routes.js';
 import registerProbationPolicyRoutes from './routes/probation_policy.routes.js';
 import registerPayGradeRoutes from './routes/pay_grade.routes.js';
 import registerNoticePeriodPolicyRoutes from './routes/notice_period_policy.routes.js';
 import registerAttendanceRoutes from './routes/attendance.routes.js';
 import registerAttendanceLogRoutes from './routes/attendance_logs.routes.js';
+import registerAttendanceRegularisationRoutes from './routes/attendanceRegularisation.routes.js';
 import registerApprovalRoutes from './routes/approval.routes.js';
 import registerHierarchyRoutes from './routes/hierarchy.routes.js';
 import registerHealthRoutes from './routes/health.routes.js';
@@ -199,6 +205,8 @@ const detectServiceByPath = (c) => {
         // ORGANIZATION
         { service: "organization", prefixes: ["/organizations", "/organization"] },
 
+        { service: "organization_ip_network", prefixes: ["/ip-networks"] },
+
         // LEGAL ENTITIES
         { service: "legal_entity", prefixes: ["/legal-entities", "/legal-entity"] },
 
@@ -304,15 +312,44 @@ app.use(
 app.use('/admin/*', authAdmin);
 app.use('/admins/*', authAdmin);
 
+// Shift assignments: shared by admin portal (mutations + list) and employee portal
+// (GET own assignments). Dual admin/employee scope; per-route checks inside handlers.
+app.use('/shift-assignments/*', authAdminOrEmployee);
+
+// Shift master read/mutation routes: same dual-scope guard (admin portal
+// Shift Master + employee portal profile shift drawer both send Bearer tokens).
+app.use('/shifts', authAdminOrEmployee);
+app.use('/shifts/*', authAdminOrEmployee);
+
+// Weekly off assignments: admin portal (Job tab, Assignments tab) reads and
+// mutates; employee portal reads own assignment only. Dual admin/employee
+// scope; per-route ownership checks inside handlers.
+app.use('/weekly-off/assignments', authAdminOrEmployee);
+app.use('/weekly-off/assignments/*', authAdminOrEmployee);
+
+// Weekly off policies: org-admin only (policy admin UI). The employee portal
+// has no consumer of these routes.
+app.use('/weekly-off/policies', authAdmin);
+app.use('/weekly-off/policies/*', authAdmin);
+
 // Auth middleware for probation policy routes (permission-gated)
 app.use('/probation-policies/*', authAdmin);
 app.use('/notice-period-policies/*', authAdmin);
 
+// Auth middleware for approval routes
+app.use('/approval/*', authAdmin);
+
 // Auth middleware for pay-grade and expense routes
 app.use('/pay-grades/*', authAdmin);
+app.use('/ip-networks', authAdmin);
+app.use('/ip-networks/*', authAdmin);
 app.use('/usage-types/*', authAdmin);
 app.use('/expense-categories/*', authAdmin);
 app.use('/expense-policies/*', authAdmin);
+// Attendance regularisation: dual portal API (employee submits own requests,
+// admin portal reviews/manages via regularisation UI + requirePermission).
+app.use('/attendance/regularise/bulk', authAdmin);
+app.use('/attendance/regularise/*', authAdminOrEmployee);
 app.use('/employee-documents/my/*', authEmployee);
 app.use('/employee-documents/*', authAdmin);
 app.use('/employee-profile/my/*', authEmployee);
@@ -320,6 +357,49 @@ app.use('/organization-documents/*', authAdmin);
 
 // Centralized file serving is auth-protected (supports ?token= for <img> tags)
 app.use('/file/*', authAdmin);
+
+// ---- Phase 3D: attendance route authentication (endpoint-by-endpoint audit) ----
+// All /attendance* endpoints are portal-facing (Employee Portal + Admin Portal
+// stores); no device/import/background/internal HTTP consumers exist.
+// Dual-scope (employee + admin portal callers):
+app.use('/attendance/check-in', authAdminOrEmployee);
+app.use('/attendance/check-out', authAdminOrEmployee);
+app.use('/attendance/recompute', authAdminOrEmployee);
+// Exact '/attendance': GET list is used by both portals; POST (manual create /
+// payroll run) is admin-only -> method-classified dispatch over existing auth.
+app.use('/attendance', (c, next) =>
+    c.req.method === 'POST' ? authAdmin(c, next) : authAdminOrEmployee(c, next)
+);
+// Admin-portal only attendance APIs:
+app.use('/attendance/organization-monthly', authAdmin);
+app.use('/attendance/report', authAdmin);
+app.use('/attendance/report/*', authAdmin);
+app.use('/attendance/logs', authAdmin);
+app.use('/attendance-policies', authAdmin);
+app.use('/attendance-policies/*', authAdmin);
+app.use('/network-policies', authAdmin);
+app.use('/network-policies/*', authAdmin);
+app.use('/geo-fences', authAdmin);
+app.use('/geo-fences/*', authAdmin);
+
+// ---- Phase 3D: holidays route authentication (endpoint-by-endpoint audit) ----
+// All /holidays endpoints are portal-facing; no public/background consumers.
+// NOTE: Hono '/holidays/*' also matches the bare '/holidays' path, so a single
+// classifying registration covers both: GET list is shared by both portals
+// (employee calendar + admin management); POST create and every subresource
+// (by-id CRUD, available-years, calendar view, bulk-import) are admin-only.
+app.use('/holidays/*', (c, next) => {
+    const path = new URL(c.req.url).pathname;
+    return path === '/holidays' && c.req.method === 'GET'
+        ? authAdminOrEmployee(c, next)
+        : authAdmin(c, next);
+});
+
+// Organization IP enforcement (Phase 3C) - single authoritative enforcement
+// point. Registered AFTER all auth middlewares above (principal established)
+// and BEFORE route handlers (denied requests never reach handlers).
+// No principal (public/unauthenticated routes) -> skipped by design.
+app.use('*', organizationIpEnforcement);
 
 // Health check
 app.get('/', (c) => c.text('🚀 Jury-HRMS API Gateway is running!'));
@@ -357,6 +437,7 @@ const wrapService = (serviceName) => (def, ...handlers) => {
 const wrapSystem = (def, handler) => app.openapi(def, handler);
 
 registerOrganizationRoutes({ openapi: wrapService('organization') });
+registerIpNetworkRoutes({ openapi: wrapService('organization_ip_network') });
 registerHierarchyRoutes({ openapi: wrapService('hierarchy') });
 registerEmployeeCategoryRoutes({ openapi: wrapService('employee_category') });
 registerEmployeeRoutes({ openapi: wrapService('employee') });
@@ -367,11 +448,14 @@ registerEmployeeDepartmentRoutes({ openapi: wrapService('emp_department') });
 registerShiftRoutes({ openapi: wrapService('shift') });
 registerShiftAssignmentRoutes({ openapi: wrapService('shift_assignment') });
 registerShiftPolicyRoutes({ openapi: wrapService('shift_policy') });
+registerWeeklyOffPolicyRoutes({ openapi: wrapService('weekly_off') });
+registerWeeklyOffAssignmentRoutes({ openapi: wrapService('weekly_off') });
 registerProbationPolicyRoutes({ openapi: wrapService('probation_policy') });
 registerPayGradeRoutes({ openapi: wrapService('pay_grade') });
 registerNoticePeriodPolicyRoutes({ openapi: wrapService('notice_period_policy') });
 registerAttendanceRoutes({ openapi: wrapService('attendance') });
 registerAttendanceLogRoutes({ openapi: wrapService('attendance_logs') });
+registerAttendanceRegularisationRoutes({ openapi: wrapService('attendance_regularisation') });
 registerApprovalRoutes({ openapi: wrapService('approval') });
 registerLeaveTypeRoutes({ openapi: wrapService('leave_type') });
 registerLeaveRequestRoutes({ openapi: wrapService('leave_request') });

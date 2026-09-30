@@ -541,6 +541,12 @@ message ListEmployeesRequest {
   string department_id = 9;
   string branch_id = 10;
   string location_id = 11;
+  // Current-assignment filters (active only, soft-deleted excluded)
+  string shift_id = 12;
+  string weekly_off_policy_id = 13;
+  // Optional as-of business date (YYYY-MM-DD) for the shift_id filter window.
+  // Empty = current (now) window. Date-only, inclusive validFrom/validTo.
+  string assignment_date = 14;
 }
 
 message EmployeeResponse {

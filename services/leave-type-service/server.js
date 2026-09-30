@@ -37,6 +37,8 @@ function toAPI(t) {
         max_consecutive_days: t.maxConsecutiveDays || 0,
         sandwich_rule: t.sandwichRule,
 
+        default_annual_allocation: t.defaultAnnualAllocation ?? null,
+
         accrual_enabled: t.accrualEnabled,
         accrual_frequency: t.accrualFrequency,
         accrue_after_days: t.accrueAfterDays || 0,
@@ -59,7 +61,7 @@ const impl = {
             const data = call.request;
 
             const type = await prisma.leaveTypes.create({
-                data: {
+                data: { deletedAt: null,
                     organizationId: data.organization_id,
                     name: data.name,
                     code: data.code,
@@ -86,6 +88,8 @@ const impl = {
                     maxConsecutiveDays: data.max_consecutive_days,
                     sandwichRule: data.sandwich_rule,
 
+                    defaultAnnualAllocation: data.default_annual_allocation ?? null,
+
                     accrualEnabled: data.accrual_enabled,
                     accrualFrequency: data.accrual_frequency,
                     accrueAfterDays: data.accrue_after_days,
@@ -107,7 +111,7 @@ const impl = {
         try {
             const { id, data } = call.request;
 
-            const type = await prisma.leaveTypes.findFirst({ where: { id, deletedAt: null } });
+            const type = await prisma.leaveTypes.findFirst({ where: { deletedAt: null, id } });
             if (!type) return cb({ code: grpc.status.NOT_FOUND, message: "Leave type not found" });
 
             const updated = await prisma.leaveTypes.update({
@@ -141,6 +145,8 @@ const impl = {
                         maxConsecutiveDays: data.max_consecutive_days,
                         sandwichRule: data.sandwich_rule,
 
+                        defaultAnnualAllocation: data.default_annual_allocation ?? type.defaultAnnualAllocation,
+
                         accrualEnabled: data.accrual_enabled,
                         accrualFrequency: data.accrual_frequency,
                         accrueAfterDays: data.accrue_after_days,
@@ -160,7 +166,7 @@ const impl = {
         try {
             const { id } = call.request;
 
-            const type = await prisma.leaveTypes.findFirst({ where: { id, deletedAt: null } });
+            const type = await prisma.leaveTypes.findFirst({ where: { deletedAt: null, id } });
             if (!type) return cb({ code: grpc.status.NOT_FOUND, message: "Leave type not found" });
 
             cb(null, { leave_type: toAPI(type), success: "true", message: "Found" });
@@ -174,7 +180,7 @@ const impl = {
             const { organization_id } = call.request;
 
             const types = await prisma.leaveTypes.findMany({
-                where: { organizationId: organization_id, deletedAt: null },
+                where: { deletedAt: null, organizationId: organization_id },
                 orderBy: { createdAt: 'desc' }
             });
 
@@ -188,7 +194,7 @@ const impl = {
         try {
             const { id } = call.request;
 
-            const type = await prisma.leaveTypes.findFirst({ where: { id, deletedAt: null } });
+            const type = await prisma.leaveTypes.findFirst({ where: { deletedAt: null, id } });
             if (!type) return cb({ code: grpc.status.NOT_FOUND, message: "Leave type not found" });
 
             await prisma.leaveTypes.update({

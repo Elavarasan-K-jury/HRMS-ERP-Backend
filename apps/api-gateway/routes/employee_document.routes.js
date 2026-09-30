@@ -957,11 +957,11 @@ export default function registerEmployeeDocumentRoutes({ openapi }) {
 
                 const submissions = await prisma.employeeDocumentSubmission.findMany({
                     where: { employeeId: employeeId, organizationId: employee.organization_id, deletedAt: null },
-                    include: { documentType: { select: { id: true, name: true } } },
+                    include: { documentType: { select: { id: true, name: true, deletedAt: true } } },
                     orderBy: { createdAt: 'desc' },
                 });
 
-                const result = submissions.map(s => ({
+                const result = submissions.filter(s => s.documentType && !s.documentType.deletedAt).map(s => ({
                     id: s.id,
                     assignment_id: s.assignmentId || '',
                     document_type_id: s.documentTypeId || '',
@@ -996,7 +996,7 @@ export default function registerEmployeeDocumentRoutes({ openapi }) {
                 const p = c.req.valid('param');
 
                 const assignment = await prisma.employeeDocumentAssignment.findFirst({
-                    where: { employeeId, documentTypeId: p.documentTypeId, deletedAt: { isSet: false } },
+                    where: { employeeId, documentTypeId: p.documentTypeId, deletedAt: null },
                 });
                 if (!assignment) return c.json({ error: 'Not assigned' }, 404);
 
@@ -1004,11 +1004,12 @@ export default function registerEmployeeDocumentRoutes({ openapi }) {
                     where: { id: p.documentTypeId, deletedAt: null },
                     include: {
                         fields: { where: { deletedAt: null }, orderBy: { displayOrder: 'asc' } },
-                        folder: { select: { id: true, name: true, organizationId: true } },
+                        folder: { select: { id: true, name: true, organizationId: true, deletedAt: true } },
                     },
                 });
 
-                if (!type) return c.json({ error: 'Document type not found' }, 404);
+                if (!type || type.deletedAt) return c.json({ error: 'Document type not found' }, 404);
+                if (type.folder?.deletedAt) return c.json({ error: 'Document type not found' }, 404);
                 if (String(type.folder?.organizationId || '') !== String(employee.organization_id)) {
                     return c.json({ error: 'Document type not found' }, 404);
                 }
@@ -1083,7 +1084,7 @@ export default function registerEmployeeDocumentRoutes({ openapi }) {
 
                 // Check if this is a renewal (non-multiple type with existing VERIFIED submission)
                 const assignment = await prisma.employeeDocumentAssignment.findFirst({
-                    where: { id: parsed.assignment_id, deletedAt: { isSet: false } },
+                    where: { id: parsed.assignment_id, deletedAt: null },
                 });
                 if (!assignment) return c.json({ error: 'Assignment not found' }, 404);
                 if (String(assignment.employeeId) !== String(employeeId)) {

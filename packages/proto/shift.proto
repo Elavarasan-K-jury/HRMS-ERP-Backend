@@ -17,11 +17,17 @@ service ShiftService {
 message CreateShiftRequest {
   string organization_id = 1;
   string name            = 2;
-  string start_time      = 3; // ISO string
-  string end_time        = 4; // ISO string
+  string start_time      = 3; // HH:mm (24-hour), e.g. "09:30"
+  string end_time        = 4; // HH:mm (24-hour); end < start = overnight
   int32  break_minutes   = 5;
   map<string, bool> applicable_days = 6; // e.g., {"monday": true, "tuesday": true, ...}
   repeated string weekly_off = 7;
+  string shift_type      = 8; // "FIXED" | "FLEXIBLE" (empty → FIXED)
+  string code            = 9;
+  string description     = 10;
+  bool   require_gross_hours = 11;
+  double gross_hours     = 12; // hours; ignored when require_gross_hours is false
+  int32  max_shift_duration_hours = 13; // flexible only; 0 = unset
 }
 
 message GetShiftRequest {
@@ -32,11 +38,17 @@ message UpdateShiftRequest {
   string id              = 1;
   string organization_id = 2;
   string name            = 3;
-  string start_time      = 4;
-  string end_time        = 5;
+  string start_time      = 4; // HH:mm (24-hour), optional on partial update
+  string end_time        = 5; // HH:mm (24-hour), optional on partial update
   int32  break_minutes   = 6;
   map<string, bool> applicable_days = 7;
   repeated string weekly_off = 8;
+  string shift_type      = 9; // "FIXED" | "FLEXIBLE" (empty → keep existing)
+  string code            = 10;
+  string description     = 11;
+  bool   require_gross_hours = 12;
+  double gross_hours     = 13;
+  int32  max_shift_duration_hours = 14;
 }
 
 message DeleteShiftRequest {
@@ -52,14 +64,24 @@ message Shift {
   string id               = 1;
   string organization_id  = 2;
   string name             = 3;
-  string start_time       = 4;
-  string end_time         = 5;
+  string start_time       = 4; // HH:mm (24-hour)
+  string end_time         = 5; // HH:mm (24-hour); end < start = overnight
   int32  break_minutes    = 6;
   map<string, bool> applicable_days = 7;
   repeated string weekly_off = 8;
   string created_at       = 9;
   string updated_at       = 10;
   string deleted_at       = 11;
+  int32  employee_count   = 12; // distinct employees currently assigned
+  string shift_type       = 13; // "FIXED" | "FLEXIBLE"
+  string code             = 14;
+  string description      = 15;
+  bool   require_gross_hours = 16;
+  double gross_hours      = 17; // 0 = not set
+  int32  max_shift_duration_hours = 18; // 0 = not set
+  // Derived: gross_hours - (break_minutes / 60). Not client-writable; 0 when gross not set.
+  // Gateway may map to JSON null when require_gross_hours is false.
+  double effective_hours  = 19;
 }
 
 message ShiftResponse {

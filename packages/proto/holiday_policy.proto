@@ -17,12 +17,10 @@ message HolidayPolicy {
   string id              = 1;
   string organization_id = 2;
   string name            = 3;
-  string region          = 4;
-  repeated string applicable_to = 5;
-  bool   is_active       = 6;
+  bool   is_active       = 4;
 
-  string created_at      = 7;
-  string updated_at      = 8;
+  string created_at      = 6;
+  string updated_at      = 7;
 }
 
 /* =============== CREATE / UPDATE =============== */
@@ -30,16 +28,12 @@ message HolidayPolicy {
 message CreateHolidayPolicyRequest {
   string organization_id = 1;
   string name            = 2;
-  string region          = 3;
-  repeated string applicable_to = 4;
 }
 
 message UpdateHolidayPolicyRequest {
   string policy_id       = 1;
   string name            = 2;
-  string region          = 3;
-  repeated string applicable_to = 4;
-  bool   is_active       = 5;
+  bool   is_active       = 3;
 }
 
 /* =============== DELETE =============== */
@@ -66,8 +60,7 @@ message HolidayPolicyResponse {
 
 message ListHolidayPoliciesRequest {
   string organization_id = 1;
-  string region          = 2;
-  bool   is_active_only  = 3;
+  bool   is_active_only  = 2;
 }
 
 message ListHolidayPoliciesResponse {

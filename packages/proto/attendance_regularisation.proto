@@ -4,32 +4,20 @@ package attendance_regularisation;
 
 service RegularisationService {
   rpc CreateRegularisation (CreateRegularisationRequest) returns (RegularisationResponse);
-  rpc ApproveRegularisation (ApproveRegularisationRequest) returns (RegularisationResponse);
-  rpc RejectRegularisation (RejectRegularisationRequest) returns (RegularisationResponse);
   rpc GetRegularisation (GetRegularisationRequest) returns (RegularisationResponse);
   rpc ListRegularisations (ListRegularisationRequest) returns (ListRegularisationResponse);
+  rpc BulkRegularise (BulkRegulariseRequest) returns (BulkRegulariseResponse);
 }
 
 message CreateRegularisationRequest {
-  string attendance_id = 1;
-  string employee_id = 2;
-  string organization_id = 3;
-  string reason = 4;
-  string correction_check_in = 5;  // ISO DateTime
-  string correction_check_out = 6; // ISO DateTime
-  string notes = 7;
-}
-
-message ApproveRegularisationRequest {
-  string regularisation_id = 1;
-  string approver_id = 2;
-  string remarks = 3;
-}
-
-message RejectRegularisationRequest {
-  string regularisation_id = 1;
-  string approver_id = 2;
-  string remarks = 3;
+  string organization_id = 1;
+  string employee_id     = 2;
+  string attendance_id   = 3;
+  string date            = 4;  // YYYY-MM-DD
+  string type            = 5;  // ADJUST_LOGS | EXEMPT_PENALTY
+  string requested_in_time  = 6;  // ISO DateTime, required if type=ADJUST_LOGS
+  string requested_out_time = 7;  // ISO DateTime, required if type=ADJUST_LOGS
+  string note            = 8;
 }
 
 message GetRegularisationRequest {
@@ -37,23 +25,45 @@ message GetRegularisationRequest {
 }
 
 message ListRegularisationRequest {
-  string employee_id = 1;
+  string employee_id    = 1;
   string organization_id = 2;
-  string status = 3; // optional filter
+  string status          = 3;  // optional filter
+  string date_from       = 4;  // optional YYYY-MM-DD
+  string date_to         = 5;  // optional YYYY-MM-DD
+}
+
+message BulkRegulariseRequest {
+  string organization_id = 1;
+  string admin_id        = 2;  // admin performing the bulk action
+  repeated BulkRegulariseItem items = 3;
+  string confirmation_flag = 4; // must be "CONFIRMED" to proceed
+}
+
+message BulkRegulariseItem {
+  string employee_id   = 1;
+  string attendance_id = 2;
+  string date          = 3;  // YYYY-MM-DD
+  string type          = 4;  // ADJUST_LOGS | EXEMPT_PENALTY
+  string requested_in_time  = 5;
+  string requested_out_time = 6;
+  string note          = 7;
 }
 
 message RegularisationObject {
-  string id = 1;
-  string attendance_id = 2;
-  string employee_id = 3;
-  string organization_id = 4;
-  string reason = 5;
-  string status = 6;
-  string correction_check_in = 7;
-  string correction_check_out = 8;
-  string remarks = 9;
-  string requested_at = 10;
-  string approved_at = 11;
+  string id                 = 1;
+  string organization_id    = 2;
+  string attendance_id      = 3;
+  string employee_id        = 4;
+  string date               = 5;
+  string type               = 6;
+  string requested_in_time  = 7;
+  string requested_out_time = 8;
+  string note               = 9;
+  string status             = 10;
+  string approval_instance_id = 11;
+  bool   is_bulk_action     = 12;
+  string created_by         = 13;
+  string created_at         = 14;
 }
 
 message RegularisationResponse {
@@ -62,4 +72,15 @@ message RegularisationResponse {
 
 message ListRegularisationResponse {
   repeated RegularisationObject regularisations = 1;
+}
+
+message BulkRegulariseResponse {
+  int32  processed = 1;
+  repeated BulkRegulariseResult results = 2;
+}
+
+message BulkRegulariseResult {
+  string attendance_id = 1;
+  string status        = 2; // SUCCESS | FAILED
+  string message       = 3;
 }

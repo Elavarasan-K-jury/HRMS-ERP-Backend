@@ -4,6 +4,11 @@ import { FileService } from "@jury-hrms/files";
 import { reportQueue } from "./queue.js";
 import { generateAttendancePDF } from "./pdf/generateAttendancePDF.js";
 
+function localDayKey(date) {
+    const d = new Date(date);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 /* ============================================================
    PROCESS ATTENDANCE REPORT
 ============================================================ */
@@ -113,7 +118,6 @@ export async function getOrganizationAttendanceReport({
         ---------------------------------------- */
         const employeeWhere = {
             organizationId,
-            deletedAt: null,
             ...(employeeId ? { id: employeeId } : {}),
             ...(designationId ? { designationId } : {}),
         };
@@ -122,7 +126,6 @@ export async function getOrganizationAttendanceReport({
             employeeWhere.departmentAssignments = {
                 some: {
                     departmentId,
-                    deletedAt: null,
                     OR: [{ endDate: null }, { endDate: { equals: null } }],
                 },
             };
@@ -133,7 +136,6 @@ export async function getOrganizationAttendanceReport({
             include: {
                 designation: true,
                 departmentAssignments: {
-                    where: { deletedAt: null },
                     include: { department: true },
                 },
             },
@@ -168,10 +170,9 @@ export async function getOrganizationAttendanceReport({
             3️⃣ FETCH ATTENDANCE + LOGS
         ---------------------------------------- */
         const attendanceRows = await prisma.attendance.findMany({
-            where: {
+            where: { deletedAt: null,
                 organizationId,
                 employeeId: { in: employeeIds },
-                deletedAt: null,
                 ...(startDate || endDate ? { date: dateFilter } : {}),
             },
             include: {
@@ -180,7 +181,6 @@ export async function getOrganizationAttendanceReport({
                     include: {
                         designation: true,
                         departmentAssignments: {
-                            where: { deletedAt: null },
                             include: { department: true },
                         },
                         organization: true,
@@ -196,7 +196,7 @@ export async function getOrganizationAttendanceReport({
         const dayMap = {};
 
         for (const rec of attendanceRows) {
-            const dateKey = rec.date.toISOString().slice(0, 10);
+            const dateKey = localDayKey(rec.date);
             if (!dayMap[dateKey]) dayMap[dateKey] = [];
 
             const emp = rec.employee;

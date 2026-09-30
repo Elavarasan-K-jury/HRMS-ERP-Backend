@@ -41,12 +41,14 @@ message LeaveType {
   int32 max_consecutive_days = 18;
   bool sandwich_rule = 19;
 
-  bool accrual_enabled = 20;
-  string accrual_frequency = 21; // daily | monthly | yearly
-  int32 accrue_after_days = 22;
-  float monthly_accrual_rate = 23;
+  float default_annual_allocation = 20;
 
-  bool is_active = 24;
+  bool accrual_enabled = 21;
+  string accrual_frequency = 22; // daily | monthly | yearly
+  int32 accrue_after_days = 23;
+  float monthly_accrual_rate = 24;
+
+  bool is_active = 28;
 
   string created_at = 25;
   string updated_at = 26;
@@ -81,10 +83,12 @@ message CreateLeaveTypeRequest {
   int32 max_consecutive_days = 17;
   bool sandwich_rule = 18;
 
-  bool accrual_enabled = 19;
-  string accrual_frequency = 20;
-  int32 accrue_after_days = 21;
-  float monthly_accrual_rate = 22;
+  float default_annual_allocation = 19;
+
+  bool accrual_enabled = 20;
+  string accrual_frequency = 21;
+  int32 accrue_after_days = 22;
+  float monthly_accrual_rate = 23;
 }
 
 message UpdateLeaveTypeRequest {

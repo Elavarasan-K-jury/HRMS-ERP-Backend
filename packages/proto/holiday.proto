@@ -21,8 +21,8 @@ message Holiday {
   string policy_id       = 3;
   string date            = 4;  // YYYY-MM-DD
   string name            = 5;
-  string region          = 6;
-  string type            = 7;  // PUBLIC | RESTRICTED | ...
+  string type            = 6;  // PUBLIC | RESTRICTED | OPTIONAL | WEEK_OFF | COMPANY_EVENT
+  bool   leave_optional  = 7;
 
   string created_at      = 8;
   string updated_at      = 9;
@@ -35,8 +35,8 @@ message CreateHolidayRequest {
   string policy_id       = 2;
   string date            = 3;
   string name            = 4;
-  string region          = 5;
-  string type            = 6; // PUBLIC | RESTRICTED | OPTIONAL | WEEK_OFF | COMPANY_EVENT
+  string type            = 5; // PUBLIC | RESTRICTED | OPTIONAL | WEEK_OFF | COMPANY_EVENT
+  bool   leave_optional  = 6;
 }
 
 message UpdateHolidayRequest {
@@ -44,8 +44,8 @@ message UpdateHolidayRequest {
   string policy_id       = 2;
   string date            = 3;
   string name            = 4;
-  string region          = 5;
-  string type            = 6;
+  string type            = 5;
+  bool   leave_optional  = 6;
 }
 
 /* =============== DELETE =============== */
@@ -74,8 +74,7 @@ message ListHolidaysRequest {
   string organization_id = 1;
   string year            = 2; // optional: YYYY
   string type            = 3; // optional: PUBLIC | ...
-  string region          = 4; // optional
-  string policy_id       = 5; // optional
+  string policy_id       = 4; // optional
 }
 
 message ListHolidaysResponse {
@@ -89,14 +88,14 @@ message HolidayCalendarRequest {
   string organization_id = 1;
   string month           = 2; // YYYY-MM
   string policy_id       = 3; // optional
-  string region          = 4; // optional
 }
 
 message HolidayCalendarDay {
-  string date       = 1;
-  bool   is_holiday = 2;
-  string name       = 3;
-  string type       = 4;
+  string date        = 1;
+  bool   is_holiday  = 2;
+  string name        = 3;
+  string type        = 4;
+  bool   leave_optional = 5;
 }
 
 message HolidayCalendarResponse {

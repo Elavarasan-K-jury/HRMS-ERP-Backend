@@ -1,0 +1,178 @@
+syntax = "proto3";
+
+package weekly_off;
+
+service WeeklyOffPolicyService {
+  rpc CreateWeeklyOffPolicy (CreateWeeklyOffPolicyRequest) returns (WeeklyOffPolicyResponse);
+  rpc GetWeeklyOffPolicy    (GetWeeklyOffPolicyRequest)    returns (WeeklyOffPolicyResponse);
+  rpc ListWeeklyOffPolicies (ListWeeklyOffPoliciesRequest) returns (ListWeeklyOffPoliciesResponse);
+  rpc UpdateWeeklyOffPolicy (UpdateWeeklyOffPolicyRequest) returns (WeeklyOffPolicyResponse);
+  rpc DeleteWeeklyOffPolicy (DeleteWeeklyOffPolicyRequest) returns (DeleteWeeklyOffPolicyResponse);
+}
+
+service WeeklyOffAssignmentService {
+  rpc AssignWeeklyOff           (AssignWeeklyOffRequest)           returns (WeeklyOffAssignmentResponse);
+  rpc GetWeeklyOffAssignment    (GetWeeklyOffAssignmentRequest)    returns (WeeklyOffAssignmentResponse);
+  rpc ListWeeklyOffAssignments  (ListWeeklyOffAssignmentsRequest)  returns (ListWeeklyOffAssignmentsResponse);
+  rpc UpdateWeeklyOffAssignment (UpdateWeeklyOffAssignmentRequest) returns (WeeklyOffAssignmentResponse);
+  rpc DeleteWeeklyOffAssignment (DeleteWeeklyOffAssignmentRequest) returns (DeleteWeeklyOffAssignmentResponse);
+  rpc BulkAssignWeeklyOff       (BulkAssignWeeklyOffRequest)       returns (BulkAssignWeeklyOffResponse);
+  rpc GetActiveWeeklyOffForEmployee (GetActiveWeeklyOffRequest)    returns (GetActiveWeeklyOffResponse);
+}
+
+// --- Policy Messages ---
+
+message WeeklyOffDayOff {
+  string frequency = 1; // ALL | FIRST | SECOND | THIRD | FOURTH | FIFTH | LAST
+  string day_type  = 2; // FULL_DAY | FIRST_HALF | SECOND_HALF
+}
+
+message WeeklyOffDayConfig {
+  string day_of_week = 1; // MONDAY..SUNDAY
+  repeated WeeklyOffDayOff day_offs = 2;
+}
+
+message CreateWeeklyOffPolicyRequest {
+  string organization_id = 1;
+  string name            = 2;
+  string description     = 3;
+  string effective_from  = 4; // ISO date, empty = default today
+  string code            = 5; // optional; auto-generated when empty
+  repeated WeeklyOffDayConfig week_offs = 6;
+}
+
+message UpdateWeeklyOffPolicyRequest {
+  string id              = 1;
+  string organization_id = 2;
+  string name            = 3;
+  string description     = 4;
+  string effective_from  = 5;
+  string code            = 6;
+  repeated WeeklyOffDayConfig week_offs = 7;
+}
+
+message GetWeeklyOffPolicyRequest {
+  string id = 1;
+}
+
+message DeleteWeeklyOffPolicyRequest {
+  string id = 1;
+}
+
+message DeleteWeeklyOffPolicyResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message WeeklyOffPolicy {
+  string id               = 1;
+  string organization_id  = 2;
+  string name             = 3;
+  string code             = 4;
+  string description      = 5;
+  string effective_from   = 6;
+  repeated WeeklyOffDayConfig week_offs = 7;
+  string created_at       = 8;
+  string updated_at       = 9;
+  int32 employee_count    = 10; // current active assignments (EmployeeWeeklyOffAssignment)
+}
+
+message WeeklyOffPolicyResponse {
+  WeeklyOffPolicy policy = 1;
+}
+
+message ListWeeklyOffPoliciesRequest {
+  string organization_id = 1;
+}
+
+message ListWeeklyOffPoliciesResponse {
+  repeated WeeklyOffPolicy policies = 1;
+}
+
+// --- Assignment Messages ---
+
+message AssignWeeklyOffRequest {
+  string organization_id      = 1;
+  string employee_id          = 2;
+  string weekly_off_policy_id = 3;
+  string effective_from       = 4; // ISO date
+  string effective_to         = 5; // ISO date, empty = no end
+}
+
+message UpdateWeeklyOffAssignmentRequest {
+  string id                   = 1;
+  string weekly_off_policy_id = 2;
+  string effective_from       = 3;
+  string effective_to         = 4;
+}
+
+message GetWeeklyOffAssignmentRequest {
+  string id = 1;
+}
+
+message DeleteWeeklyOffAssignmentRequest {
+  string id = 1;
+}
+
+message DeleteWeeklyOffAssignmentResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message WeeklyOffAssignment {
+  string id                   = 1;
+  string employee_id          = 2;
+  string weekly_off_policy_id = 3;
+  string effective_from       = 4;
+  string effective_to         = 5;
+  string created_at           = 6;
+  string policy_name          = 7;
+  string employee_name        = 8;
+  string employee_code        = 9;
+  repeated WeeklyOffDayConfig week_offs = 10;
+}
+
+message WeeklyOffAssignmentResponse {
+  WeeklyOffAssignment assignment = 1;
+}
+
+message ListWeeklyOffAssignmentsRequest {
+  string employee_id = 1;
+  string organization_id = 2;
+  bool active_only = 3;
+  string weekly_off_policy_id = 4; // optional: employees currently assigned to this policy
+}
+
+message ListWeeklyOffAssignmentsResponse {
+  repeated WeeklyOffAssignment assignments = 1;
+}
+
+message BulkAssignWeeklyOffRequest {
+  string organization_id = 1;
+  string weekly_off_policy_id = 2;
+  repeated string employee_ids = 3;
+  string effective_from = 4;
+  string effective_to = 5;
+}
+
+message BulkAssignWeeklyOffResponse {
+  int32 processed = 1;
+  repeated BulkAssignResult results = 2;
+}
+
+message BulkAssignResult {
+  string employee_id = 1;
+  string status = 2;
+  string message = 3;
+}
+
+message GetActiveWeeklyOffRequest {
+  string employee_id = 1;
+  string date = 2; // ISO date to check
+}
+
+message GetActiveWeeklyOffResponse {
+  WeeklyOffAssignment assignment = 1;
+  bool is_weekly_off = 2;
+  string day_type = 3; // FULL_DAY | FIRST_HALF | SECOND_HALF | NONE
+}

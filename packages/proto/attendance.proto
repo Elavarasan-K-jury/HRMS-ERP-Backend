@@ -197,6 +197,11 @@ message AttendancePolicyRequest {
   string rounding_strategy = 11;
   bool overtime_allowed = 12;
   int32 min_overtime_minutes = 13;
+  bool allow_regularisation = 14;
+  string regularisation_mode = 15;
+  optional int32 max_regularisation_requests = 16;
+  string regularisation_period = 17;
+  optional int32 regularisation_window_days = 18;
 }
 
 message UpdateAttendancePolicyRequest {
@@ -219,6 +224,12 @@ message AttendancePolicy {
   string rounding_strategy = 12;
   bool overtime_allowed = 13;
   int32 min_overtime_minutes = 14;
+  bool allow_regularisation = 15;
+  string regularisation_mode = 16;
+  optional int32 max_regularisation_requests = 17;
+  string regularisation_period = 18;
+  optional int32 regularisation_window_days = 19;
+  bool is_active = 20;
 }
 
 message AttendancePolicyResponse {

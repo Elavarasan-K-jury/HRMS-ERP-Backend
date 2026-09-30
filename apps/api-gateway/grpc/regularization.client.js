@@ -4,9 +4,9 @@ dotenv.config();
 
 const regularisationProto = loadProto("attendance_regularisation");
 const REGULARISATION_SERVICE_ADDR =
-  process.env.REGULARIZATION_SERVICE_ADDR || "localhost:50065";
+  process.env.REGULARISATION_SERVICE_ADDR || "localhost:5073";
 
-export const regularisationClient = new regularisationProto.regularisationProto(
+export const regularisationClient = new regularisationProto.RegularisationService(
   REGULARISATION_SERVICE_ADDR,
   grpc.credentials.createInsecure()
 );

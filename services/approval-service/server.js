@@ -1,6 +1,7 @@
 // src/services/approval/approval.server.js
 import { grpc, loadProto } from '@jury-hrms/proto';
 import { prisma } from '@jury-hrms/db/client.js';
+import { publish } from '@jury-hrms/redis';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -73,6 +74,7 @@ function mapFlow(flow, employeeMap) {
     id: flow.id,
     organization_id: flow.organizationId,
     entity_type: flow.entityType,
+    name: flow.name ?? '',
     organization: mapOrganization(flow.organization) || undefined,
     levels: (flow.levels || []).map((lvl) => mapFlowLevel(lvl, employeeMap)),
     created_at: flow.createdAt?.toISOString() ?? '',
@@ -173,13 +175,72 @@ function mapInstance(instance, org, employee, entityData, logsMapped) {
 //  HELPERS
 // =======================================================
 
+// Verify that approver_id is an assigned approver for the given level.
+//
+// MULTI-APPROVER SEMANTICS (intentional, matches Keka):
+//   This function checks membership only — whether the caller is in the
+//   level's approver list. It does NOT check whether other approvers at
+//   this level have already acted. When any ONE assigned approver at a
+//   level approves, the level immediately advances (or the instance closes
+//   if it was the final level). There is no "all must approve" gating.
+//   This matches Keka's behaviour and is the standard approval pattern.
+async function isApproverForLevel(flowId, level, approverId) {
+  const dbLevel = await prisma.approvalFlowLevels.findFirst({
+    where: { flowId, level },
+    include: { approvers: true },
+  });
+  if (!dbLevel) return false;
+
+  // Direct user match
+  const matched = dbLevel.approvers.some((a) => a.userId === approverId);
+  if (matched) return true;
+
+  // Role-based match: check if approver employee has the role
+  // For now, direct userId match is sufficient. Role-based matching
+  // can be added here when needed (e.g. check employee's department
+  // head role, HR role, etc.)
+  return false;
+}
+
+// Publish completion event via Redis pubsub
+// Channel: "approval.instance.completed"
+// Payload: { entityType, entityId, finalStatus, approvalInstanceId, organizationId }
+// Downstream subscribers (Leave service, Attendance service) should listen
+// on this channel and update their source entity status accordingly.
+// Example subscriber:
+//   import { subscribe } from '@jury-hrms/redis';
+//   subscribe('approval.instance.completed', (event) => {
+//     if (event.entityType === 'LEAVE') {
+//       leaveService.updateStatus(event.entityId, event.finalStatus);
+//     }
+//     if (event.entityType === 'REGULARISATION') {
+//       attendanceService.updateRegularisationStatus(event.entityId, event.finalStatus);
+//     }
+//   });
+async function publishCompletionEvent(instance, finalStatus) {
+  try {
+    await publish('approval.instance.completed', {
+      entityType: instance.entityType,
+      entityId: instance.entityId,
+      finalStatus,
+      approvalInstanceId: instance.id,
+      organizationId: instance.organizationId,
+    });
+  } catch (err) {
+    console.error('[approval-service] Failed to publish completion event:', err.message);
+    // Non-fatal: the approval is still recorded, event failure is logged only
+  }
+}
+
 // Load entity + includes based on entityType
 async function loadEntityWithIncludes(entityType, entityId) {
   if (!isObjectId(entityId)) return null;
 
+  // Approval display must still resolve soft-deleted entities
+  // (pending instance outlives a soft-deleted leave/reg/workday).
   if (entityType === 'LEAVE') {
     return prisma.leaveRequests.findFirst({
-      where: { id: entityId, deletedAt: null },
+      where: { id: entityId },
       include: {
         leaveType: true,
       },
@@ -188,7 +249,7 @@ async function loadEntityWithIncludes(entityType, entityId) {
 
   if (entityType === 'REGULARISATION') {
     return prisma.attendanceRegularisation.findFirst({
-      where: { id: entityId, deletedAt: null },
+      where: { id: entityId },
       include: {
         attendance: true,
       },
@@ -197,7 +258,7 @@ async function loadEntityWithIncludes(entityType, entityId) {
 
   if (entityType === 'WORKDAY') {
     return prisma.workdayRequests.findFirst({
-      where: { id: entityId, deletedAt: null },
+      where: { id: entityId },
     });
   }
 
@@ -209,7 +270,7 @@ async function loadEmployeeWithRelations(employeeId) {
   if (!employeeId || !isObjectId(employeeId)) return null;
 
   return prisma.organizationEmployees.findFirst({
-    where: { id: employeeId, deletedAt: null },
+    where: { deletedAt: null, id: employeeId },
     include: {
       designation: true,
       departmentAssignments: {
@@ -228,7 +289,7 @@ async function buildApproverMap(logs) {
   if (!ids.length) return new Map();
 
   const emps = await prisma.organizationEmployees.findMany({
-    where: { id: { in: ids }, deletedAt: null },
+    where: { deletedAt: null, id: { in: ids } },
     include: {
       designation: true,
       departmentAssignments: {
@@ -256,7 +317,7 @@ async function buildEmployeeMapFromLevels(levels) {
   if (!ids.length) return new Map();
 
   const emps = await prisma.organizationEmployees.findMany({
-    where: { id: { in: ids }, deletedAt: null },
+    where: { deletedAt: null, id: { in: ids } },
     include: {
       designation: true,
       departmentAssignments: {
@@ -276,7 +337,7 @@ async function buildEmployeeMapFromLevels(levels) {
 const flowImpl = {
   CreateFlow: async (call, callback) => {
     try {
-      const { organization_id, entity_type, levels } = call.request;
+      const { organization_id, entity_type, levels, name } = call.request;
 
       if (!isObjectId(organization_id)) {
         return callback({
@@ -298,9 +359,10 @@ const flowImpl = {
       }
 
       const flow = await prisma.approvalFlows.create({
-        data: {
+        data: { deletedAt: null,
           organizationId: organization_id,
           entityType: entity_type,
+          name: name || '',
           levels: {
             create: levels.map((lvl) => ({
               level: lvl.level,
@@ -351,7 +413,7 @@ const flowImpl = {
       }
 
       const flow = await prisma.approvalFlows.findFirst({
-        where: { id, deletedAt: null },
+        where: { deletedAt: null, id },
         include: {
           organization: true,
           levels: { include: { approvers: true } },
@@ -387,7 +449,6 @@ const flowImpl = {
       const { organization_id, entity_type } = call.request;
 
       const where = {
-        deletedAt: null,
         ...(organization_id ? { organizationId: organization_id } : {}),
         ...(entity_type ? { entityType: entity_type } : {}),
       };
@@ -438,7 +499,7 @@ const flowImpl = {
       }
 
       const existing = await prisma.approvalFlows.findFirst({
-        where: { id, deletedAt: null },
+        where: { deletedAt: null, id },
       });
       if (!existing) {
         return callback({
@@ -497,7 +558,7 @@ const flowImpl = {
       }
 
       const flow = await prisma.approvalFlows.findFirst({
-        where: { id },
+        where: { deletedAt: null, id },
         include: {
           organization: true,
           levels: { include: { approvers: true } },
@@ -532,7 +593,7 @@ const flowImpl = {
       }
 
       const flow = await prisma.approvalFlows.findFirst({
-        where: { id, deletedAt: null },
+        where: { deletedAt: null, id },
       });
       if (!flow) {
         return callback({
@@ -583,10 +644,9 @@ const instanceImpl = {
 
       // get flow for org + entity_type
       const flow = await prisma.approvalFlows.findFirst({
-        where: {
+        where: { deletedAt: null,
           organizationId: organization_id,
           entityType: entity_type,
-          deletedAt: null,
         },
         include: {
           levels: {
@@ -629,7 +689,7 @@ const instanceImpl = {
         },
       });
 
-      const org = await prisma.organizations.findFirst({ where: { id: organization_id } });
+      const org = await prisma.organizations.findFirst({ where: { deletedAt: null, id: organization_id } });
       const employee = await loadEmployeeWithRelations(employee_id);
       const entityData = await loadEntityWithIncludes(entity_type, entity_id);
       const logs = await prisma.approvalLogs.findMany({
@@ -676,7 +736,7 @@ const instanceImpl = {
       }
 
       const org = await prisma.organizations.findFirst({
-        where: { id: instance.organizationId },
+        where: { deletedAt: null, id: instance.organizationId },
       });
 
       // We take employee from entity
@@ -685,19 +745,19 @@ const instanceImpl = {
 
       if (instance.entityType === 'LEAVE') {
         entity = await prisma.leaveRequests.findFirst({
-          where: { id: instance.entityId },
+          where: { deletedAt: null, id: instance.entityId },
           include: { employee: true },
         });
         employeeId = entity?.employeeId ?? null;
       } else if (instance.entityType === 'REGULARISATION') {
         entity = await prisma.attendanceRegularisation.findFirst({
-          where: { id: instance.entityId },
+          where: { deletedAt: null, id: instance.entityId },
           include: { employee: true },
         });
         employeeId = entity?.employeeId ?? null;
       } else if (instance.entityType === 'WORKDAY') {
         entity = await prisma.workdayRequests.findFirst({
-          where: { id: instance.entityId },
+          where: { deletedAt: null, id: instance.entityId },
           include: { employee: true },
         });
         employeeId = entity?.employeeId ?? null;
@@ -752,7 +812,7 @@ const instanceImpl = {
       }
 
       const flow = await prisma.approvalFlows.findFirst({
-        where: { id: instance.flowId },
+        where: { deletedAt: null, id: instance.flowId },
         include: {
           levels: {
             where: { isActive: true },
@@ -768,9 +828,18 @@ const instanceImpl = {
         });
       }
 
+      // Verify caller is an assigned approver for the CURRENT level
       const currentLevel = instance.currentLevel;
       const levels = flow.levels || [];
       const maxLevel = levels.reduce((m, l) => Math.max(m, l.level), 0);
+
+      const authorized = await isApproverForLevel(flow.id, currentLevel, approver_id);
+      if (!authorized) {
+        return callback({
+          code: grpc.status.PERMISSION_DENIED,
+          message: 'You are not an assigned approver for this level',
+        });
+      }
 
       // Log APPROVED for current level
       await prisma.approvalLogs.create({
@@ -823,8 +892,13 @@ const instanceImpl = {
         },
       });
 
+      // Publish completion event on final status (COMPLETED or REJECTED)
+      if (newStatus === 'COMPLETED' || newStatus === 'REJECTED') {
+        await publishCompletionEvent(updatedInstance, newStatus);
+      }
+
       const org = await prisma.organizations.findFirst({
-        where: { id: updatedInstance.organizationId },
+        where: { deletedAt: null, id: updatedInstance.organizationId },
       });
 
       // entity to get employee
@@ -833,19 +907,19 @@ const instanceImpl = {
 
       if (updatedInstance.entityType === 'LEAVE') {
         entity = await prisma.leaveRequests.findFirst({
-          where: { id: updatedInstance.entityId },
+          where: { deletedAt: null, id: updatedInstance.entityId },
           include: { employee: true },
         });
         employeeId = entity?.employeeId ?? null;
       } else if (updatedInstance.entityType === 'REGULARISATION') {
         entity = await prisma.attendanceRegularisation.findFirst({
-          where: { id: updatedInstance.entityId },
+          where: { deletedAt: null, id: updatedInstance.entityId },
           include: { employee: true },
         });
         employeeId = entity?.employeeId ?? null;
       } else if (updatedInstance.entityType === 'WORKDAY') {
         entity = await prisma.workdayRequests.findFirst({
-          where: { id: updatedInstance.entityId },
+          where: { deletedAt: null, id: updatedInstance.entityId },
           include: { employee: true },
         });
         employeeId = entity?.employeeId ?? null;
@@ -906,6 +980,32 @@ const instanceImpl = {
         });
       }
 
+      // Verify caller is an assigned approver for the CURRENT level
+      const flow = await prisma.approvalFlows.findFirst({
+        where: { deletedAt: null, id: instance.flowId },
+        include: {
+          levels: {
+            where: { isActive: true },
+            orderBy: { level: 'asc' },
+          },
+        },
+      });
+
+      if (!flow) {
+        return callback({
+          code: grpc.status.NOT_FOUND,
+          message: 'Flow not found for this approval',
+        });
+      }
+
+      const authorized = await isApproverForLevel(flow.id, instance.currentLevel, approver_id);
+      if (!authorized) {
+        return callback({
+          code: grpc.status.PERMISSION_DENIED,
+          message: 'You are not an assigned approver for this level',
+        });
+      }
+
       await prisma.approvalLogs.create({
         data: {
           approvalId: instance.id,
@@ -926,8 +1026,11 @@ const instanceImpl = {
         },
       });
 
+      // Publish completion event on rejection
+      await publishCompletionEvent(updatedInstance, 'REJECTED');
+
       const org = await prisma.organizations.findFirst({
-        where: { id: updatedInstance.organizationId },
+        where: { deletedAt: null, id: updatedInstance.organizationId },
       });
 
       let entity;
@@ -935,19 +1038,19 @@ const instanceImpl = {
 
       if (updatedInstance.entityType === 'LEAVE') {
         entity = await prisma.leaveRequests.findFirst({
-          where: { id: updatedInstance.entityId },
+          where: { deletedAt: null, id: updatedInstance.entityId },
           include: { employee: true },
         });
         employeeId = entity?.employeeId ?? null;
       } else if (updatedInstance.entityType === 'REGULARISATION') {
         entity = await prisma.attendanceRegularisation.findFirst({
-          where: { id: updatedInstance.entityId },
+          where: { deletedAt: null, id: updatedInstance.entityId },
           include: { employee: true },
         });
         employeeId = entity?.employeeId ?? null;
       } else if (updatedInstance.entityType === 'WORKDAY') {
         entity = await prisma.workdayRequests.findFirst({
-          where: { id: updatedInstance.entityId },
+          where: { deletedAt: null, id: updatedInstance.entityId },
           include: { employee: true },
         });
         employeeId = entity?.employeeId ?? null;
@@ -1017,7 +1120,7 @@ const instanceImpl = {
       // Load all orgs, employees, entities and logs in batch-ish way
       const orgIds = Array.from(new Set(instances.map((i) => i.organizationId)));
       const orgs = await prisma.organizations.findMany({
-        where: { id: { in: orgIds } },
+        where: { deletedAt: null, id: { in: orgIds } },
       });
       const orgMap = new Map();
       orgs.forEach((o) => orgMap.set(o.id, o));
@@ -1055,7 +1158,7 @@ const instanceImpl = {
       );
 
       const employees = await prisma.organizationEmployees.findMany({
-        where: { id: { in: employeeIds }, deletedAt: null },
+        where: { deletedAt: null, id: { in: employeeIds } },
         include: {
           designation: true,
           departmentAssignments: {
@@ -1119,6 +1222,158 @@ const instanceImpl = {
       });
     } catch (e) {
       console.error('[ListPending Error]', e);
+      callback({
+        code: grpc.status.INTERNAL,
+        message: e.message,
+      });
+    }
+  },
+
+  BulkAction: async (call, callback) => {
+    try {
+      const { approval_ids, action, approver_id, remarks } = call.request;
+
+      if (!approval_ids || !approval_ids.length) {
+        return callback({
+          code: grpc.status.INVALID_ARGUMENT,
+          message: 'approval_ids is required and must not be empty',
+        });
+      }
+      if (!action || !['APPROVE', 'REJECT'].includes(action)) {
+        return callback({
+          code: grpc.status.INVALID_ARGUMENT,
+          message: 'action must be APPROVE or REJECT',
+        });
+      }
+      if (!isObjectId(approver_id)) {
+        return callback({
+          code: grpc.status.INVALID_ARGUMENT,
+          message: 'Invalid approver_id',
+        });
+      }
+
+      const results = [];
+      let processedCount = 0;
+      let failedCount = 0;
+
+      for (const id of approval_ids) {
+        try {
+          const instance = await prisma.approvalInstance.findFirst({ where: { id } });
+          if (!instance) {
+            results.push({ id, success: false, error: 'Instance not found' });
+            failedCount++;
+            continue;
+          }
+
+          if (instance.status !== 'PENDING' && instance.status !== 'IN_PROGRESS') {
+            results.push({ id, success: false, error: `Instance already ${instance.status}` });
+            failedCount++;
+            continue;
+          }
+
+          // Verify caller is an assigned approver for the current level
+          const flow = await prisma.approvalFlows.findFirst({
+            where: { deletedAt: null, id: instance.flowId },
+            include: {
+              levels: { where: { isActive: true }, orderBy: { level: 'asc' } },
+            },
+          });
+
+          if (!flow || !flow.levels.length) {
+            results.push({ id, success: false, error: 'Flow not found' });
+            failedCount++;
+            continue;
+          }
+
+          const authorized = await isApproverForLevel(flow.id, instance.currentLevel, approver_id);
+          if (!authorized) {
+            results.push({ id, success: false, error: 'Not an assigned approver for this level' });
+            failedCount++;
+            continue;
+          }
+
+          const currentLevel = instance.currentLevel;
+          const maxLevel = flow.levels.reduce((m, l) => Math.max(m, l.level), 0);
+
+          if (action === 'APPROVE') {
+            await prisma.approvalLogs.create({
+              data: {
+                approvalId: instance.id,
+                organizationId: instance.organizationId,
+                entityId: instance.entityId,
+                entityType: instance.entityType,
+                level: currentLevel,
+                approverId: approver_id,
+                action: 'APPROVED',
+                remarks: remarks || null,
+              },
+            });
+
+            let newStatus = instance.status;
+            let newLevel = currentLevel;
+
+            if (currentLevel >= maxLevel) {
+              newStatus = 'COMPLETED';
+            } else {
+              const nextLevel = flow.levels.find((l) => l.level > currentLevel);
+              if (nextLevel) {
+                newLevel = nextLevel.level;
+                newStatus = 'IN_PROGRESS';
+              } else {
+                newStatus = 'COMPLETED';
+              }
+            }
+
+            const updated = await prisma.approvalInstance.update({
+              where: { id: instance.id },
+              data: { currentLevel: newLevel, status: newStatus },
+            });
+
+            if (newStatus === 'COMPLETED' || newStatus === 'REJECTED') {
+              await publishCompletionEvent(updated, newStatus);
+            }
+          } else {
+            await prisma.approvalLogs.create({
+              data: {
+                approvalId: instance.id,
+                organizationId: instance.organizationId,
+                entityId: instance.entityId,
+                entityType: instance.entityType,
+                level: currentLevel,
+                approverId: approver_id,
+                action: 'REJECTED',
+                remarks: remarks || null,
+              },
+            });
+
+            const updated = await prisma.approvalInstance.update({
+              where: { id: instance.id },
+              data: { status: 'REJECTED' },
+            });
+
+            await publishCompletionEvent(updated, 'REJECTED');
+          }
+
+          results.push({ id, success: true });
+          processedCount++;
+        } catch (innerErr) {
+          results.push({ id, success: false, error: innerErr.message });
+          failedCount++;
+        }
+      }
+
+      callback(null, {
+        results,
+        processed: processedCount,
+        failed: failedCount,
+        success: failedCount === 0,
+        message:
+          failedCount === 0
+            ? `Bulk ${action.toLowerCase()} completed`
+            : `${processedCount} succeeded, ${failedCount} failed`,
+      });
+    } catch (e) {
+      console.error('[BulkAction Error]', e);
       callback({
         code: grpc.status.INTERNAL,
         message: e.message,

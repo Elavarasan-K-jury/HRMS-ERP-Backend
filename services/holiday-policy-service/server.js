@@ -13,8 +13,6 @@ function toApiPolicy(p) {
         id: p.id,
         organization_id: p.organizationId,
         name: p.name,
-        region: p.region,
-        applicable_to: p.applicableTo || [],
         is_active: p.isActive,
 
         created_at: p.createdAt?.toISOString() || '',
@@ -28,14 +26,12 @@ const impl = {
     -------------------------------------------------------- */
     CreateHolidayPolicy: async (call, cb) => {
         try {
-            const { organization_id, name, region, applicable_to } = call.request;
+            const { organization_id, name } = call.request;
 
             const policy = await prisma.holidayPolicies.create({
                 data: {
                     organizationId: organization_id,
                     name,
-                    region,
-                    applicableTo: applicable_to || [],
                     isActive: true,
                 },
             });
@@ -54,14 +50,12 @@ const impl = {
     -------------------------------------------------------- */
     UpdateHolidayPolicy: async (call, cb) => {
         try {
-            const { policy_id, name, region, applicable_to, is_active } = call.request;
+            const { policy_id, name, is_active } = call.request;
 
             const policy = await prisma.holidayPolicies.update({
                 where: { id: policy_id },
                 data: {
                     name: name ?? undefined,
-                    region: region ?? undefined,
-                    applicableTo: applicable_to ?? undefined,
                     isActive: typeof is_active === 'boolean' ? is_active : undefined,
                 },
             });
@@ -109,7 +103,7 @@ const impl = {
         try {
             const { policy_id } = call.request;
 
-            const policy = await prisma.holidayPolicies.findUnique({
+            const policy = await prisma.holidayPolicies.findFirst({
                 where: { id: policy_id },
             });
 
@@ -134,13 +128,16 @@ const impl = {
     -------------------------------------------------------- */
     ListHolidayPolicies: async (call, cb) => {
         try {
-            const { organization_id, region, is_active_only } = call.request;
+            const { organization_id, is_active_only } = call.request;
 
+            // NOTE: We use isActive filter instead of deletedAt=null because
+            // Prisma 6.x MongoDB skips null fields on create, so deletedAt
+            // may not exist on documents, causing deletedAt=null queries to
+            // return empty results. isActive is a required Boolean with
+            // @default(true) so it is always written.
             const where = {
                 organizationId: organization_id,
-                deletedAt: null,
-                ...(region ? { region } : {}),
-                ...(is_active_only ? { isActive: true } : {}),
+                isActive: true,
             };
 
             const [rows, count] = await Promise.all([

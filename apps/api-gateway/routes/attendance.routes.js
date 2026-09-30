@@ -1,4 +1,5 @@
 import { z, ZodError } from 'zod';
+import { grpc } from '@jury-hrms/proto';
 import { attendanceClient } from '../grpc/attendance.client.js';
 
 export default function registerAttendanceRoutes({ openapi }) {
@@ -107,6 +108,11 @@ export default function registerAttendanceRoutes({ openapi }) {
       rounding_strategy: z.string().optional(),
       overtime_allowed: z.boolean().optional(),
       min_overtime_minutes: z.number().int().min(0).optional(),
+      allow_regularisation: z.boolean().optional(),
+      regularisation_mode: z.enum(['ADJUST_LOGS', 'EXEMPT_PENALTY', 'BOTH']).optional(),
+      max_regularisation_requests: z.number().int().min(0).nullable().optional(),
+      regularisation_period: z.enum(['MONTHLY', 'WEEKLY', 'YEARLY']).optional(),
+      regularisation_window_days: z.number().int().min(0).nullable().optional(),
     })
     .strict();
 
@@ -125,6 +131,13 @@ export default function registerAttendanceRoutes({ openapi }) {
     rounding_strategy: z.string(),
     overtime_allowed: z.boolean(),
     min_overtime_minutes: z.number(),
+    allow_regularisation: z.boolean().optional(),
+    regularisation_mode: z.string().optional(),
+    max_regularisation_requests: z.number().nullable().optional(),
+    regularisation_period: z.string().optional(),
+    regularisation_window_days: z.number().nullable().optional(),
+    is_active: z.boolean().optional(),
+    isActive: z.boolean().optional(),
   });
 
   /* NetworkPolicy schemas */

@@ -7,6 +7,7 @@ package leave_request;
 // ==========================================================
 service LeaveRequestService {
   rpc ApplyLeave            (ApplyLeaveRequest)        returns (LeaveRequestResponse);
+  rpc EditLeaveRequest      (EditLeaveRequest)         returns (LeaveRequestResponse);
   rpc CancelLeave           (CancelLeaveRequest)       returns (LeaveRequestResponse);
   rpc ApproveLeave          (ApproveLeaveRequest)      returns (LeaveRequestResponse);
   rpc RejectLeave           (RejectLeaveRequest)       returns (LeaveRequestResponse);
@@ -72,6 +73,20 @@ message ApplyLeaveRequest {
 
   string reason           = 8;
   string documents        = 9;
+}
+
+// ==========================================================
+//                    EDIT REQUEST
+// ==========================================================
+message EditLeaveRequest {
+  string request_id       = 1;
+  string employee_id      = 2;
+  string leave_type_id    = 3;
+  string start_date       = 4;
+  string end_date         = 5;
+  bool   is_half_day      = 6;
+  string half_day_type    = 7;
+  string reason           = 8;
 }
 
 // ==========================================================

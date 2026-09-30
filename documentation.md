@@ -91,6 +91,7 @@ The API Gateway is the central REST entry point for the entire system, running o
 
 - **CORS with IP/Domain Allowlisting**: Restricts incoming requests based on allowlisted IP addresses and domains. Supports regex-based matching including wildcard patterns (e.g., `192.168.68.*`). Controlled via `ALLOWED_IPS` and `ALLOWED_DOMAINS` environment variables.
 - **IP Whitelisting Middleware**: Blocks requests from IP addresses that are not explicitly allowlisted.
+- **Server-Side Client IP Resolution**: `utils/client_ip.js` resolves the client IP from the TCP socket peer (via `getConnInfo`). Forwarded headers are ignored unless `TRUSTED_PROXY_HOPS` (default `0`) explicitly declares 1-8 trusted reverse-proxy hops; invalid values fall back to direct socket mode.
 - **Rate Limiting**: Redis-backed rate limiting that operates per organization. Each organization has a configurable time window and maximum request count, preventing abuse.
 
 **Request Processing:**

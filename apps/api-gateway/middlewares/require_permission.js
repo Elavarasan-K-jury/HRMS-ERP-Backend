@@ -31,7 +31,9 @@ export function requirePermission(...requiredKeys) {
   };
 }
 
-async function getAdminPermissions(adminId) {
+// Exported for trusted organization-context resolution (Phase 3D): reuses the
+// existing super-admin/permission semantics + 60s cache. No behavior change.
+export async function getAdminPermissions(adminId) {
   const cached = PERMISSIONS_CACHE.get(adminId);
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
     return cached;
@@ -52,4 +54,19 @@ async function getAdminPermissions(adminId) {
 
   PERMISSIONS_CACHE.set(adminId, data);
   return data;
+}
+
+/**
+ * Check if an admin has a specific permission key.
+ * Returns true if granted, false otherwise.
+ * Used for conditional RBAC checks (e.g., viewing others' data).
+ */
+export async function checkPermission(adminId, requiredKey) {
+  if (!adminId) return false;
+  try {
+    const permissions = await getAdminPermissions(adminId);
+    return permissions.is_super_admin || permissions.keys.includes(requiredKey);
+  } catch {
+    return false;
+  }
 }

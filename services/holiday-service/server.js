@@ -13,6 +13,10 @@ const holidayProto = loadProto('holiday');
 /* ---------------------------------------------
    HELPERS
 --------------------------------------------- */
+function localDayKey(d) {
+    const dt = new Date(d);
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+}
 function toApiHoliday(h) {
     if (!h) return null;
 
@@ -20,10 +24,10 @@ function toApiHoliday(h) {
         id: h.id,
         organization_id: h.organizationId,
         policy_id: h.policyId || '',
-        date: h.date?.toISOString().split('T')[0],
+        date: localDayKey(h.date),
         name: h.name,
-        region: h.region || '',
         type: h.type || 'PUBLIC',
+        leave_optional: h.leaveOptional || false,
 
         created_at: h.createdAt?.toISOString() || '',
         updated_at: h.updatedAt?.toISOString() || '',
@@ -39,14 +43,28 @@ const impl = {
     -------------------------------------------------------- */
     CreateHoliday: async (call, cb) => {
         try {
-            const { organization_id, policy_id, date, name, region, type } = call.request;
+            const { organization_id, policy_id, date, name, type, leave_optional } = call.request;
 
-            const holidayNameExists = await prisma.holidays.findFirst({
-                where: { name, deletedAt: null, organizationId: organization_id },
-            });
-            if (holidayNameExists) {
-                return cb({ code: grpc.status.ALREADY_EXISTS, message: 'Holiday name already exists' });
+            // Validate policy ownership if policy_id is provided
+            if (policy_id) {
+                const policy = await prisma.holidayPolicies.findFirst({
+                    where: { deletedAt: null, id: policy_id, isActive: true },
+                });
+                if (!policy) {
+                    return cb({ code: grpc.status.NOT_FOUND, message: 'Holiday policy not found' });
+                }
+                if (policy.organizationId !== organization_id) {
+                    return cb({ code: grpc.status.FAILED_PRECONDITION, message: 'Holiday policy does not belong to this organization' });
+                }
             }
+
+            // Check duplicate name within organization
+            const holidayNameExists = await prisma.holidays.findFirst({
+                where: { deletedAt: null, name, organizationId: organization_id },
+            });
+            // if (holidayNameExists) {
+            //     return cb({ code: grpc.status.ALREADY_EXISTS, message: 'Holiday name already exists' });
+            // }
 
             const holiday = await prisma.holidays.create({
                 data: {
@@ -54,8 +72,8 @@ const impl = {
                     policyId: policy_id || null,
                     date: new Date(date),
                     name,
-                    region,
-                    type: type || 'PUBLIC', // must match Prisma enum
+                    type: type || 'PUBLIC',
+                    leaveOptional: leave_optional || false,
                     createdAt: new Date(),
                     updatedAt: new Date(),
                     deletedAt: null,
@@ -76,21 +94,36 @@ const impl = {
     -------------------------------------------------------- */
     UpdateHoliday: async (call, cb) => {
         try {
-            const { holiday_id, policy_id, date, name, region, type } = call.request;
+            const { holiday_id, policy_id, date, name, type, leave_optional } = call.request;
 
-
-            const holidayIdExists = await prisma.holidays.findUnique({
-                where: { id: holiday_id },
+            const holidayIdExists = await prisma.holidays.findFirst({
+                where: { deletedAt: null, id: holiday_id },
             });
             if (!holidayIdExists) {
                 return cb({ code: grpc.status.NOT_FOUND, message: 'Holiday not found' });
             }
 
-            const holidayNameExistsWIthOtherID = await prisma.holidays.findFirst({
-                where: { name, id: { not: holiday_id }, deletedAt: null, organizationId: holidayIdExists.organizationId },
-            });
-            if (holidayNameExistsWIthOtherID) {
-                return cb({ code: grpc.status.ALREADY_EXISTS, message: 'Holiday name already exists' });
+            // Validate policy ownership if policy_id is being changed
+            if (policy_id && policy_id !== '' && policy_id !== holidayIdExists.policyId) {
+                const policy = await prisma.holidayPolicies.findFirst({
+                    where: { deletedAt: null, id: policy_id, isActive: true },
+                });
+                if (!policy) {
+                    return cb({ code: grpc.status.NOT_FOUND, message: 'Holiday policy not found' });
+                }
+                if (policy.organizationId !== holidayIdExists.organizationId) {
+                    return cb({ code: grpc.status.FAILED_PRECONDITION, message: 'Holiday policy does not belong to this organization' });
+                }
+            }
+
+            // Check duplicate name within organization (excluding current holiday)
+            if (name) {
+                const holidayNameExistsWithOtherID = await prisma.holidays.findFirst({
+                    where: { deletedAt: null, name, id: { not: holiday_id }, organizationId: holidayIdExists.organizationId },
+                });
+                if (holidayNameExistsWithOtherID) {
+                    return cb({ code: grpc.status.ALREADY_EXISTS, message: 'Holiday name already exists' });
+                }
             }
 
             const holiday = await prisma.holidays.update({
@@ -99,8 +132,8 @@ const impl = {
                     policyId: policy_id != '' && policy_id != null ? policy_id : holidayIdExists.policyId,
                     date: date ? new Date(date) : holidayIdExists.date,
                     name: name ?? holidayIdExists.name,
-                    region: region ?? holidayIdExists.region,
                     type: type ?? holidayIdExists.type,
+                    leaveOptional: typeof leave_optional === 'boolean' ? leave_optional : holidayIdExists.leaveOptional,
                     updatedAt: new Date(),
                 },
             });
@@ -118,21 +151,22 @@ const impl = {
     },
 
     /* --------------------------------------------------------
-       DELETE
+       DELETE (soft delete)
     -------------------------------------------------------- */
     DeleteHoliday: async (call, cb) => {
         try {
             const { holiday_id } = call.request;
 
-            const holiday = await prisma.holidays.findUnique({
-                where: { id: holiday_id },
+            const holiday = await prisma.holidays.findFirst({
+                where: { deletedAt: null, id: holiday_id },
             });
             if (!holiday) {
                 return cb({ code: grpc.status.NOT_FOUND, message: 'Holiday not found' });
             }
 
-            await prisma.holidays.delete({
+            await prisma.holidays.update({
                 where: { id: holiday_id },
+                data: { deletedAt: new Date() },
             });
 
             cb(null, {
@@ -154,8 +188,8 @@ const impl = {
         try {
             const { holiday_id } = call.request;
 
-            const holiday = await prisma.holidays.findUnique({
-                where: { id: holiday_id },
+            const holiday = await prisma.holidays.findFirst({
+                where: { deletedAt: null, id: holiday_id },
             });
 
             if (!holiday) {
@@ -179,21 +213,29 @@ const impl = {
     -------------------------------------------------------- */
     ListHolidays: async (call, cb) => {
         try {
-            const { organization_id, year, type, region, policy_id } = call.request;
+            const { organization_id, year, type, policy_id } = call.request;
+
+            // year arrives as a string over gRPC (proto: string year).
+            // Must parse to integer before arithmetic — `year + 1` on "2026"
+            // yields "20261" and new Date("20261", 0, 1) becomes +020260-12-31…
+            let dateRange;
+            if (year !== undefined && year !== null && year !== '') {
+                const yearNum = Number(year);
+                if (!Number.isInteger(yearNum) || yearNum < 1970 || yearNum > 9999) {
+                    return cb({ code: grpc.status.INVALID_ARGUMENT, message: `Invalid year: ${year}` });
+                }
+                dateRange = {
+                    date: {
+                        gte: new Date(yearNum, 0, 1),
+                        lt: new Date(yearNum + 1, 0, 1),
+                    },
+                };
+            }
 
             const where = {
                 organizationId: organization_id,
-                deletedAt: null,
-                ...(year
-                    ? {
-                        date: {
-                            gte: new Date(`${year}-01-01T00:00:00.000Z`),
-                            lte: new Date(`${year}-12-31T23:59:59.999Z`),
-                        },
-                    }
-                    : {}),
+                ...(dateRange || {}),
                 ...(type ? { type } : {}),
-                ...(region ? { region } : {}),
                 ...(policy_id ? { policyId: policy_id } : {}),
             };
 
@@ -215,11 +257,11 @@ const impl = {
     },
 
     /* --------------------------------------------------------
-       HOLIDAY CALENDAR (MONTH VIEW, optional policy/region)
+       HOLIDAY CALENDAR (MONTH VIEW)
     -------------------------------------------------------- */
     GetHolidayCalendar: async (call, cb) => {
         try {
-            const { organization_id, month, policy_id, region } = call.request;
+            const { organization_id, month, policy_id } = call.request;
 
             const [year, m] = month.split('-').map(Number);
             const start = new Date(year, m - 1, 1);
@@ -227,10 +269,8 @@ const impl = {
 
             const where = {
                 organizationId: organization_id,
-                date: { gte: start, lte: end },
-                deletedAt: null,
+                date: { gte: start, lt: new Date(year, m, 1) },
                 ...(policy_id ? { policyId: policy_id } : {}),
-                ...(region ? { region } : {}),
             };
 
             const holidays = await prisma.holidays.findMany({
@@ -240,10 +280,10 @@ const impl = {
             const result = [];
 
             for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                const dateStr = d.toISOString().split('T')[0];
+                const dateStr = localDayKey(d);
 
                 const hl = holidays.find(
-                    (h) => h.date.toISOString().split('T')[0] === dateStr
+                    (h) => localDayKey(h.date) === dateStr
                 );
 
                 result.push({
@@ -251,6 +291,7 @@ const impl = {
                     is_holiday: !!hl,
                     name: hl?.name || '',
                     type: hl?.type || '',
+                    leave_optional: hl?.leaveOptional || false,
                 });
             }
 

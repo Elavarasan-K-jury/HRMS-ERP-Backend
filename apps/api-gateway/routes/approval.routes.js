@@ -5,10 +5,14 @@ import {
   approvalFlowClient,
   approvalInstanceClient,
 } from '../grpc/approval.client.js';
+import { requirePermission } from '../middlewares/require_permission.js';
 
 const objectIdSchema = z
   .string()
   .regex(/^[0-9a-fA-F]{24}$/, 'Invalid ObjectId');
+
+const VIEW_PERM = requirePermission('approval_workflow.view');
+const MANAGE_PERM = requirePermission('approval_workflow.manage');
 
 // =======================================================
 //  REGISTER ROUTES
@@ -35,7 +39,8 @@ export default function registerApprovalRoutes({ openapi }) {
   const createFlowSchema = z
     .object({
       organization_id: objectIdSchema,
-      entity_type: z.enum(['LEAVE', 'REGULARISATION', 'WORKDAY']),
+      name: z.string().min(1).optional().default(''),
+      entity_type: z.enum(['LEAVE', 'REGULARISATION', 'WORKDAY', 'EXIT']),
       levels: z.array(flowLevelSchema).min(1),
     })
     .strict();
@@ -47,6 +52,7 @@ export default function registerApprovalRoutes({ openapi }) {
       path: '/approval/flows',
       tags: ['Approval-Flow'],
       summary: 'Create approval flow',
+      middleware: MANAGE_PERM,
       request: {
         body: {
           content: {
@@ -97,6 +103,7 @@ export default function registerApprovalRoutes({ openapi }) {
       path: '/approval/flows/{id}',
       tags: ['Approval-Flow'],
       summary: 'Get approval flow by id',
+      middleware: VIEW_PERM,
       request: {
         params: z.object({ id: objectIdSchema }),
       },
@@ -134,10 +141,11 @@ export default function registerApprovalRoutes({ openapi }) {
       path: '/approval/flows',
       tags: ['Approval-Flow'],
       summary: 'List flows',
+      middleware: VIEW_PERM,
       request: {
         query: z.object({
           organization_id: objectIdSchema.optional(),
-          entity_type: z.enum(['LEAVE', 'REGULARISATION', 'WORKDAY']).optional(),
+          entity_type: z.enum(['LEAVE', 'REGULARISATION', 'WORKDAY', 'EXIT']).optional(),
         }),
       },
       responses: { 200: {} },
@@ -171,6 +179,7 @@ export default function registerApprovalRoutes({ openapi }) {
       path: '/approval/flows/{id}',
       tags: ['Approval-Flow'],
       summary: 'Update approval flow',
+      middleware: MANAGE_PERM,
       request: {
         params: z.object({ id: objectIdSchema }),
         body: {
@@ -228,6 +237,7 @@ export default function registerApprovalRoutes({ openapi }) {
       path: '/approval/flows/{id}',
       tags: ['Approval-Flow'],
       summary: 'Soft delete approval flow',
+      middleware: MANAGE_PERM,
       request: {
         params: z.object({ id: objectIdSchema }),
       },
@@ -261,7 +271,7 @@ export default function registerApprovalRoutes({ openapi }) {
     .object({
       organization_id: objectIdSchema,
       entity_id: objectIdSchema,
-      entity_type: z.enum(['LEAVE', 'REGULARISATION', 'WORKDAY']),
+      entity_type: z.enum(['LEAVE', 'REGULARISATION', 'WORKDAY', 'EXIT']),
       employee_id: objectIdSchema,
     })
     .strict();
@@ -273,6 +283,7 @@ export default function registerApprovalRoutes({ openapi }) {
       path: '/approval/instances/start',
       tags: ['Approval-Instance'],
       summary: 'Start approval for an entity',
+      middleware: MANAGE_PERM,
       request: {
         body: {
           content: {
@@ -316,6 +327,49 @@ export default function registerApprovalRoutes({ openapi }) {
     }
   );
 
+  // GET /approval/instances/pending — MUST be registered before {id} so "pending" isn't matched as an ObjectId
+  openapi(
+    {
+      method: 'get',
+      path: '/approval/instances/pending',
+      tags: ['Approval-Instance'],
+      summary: 'List pending approvals (KEKA-style: include all)',
+      middleware: VIEW_PERM,
+      request: {
+        query: z.object({
+          organization_id: objectIdSchema,
+          approver_id: objectIdSchema.optional(),
+          page: z.string().transform(Number).default('1'),
+          limit: z.string().transform(Number).default('10'),
+        }),
+      },
+      responses: { 200: {} },
+    },
+    async (c) => {
+      try {
+        const q = c.req.valid('query');
+
+        const payload = {
+          organization_id: q.organization_id,
+          approver_id: q.approver_id ?? '',
+          page: q.page,
+          limit: q.limit,
+        };
+
+        const res = await new Promise((resolve, reject) => {
+          approvalInstanceClient.ListPending(payload, (err, resp) => {
+            if (err) return reject(err);
+            resolve(resp);
+          });
+        });
+
+        return c.json(res);
+      } catch (error) {
+        return c.json({ error: error.message }, 500);
+      }
+    }
+  );
+
   // GET /approval/instances/{id}
   openapi(
     {
@@ -323,6 +377,7 @@ export default function registerApprovalRoutes({ openapi }) {
       path: '/approval/instances/{id}',
       tags: ['Approval-Instance'],
       summary: 'Get approval instance by id',
+      middleware: VIEW_PERM,
       request: {
         params: z.object({ id: objectIdSchema }),
       },
@@ -364,6 +419,7 @@ export default function registerApprovalRoutes({ openapi }) {
       path: '/approval/instances/{id}/approve',
       tags: ['Approval-Instance'],
       summary: 'Approve an instance',
+      middleware: MANAGE_PERM,
       request: {
         params: z.object({ id: objectIdSchema }),
         body: {
@@ -428,6 +484,7 @@ export default function registerApprovalRoutes({ openapi }) {
       path: '/approval/instances/{id}/reject',
       tags: ['Approval-Instance'],
       summary: 'Reject an instance',
+      middleware: MANAGE_PERM,
       request: {
         params: z.object({ id: objectIdSchema }),
         body: {
@@ -485,43 +542,90 @@ export default function registerApprovalRoutes({ openapi }) {
     }
   );
 
-  // GET /approval/instances/pending
+  // POST /approval/instances/bulk-action
+  const bulkActionSchema = z
+    .object({
+      approval_ids: z.array(objectIdSchema).min(1),
+      action: z.enum(['APPROVE', 'REJECT']),
+      approver_id: objectIdSchema,
+      remarks: z.string().optional().nullable(),
+    })
+    .strict();
+
   openapi(
     {
-      method: 'get',
-      path: '/approval/instances/pending',
+      method: 'post',
+      path: '/approval/instances/bulk-action',
       tags: ['Approval-Instance'],
-      summary: 'List pending approvals (KEKA-style: include all)',
+      summary: 'Bulk approve or reject multiple instances',
+      middleware: MANAGE_PERM,
       request: {
-        query: z.object({
-          organization_id: objectIdSchema,
-          approver_id: objectIdSchema.optional(),
-          page: z.string().transform(Number).default('1'),
-          limit: z.string().transform(Number).default('10'),
-        }),
+        body: {
+          content: {
+            'application/json': { schema: bulkActionSchema },
+          },
+        },
       },
-      responses: { 200: {} },
+      responses: { 200: {}, 400: {} },
     },
     async (c) => {
       try {
-        const q = c.req.valid('query');
+        const body = await c.req.json();
+        const parsed = bulkActionSchema.parse(body);
 
-        const payload = {
-          organization_id: q.organization_id,
-          approver_id: q.approver_id ?? '',
-          page: q.page,
-          limit: q.limit,
-        };
+        const results = [];
+        const errors = [];
 
-        const res = await new Promise((resolve, reject) => {
-          approvalInstanceClient.ListPending(payload, (err, resp) => {
-            if (err) return reject(err);
-            resolve(resp);
-          });
+        for (const approvalId of parsed.approval_ids) {
+          try {
+            const payload = {
+              id: approvalId,
+              approver_id: parsed.approver_id,
+              remarks: parsed.remarks ?? null,
+            };
+
+            const rpcMethod =
+              parsed.action === 'APPROVE'
+                ? 'Approve'
+                : 'Reject';
+
+            const res = await new Promise((resolve, reject) => {
+              approvalInstanceClient[rpcMethod](payload, (err, resp) => {
+                if (err) return reject(err);
+                resolve(resp);
+              });
+            });
+
+            results.push({ id: approvalId, success: true });
+          } catch (err) {
+            errors.push({ id: approvalId, error: err.message });
+          }
+        }
+
+        return c.json({
+          success: errors.length === 0,
+          processed: results.length,
+          failed: errors.length,
+          results,
+          errors,
+          message:
+            errors.length === 0
+              ? `Bulk ${parsed.action.toLowerCase()} completed`
+              : `${results.length} succeeded, ${errors.length} failed`,
         });
-
-        return c.json(res);
       } catch (error) {
+        if (error instanceof ZodError) {
+          return c.json(
+            {
+              error: 'Validation failed',
+              details: error.errors.map((e) => ({
+                field: e.path.join('.'),
+                message: e.message,
+              })),
+            },
+            400
+          );
+        }
         return c.json({ error: error.message }, 500);
       }
     }

@@ -881,6 +881,9 @@ const impl = {
                 department_id,
                 branch_id,
                 location_id,
+                shift_id,
+                weekly_off_policy_id,
+                assignment_date = '',
                 page = 1,
                 limit = 10,
                 search = '',
@@ -932,25 +935,87 @@ const impl = {
                 };
             }
 
-            // Handle branch filter
+            // Handle branch filter (ignore malformed ObjectIds so they never 500)
             if (branch_id && branch_id !== '') {
-                const branchIds = branch_id.split(',').map(b => b.trim()).filter(Boolean);
-                where = {
-                    ...where,
-                    branchId: branchIds.length === 1 ? branchIds[0] : { in: branchIds },
-                };
+                const objectIdRe = /^[0-9a-fA-F]{24}$/;
+                const branchIds = branch_id.split(',').map(b => b.trim()).filter(b => b && objectIdRe.test(b));
+                if (branchIds.length === 0) {
+                    where = { ...where, branchId: { in: [] } };
+                } else {
+                    where = {
+                        ...where,
+                        branchId: branchIds.length === 1 ? branchIds[0] : { in: branchIds },
+                    };
+                }
             }
 
-            // Handle location filter
+            // Handle location filter (ignore malformed ObjectIds so they never 500)
             if (location_id && location_id !== '') {
-                const locationIds = location_id.split(',').map(l => l.trim()).filter(Boolean);
+                const objectIdRe = /^[0-9a-fA-F]{24}$/;
+                const locationIds = location_id.split(',').map(l => l.trim()).filter(l => l && objectIdRe.test(l));
+                if (locationIds.length === 0) {
+                    where = { ...where, locationId: { in: [] } };
+                } else {
+                    where = {
+                        ...where,
+                        locationId: locationIds.length === 1 ? locationIds[0] : { in: locationIds },
+                    };
+                }
+            }
+
+            // Assignment-window bound shared by shift and weekly-off filters.
+            // With assignment_date (YYYY-MM-DD) the window resolves as-of that
+            // business date (date-only, inclusive bounds); otherwise "now".
+            // Start bound (lte) uses the instant/as-of date; end bound (gte) uses
+            // the START of the same UTC day so a window ending today still counts
+            // (effective_to/valid_to are stored as UTC-midnight dates).
+            const filterDateStr = String(assignment_date || '').slice(0, 10);
+            const filterParsed =
+                /^\d{4}-\d{2}-\d{2}$/.test(filterDateStr)
+                    ? new Date(`${filterDateStr}T00:00:00.000Z`)
+                    : null;
+            const filterAsOf =
+                filterParsed && !Number.isNaN(filterParsed.getTime()) && filterParsed.toISOString().slice(0, 10) === filterDateStr
+                    ? filterParsed
+                    : null;
+            const filterBound = filterAsOf || new Date();
+            const filterEndBound = filterAsOf || (() => {
+                const n = new Date();
+                return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
+            })();
+
+            // Shift assignment filter (active only, soft-deleted excluded)
+            if (shift_id && shift_id !== '') {
                 where = {
                     ...where,
-                    locationId: locationIds.length === 1 ? locationIds[0] : { in: locationIds },
+                    EmployeeShiftAssignment: {
+                        some: {
+                            shiftId: shift_id,
+                            deletedAt: null,
+                            validFrom: { lte: filterBound },
+                            OR: [{ validTo: null }, { validTo: { gte: filterEndBound } }],
+                        },
+                    },
                 };
             }
 
-            // Handle search
+            // Weekly-off assignment filter (active only, soft-deleted excluded),
+            // resolved as-of the same bound as the shift filter above.
+            if (weekly_off_policy_id && weekly_off_policy_id !== '') {
+                where = {
+                    ...where,
+                    weeklyOffAssignments: {
+                        some: {
+                            weeklyOffPolicyId: weekly_off_policy_id,
+                            deletedAt: null,
+                            effectiveFrom: { lte: filterBound },
+                            OR: [{ effectiveTo: null }, { effectiveTo: { gte: filterEndBound } }],
+                        },
+                    },
+                };
+            }
+
+            // Handle search (name + employee number + contact)
             if (search && search !== '') {
                 where = {
                     ...where,
@@ -958,6 +1023,7 @@ const impl = {
                         { firstName: { contains: search, mode: 'insensitive' } },
                         { lastName: { contains: search, mode: 'insensitive' } },
                         { fullName: { contains: search, mode: 'insensitive' } },
+                        { employeeCode: { contains: search, mode: 'insensitive' } },
                         { email: { contains: search, mode: 'insensitive' } },
                         { phone: { contains: search, mode: 'insensitive' } },
                     ],

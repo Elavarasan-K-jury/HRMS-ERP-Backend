@@ -1,0 +1,13 @@
+{
+    "name": "@jury-hrms/weekly-off-service",
+    "version": "1.0.0",
+    "type": "module",
+    "scripts": {
+        "start": "node server.js"
+    },
+    "dependencies": {
+        "@jury-hrms/db": "workspace:*",
+        "@jury-hrms/proto": "workspace:*",
+        "dotenv": "^16.4.7"
+    }
+}

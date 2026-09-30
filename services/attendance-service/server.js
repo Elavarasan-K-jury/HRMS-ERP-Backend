@@ -27,6 +27,10 @@ function endOfDay(date) {
   d.setHours(23, 59, 59, 999);
   return d;
 }
+function localDayKey(date) {
+  const d = new Date(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 /* Haversine distance in meters */
 function distanceInMeters(lat1, lon1, lat2, lon2) {
@@ -51,10 +55,9 @@ function distanceInMeters(lat1, lon1, lat2, lon2) {
 async function getActiveAttendancePolicy(organizationId) {
   try {
     const policy = await prisma.attendancePolicies.findFirst({
-      where: {
+      where: { deletedAt: null,
         organizationId,
         isActive: true,
-        deletedAt: null,
       },
       orderBy: { createdAt: "desc" },
     });
@@ -85,10 +88,9 @@ async function getActiveAttendancePolicy(organizationId) {
 async function getActiveNetworkPolicyForAttendance(organizationId) {
   try {
     const policy = await prisma.networkPolicies.findFirst({
-      where: {
+      where: { deletedAt: null,
         organizationId,
         isActive: true,
-        deletedAt: null,
         enforceOn: { in: ["ATTENDANCE", "BOTH"] },
       },
       orderBy: { createdAt: "desc" },
@@ -103,10 +105,9 @@ async function getActiveNetworkPolicyForAttendance(organizationId) {
 async function getActiveGeoFences(organizationId) {
   try {
     const fences = await prisma.geoFences.findMany({
-      where: {
+      where: { deletedAt: null,
         organizationId,
         isActive: true,
-        deletedAt: null,
       },
     });
     return fences;
@@ -190,9 +191,8 @@ async function enforceGeoFence({ organizationId, lat, lon }) {
 async function getShiftForDate(employeeId, dateOnly) {
   try {
     const assignment = await prisma.employeeShiftAssignment.findFirst({
-      where: {
+      where: { deletedAt: null,
         employeeId,
-        deletedAt: null,
         validFrom: { lte: dateOnly },
         OR: [{ validTo: null }, { validTo: { gte: dateOnly } }],
       },
@@ -206,25 +206,58 @@ async function getShiftForDate(employeeId, dateOnly) {
 }
 
 /* ===========================
+   Weekly Off lookup for the day
+   Uses EmployeeWeeklyOffAssignment as sole source of truth.
+   Shifts.weeklyOff is deprecated (never read here).
+=========================== */
+
+async function getWeeklyOffForDate(employeeId, date) {
+  try {
+    const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
+
+    const assignment = await prisma.employeeWeeklyOffAssignment.findFirst({
+      where: { deletedAt: null,
+        employeeId,
+        effectiveFrom: { lte: date },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gte: date } }],
+      },
+      include: { weeklyOffPolicy: true },
+    });
+
+    if (!assignment?.weeklyOffPolicy?.offDays) return null;
+
+    const offDays = assignment.weeklyOffPolicy.offDays;
+    if (!Array.isArray(offDays)) return null;
+
+    const matched = offDays.find(d => d.day === dayOfWeek);
+    return matched || null;
+  } catch (error) {
+    console.log(`getWeeklyOffForDate(${employeeId}, ${date})`, error);
+    return null;
+  }
+}
+
+/* ===========================
    Compute attendance metrics
 =========================== */
 
-async function computeAttendanceStatus({ attendance, shift, policy }) {
+async function computeAttendanceStatus({ attendance, shift, policy, weeklyOffDay }) {
   try {
     const result = { ...attendance };
 
-    const checkIn = new Date(attendance.checkIn);
-    const checkOut = attendance.checkOut ? new Date(attendance.checkOut) : new Date();
+    const checkIn = attendance.checkIn ? new Date(attendance.checkIn) : null;
+    const checkOut = attendance.checkOut ? new Date(attendance.checkOut) : null;
 
     let grossMinutes = 0;
-    if (checkIn && checkOut) {
-      grossMinutes = ((checkOut.getTime() - checkIn.getTime()) / 60000)
+    if (checkIn) {
+      const endMs = checkOut ? checkOut.getTime() : Date.now();
+      grossMinutes = (endMs - checkIn.getTime()) / 60000;
     }
 
     let effectiveMinutes = 0;
     let checkInTime = null;
     const attendanceLogs = await prisma.attendanceLogs.findMany({
-      where: {
+      where: { deletedAt: null,
         attendanceId: attendance.id,
       },
       orderBy: { createdAt: "asc" },
@@ -257,11 +290,30 @@ async function computeAttendanceStatus({ attendance, shift, policy }) {
 
     let status = attendance.status || "PENDING";
 
-    if (attendance.isHoliday) {
+    if (status === "REGULARISED") {
+      // Regularised days keep their status — do not recompute from punch times
+    } else if (attendance.isHoliday) {
       status = "HOLIDAY";
+    } else if (weeklyOffDay) {
+      status = weeklyOffDay.type === 'FIRST_HALF' || weeklyOffDay.type === 'SECOND_HALF' ? "HALF_DAY" : "WEEKLY_OFF";
     } else if (!checkIn && !checkOut) {
-      // leave auto-absent marking to cron / scheduler; here keep PENDING
-      status = "PENDING";
+      const leaveDate = new Date(attendance.date);
+      const dayStart = new Date(leaveDate.getFullYear(), leaveDate.getMonth(), leaveDate.getDate());
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+      const approvedLeave = await prisma.leaveRequests.findFirst({
+        where: { deletedAt: null,
+          employeeId: attendance.employeeId,
+          startDate: { lt: dayEnd },
+          endDate: { gte: dayStart },
+          status: "APPROVED",
+        },
+      });
+      if (approvedLeave) {
+        status = "LEAVE";
+      } else {
+        status = "PENDING";
+      }
     } else {
       if (effectiveMinutes >= (policy.fullDayMinutes ?? 480)) {
         status = "PRESENT";
@@ -372,7 +424,7 @@ const impl = {
       }
 
       const employee = await prisma.organizationEmployees.findFirst({
-        where: { id: employee_id },
+        where: { deletedAt: null, id: employee_id },
       });
 
       if (!employee || employee.deletedAt) {
@@ -398,10 +450,9 @@ const impl = {
 
       // find or create attendance for today
       let attendance = await prisma.attendance.findFirst({
-        where: {
+        where: { deletedAt: null,
           employeeId: employee_id,
           date: today,
-          deletedAt: null,
         },
       });
 
@@ -433,7 +484,6 @@ const impl = {
                 latitude != null && longitude != null
                   ? { latitude, longitude }
                   : attendance.location,
-              deletedAt: null
             },
           });
         } else {
@@ -445,7 +495,6 @@ const impl = {
                 latitude != null && longitude != null
                   ? { latitude, longitude }
                   : attendance.location,
-              deletedAt: null
             },
           })
         }
@@ -453,7 +502,7 @@ const impl = {
 
       // log check-in
       await prisma.attendanceLogs.create({
-        data: {
+        data: { deletedAt: null,
           attendanceId: attendance.id,
           type: "CHECK_IN",
           ipAddress: ip_address ?? null,
@@ -467,12 +516,14 @@ const impl = {
 
       const policy = await getActiveAttendancePolicy(employee.organizationId);
       const shift = await getShiftForDate(employee_id, today);
+      const weeklyOffDay = await getWeeklyOffForDate(employee_id, attendance.date);
 
       // recompute metrics
       const computed = computeAttendanceStatus({
         attendance,
         shift,
         policy,
+        weeklyOffDay,
       });
 
       const updated = await prisma.attendance.update({
@@ -540,10 +591,9 @@ const impl = {
       const today = startOfDay(new Date());
 
       let attendance = await prisma.attendance.findFirst({
-        where: {
+        where: { deletedAt: null,
           employeeId: employee_id,
           date: today,
-          deletedAt: null,
         },
       });
 
@@ -574,13 +624,12 @@ const impl = {
               latitude != null && longitude != null
                 ? { latitude, longitude }
                 : attendance.location,
-            deletedAt: null
           },
         });
       }
 
       await prisma.attendanceLogs.create({
-        data: {
+        data: { deletedAt: null,
           attendanceId: attendance.id,
           type: "CHECK_OUT",
           ipAddress: ip_address ?? null,
@@ -594,11 +643,13 @@ const impl = {
 
       const policy = await getActiveAttendancePolicy(employee.organizationId);
       const shift = await getShiftForDate(employee_id, today);
+      const weeklyOffDay = await getWeeklyOffForDate(employee_id, attendance.date);
 
       const computed = computeAttendanceStatus({
         attendance,
         shift,
         policy,
+        weeklyOffDay,
       });
 
       const updated = await prisma.attendance.update({
@@ -690,10 +741,9 @@ const impl = {
       }
 
       const existingAttendance = await prisma.attendance.findFirst({
-        where: {
+        where: { deletedAt: null,
           employeeId: employee_id,
           date: attendanceDate,
-          deletedAt: null,
         },
       });
 
@@ -720,7 +770,7 @@ const impl = {
           status: status ?? "PENDING",
           isHoliday: is_holiday ?? false,
           notes: notes ?? null,
-          mode: mode ?? "OFFICE",
+          mode: mode || "OFFICE",
           deletedAt: null,
         },
       });
@@ -774,10 +824,9 @@ const impl = {
       }
 
       let attendance = await prisma.attendance.findFirst({
-        where: {
+        where: { deletedAt: null,
           employeeId: employee_id,
           date: d,
-          deletedAt: null,
         },
       });
 
@@ -790,11 +839,13 @@ const impl = {
 
       const policy = await getActiveAttendancePolicy(employee.organizationId);
       const shift = await getShiftForDate(employee_id, d);
+      const weeklyOffDay = await getWeeklyOffForDate(employee_id, d);
 
       const computed = await computeAttendanceStatus({
         attendance,
         shift,
         policy,
+        weeklyOffDay,
       });
 
 
@@ -847,14 +898,13 @@ const impl = {
       const [yearStr, monthStr] = month.split("-");
       const year = Number(yearStr);
       const m = Number(monthStr) - 1;
-      const from = new Date(Date.UTC(year, m, 1, 0, 0, 0, 0));
-      const to = new Date(Date.UTC(year, m + 1, 1, 0, 0, 0, 0));
+      const from = new Date(year, m, 1);
+      const to = new Date(year, m + 1, 1);
 
       const records = await prisma.attendance.findMany({
-        where: {
+        where: { deletedAt: null,
           employeeId: employee_id,
           date: { gte: from, lt: to },
-          deletedAt: null,
         },
         include: {
           logs: true,
@@ -864,8 +914,23 @@ const impl = {
         orderBy: { date: "desc" },
       });
 
+      // Recompute status for each record to reflect latest leave/holiday/weekly-off state
+      const recomputed = [];
+      for (const rec of records) {
+        try {
+          const d = new Date(rec.date);
+          const shift = await getShiftForDate(employee_id, d);
+          const policy = await getActiveAttendancePolicy(rec.organizationId);
+          const weeklyOffDay = await getWeeklyOffForDate(employee_id, d);
+          const computed = await computeAttendanceStatus({ attendance: rec, shift, policy, weeklyOffDay });
+          recomputed.push({ ...rec, status: computed.status });
+        } catch {
+          recomputed.push(rec);
+        }
+      }
+
       return callback(null, {
-        attendance: records.map(mapAttendanceToProto),
+        attendance: recomputed.map(mapAttendanceToProto),
         success: true,
         message: "Successfully listed attendance.",
       });
@@ -904,15 +969,14 @@ const impl = {
       const year = Number(yearStr);
       const m = Number(monthStr) - 1;
 
-      const from = new Date(Date.UTC(year, m, 1));
-      const to = new Date(Date.UTC(year, m + 1, 1));
+      const from = new Date(year, m, 1);
+      const to = new Date(year, m + 1, 1);
 
       // Fetch attendance for the entire org
       const records = await prisma.attendance.findMany({
-        where: {
+        where: { deletedAt: null,
           organizationId: organization_id,
           date: { gte: from, lt: to },
-          deletedAt: null,
         },
         include: {
           logs: true,
@@ -925,7 +989,7 @@ const impl = {
       // Group by day
       const dayMap = {};
       for (const rec of records) {
-        const day = rec.date.toISOString().substring(0, 10);
+        const day = localDayKey(rec.date);
         if (!dayMap[day]) dayMap[day] = [];
 
         dayMap[day].push(mapAttendanceToProto(rec));
@@ -1261,6 +1325,11 @@ const impl = {
         rounding_strategy,
         overtime_allowed,
         min_overtime_minutes,
+        allow_regularisation,
+        regularisation_mode,
+        max_regularisation_requests,
+        regularisation_period,
+        regularisation_window_days,
       } = data;
 
       const now = new Date();
@@ -1280,6 +1349,11 @@ const impl = {
           roundingStrategy: rounding_strategy ?? "none",
           overtimeAllowed: overtime_allowed ?? false,
           minOvertimeMinutes: min_overtime_minutes ?? 30,
+          allowRegularisation: allow_regularisation ?? true,
+          regularisationMode: regularisation_mode ?? "BOTH",
+          maxRegularisationRequests: max_regularisation_requests ?? null,
+          regularisationPeriod: regularisation_period ?? "MONTHLY",
+          regularisationWindowDays: regularisation_window_days ?? 30,
           createdAt: now,
           updatedAt: now,
           deletedAt: null,
@@ -1302,6 +1376,12 @@ const impl = {
           rounding_strategy: policy.roundingStrategy ?? "",
           overtime_allowed: policy.overtimeAllowed,
           min_overtime_minutes: policy.minOvertimeMinutes ?? 0,
+          allow_regularisation: policy.allowRegularisation,
+          regularisation_mode: policy.regularisationMode,
+          max_regularisation_requests: policy.maxRegularisationRequests ?? null,
+          regularisation_period: policy.regularisationPeriod,
+          regularisation_window_days: policy.regularisationWindowDays ?? null,
+          is_active: policy.isActive,
         },
         success: true,
         message: "Successfully created policy.",
@@ -1348,8 +1428,21 @@ const impl = {
           overtimeAllowed: data.overtime_allowed ?? existing.overtimeAllowed,
           minOvertimeMinutes:
             data.min_overtime_minutes ?? existing.minOvertimeMinutes,
+          allowRegularisation:
+            data.allow_regularisation ?? existing.allowRegularisation,
+          regularisationMode:
+            data.regularisation_mode ?? existing.regularisationMode,
+          maxRegularisationRequests:
+            data.max_regularisation_requests !== undefined
+              ? data.max_regularisation_requests
+              : existing.maxRegularisationRequests,
+          regularisationPeriod:
+            data.regularisation_period ?? existing.regularisationPeriod,
+          regularisationWindowDays:
+            data.regularisation_window_days !== undefined
+              ? data.regularisation_window_days
+              : existing.regularisationWindowDays,
           updatedAt: new Date(),
-          deletedAt: null,
         },
       });
 
@@ -1369,6 +1462,13 @@ const impl = {
           rounding_strategy: updated.roundingStrategy ?? "",
           overtime_allowed: updated.overtimeAllowed,
           min_overtime_minutes: updated.minOvertimeMinutes ?? 0,
+          allow_regularisation: updated.allowRegularisation,
+          regularisation_mode: updated.regularisationMode,
+          max_regularisation_requests:
+            updated.maxRegularisationRequests ?? null,
+          regularisation_period: updated.regularisationPeriod,
+          regularisation_window_days: updated.regularisationWindowDays ?? null,
+          is_active: updated.isActive,
         },
       });
     } catch (e) {
@@ -1384,9 +1484,8 @@ const impl = {
     try {
       const { organization_id } = call.request;
       const policies = await prisma.attendancePolicies.findMany({
-        where: {
+        where: { deletedAt: null,
           organizationId: organization_id,
-          deletedAt: null,
         },
         orderBy: { createdAt: "desc" },
       });
@@ -1407,6 +1506,12 @@ const impl = {
           rounding_strategy: p.roundingStrategy ?? "",
           overtime_allowed: p.overtimeAllowed,
           min_overtime_minutes: p.minOvertimeMinutes ?? 0,
+          allow_regularisation: p.allowRegularisation,
+          regularisation_mode: p.regularisationMode,
+          max_regularisation_requests: p.maxRegularisationRequests ?? null,
+          regularisation_period: p.regularisationPeriod,
+          regularisation_window_days: p.regularisationWindowDays ?? null,
+          is_active: p.isActive,
         })),
         success: true,
         message: "Policies fetched successfully",
@@ -1511,9 +1616,8 @@ const impl = {
       const { organization_id } = call.request;
 
       const policies = await prisma.networkPolicies.findMany({
-        where: {
+        where: { deletedAt: null,
           organizationId: organization_id,
-          deletedAt: null,
         },
         orderBy: { createdAt: "desc" },
       });
@@ -1639,9 +1743,8 @@ const impl = {
       const { organization_id } = call.request;
 
       const fences = await prisma.geoFences.findMany({
-        where: {
+        where: { deletedAt: null,
           organizationId: organization_id,
-          deletedAt: null,
         },
         orderBy: { createdAt: "desc" },
       });

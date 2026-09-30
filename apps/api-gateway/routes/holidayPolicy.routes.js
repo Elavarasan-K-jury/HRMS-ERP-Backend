@@ -6,14 +6,10 @@ export default function registerHolidayPolicyRoutes({ openapi: app }) {
     const createPolicySchema = z.object({
         organization_id: z.string({ required_error: 'Organization ID is required' }),
         name: z.string({ required_error: 'Policy name is required' }),
-        region: z.string({ required_error: 'Region is required' }),
-        applicable_to: z.array(z.string()).optional().default([]),
     });
 
     const updatePolicySchema = z.object({
         name: z.string().optional(),
-        region: z.string().optional(),
-        applicable_to: z.array(z.string()).optional(),
         is_active: z.boolean().optional(),
     });
 
@@ -23,7 +19,6 @@ export default function registerHolidayPolicyRoutes({ openapi: app }) {
 
     const listQuerySchema = z.object({
         organization_id: z.string({ required_error: 'Organization ID is required' }),
-        region: z.string().optional(),
         is_active_only: z
             .union([z.literal('true'), z.literal('false')])
             .optional()
@@ -185,21 +180,19 @@ export default function registerHolidayPolicyRoutes({ openapi: app }) {
                     description: 'List of holiday policies',
                     content: {
                         'application/json': {
-                            schema: z.object({
-                                policies: z.array(
-                                    z.object({
-                                        id: z.string(),
-                                        organization_id: z.string(),
-                                        name: z.string(),
-                                        region: z.string(),
-                                        applicable_to: z.array(z.string()),
-                                        is_active: z.boolean(),
-                                        created_at: z.string(),
-                                        updated_at: z.string(),
-                                    })
-                                ),
-                                total_count: z.number(),
-                            }),
+                                schema: z.object({
+                                    policies: z.array(
+                                        z.object({
+                                            id: z.string(),
+                                            organization_id: z.string(),
+                                            name: z.string(),
+                                            is_active: z.boolean(),
+                                            created_at: z.string(),
+                                            updated_at: z.string(),
+                                        })
+                                    ),
+                                    total_count: z.number(),
+                                }),
                         },
                     },
                 },
@@ -211,7 +204,6 @@ export default function registerHolidayPolicyRoutes({ openapi: app }) {
 
                 const grpcQuery = {
                     organization_id: rawQuery.organization_id,
-                    region: rawQuery.region || '',
                     is_active_only: rawQuery.is_active_only ?? false,
                 };
 

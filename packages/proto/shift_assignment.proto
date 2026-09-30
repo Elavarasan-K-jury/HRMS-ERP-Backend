@@ -5,9 +5,13 @@ package shift_assignment;
 service ShiftAssignmentService {
   rpc AssignShift           (AssignShiftRequest)           returns (ShiftAssignmentResponse);
   rpc GetShiftAssignment    (GetShiftAssignmentRequest)    returns (ShiftAssignmentResponse);
-  rpc ListShiftAssignments  (ListShiftAssignmentsRequest)  returns (ListShiftAssignmentsResponse);
+  rpc ListShiftAssignments  (ListShiftAssignmentsRequest) returns (ListShiftAssignmentsResponse);
   rpc UpdateShiftAssignment (UpdateShiftAssignmentRequest) returns (ShiftAssignmentResponse);
   rpc DeleteShiftAssignment (DeleteShiftAssignmentRequest) returns (DeleteShiftAssignmentResponse);
+  rpc MoveShift             (MoveShiftRequest)             returns (MoveShiftResponse);
+  rpc ChangeShiftAssignment (ChangeShiftAssignmentRequest) returns (ChangeShiftAssignmentResponse);
+  rpc SwapShiftAssignment   (SwapShiftAssignmentRequest)   returns (SwapShiftAssignmentResponse);
+  rpc RotateShiftAssignment (RotateShiftAssignmentRequest) returns (RotateShiftAssignmentResponse);
 }
 
 // =======================
@@ -19,6 +23,7 @@ message AssignShiftRequest {
   string shift_id    = 2;
   string valid_from  = 3; 
   string valid_to    = 4;
+  string organization_id = 5; // optional: validated against employee/shift orgs when provided
 }
 
 message GetShiftAssignmentRequest {
@@ -29,10 +34,13 @@ message UpdateShiftAssignmentRequest {
   string id         = 1;
   string valid_from = 2;
   string valid_to   = 3;
+  string organization_id = 4; // optional: validated against assignment employee org when provided
+  bool   clear_valid_to = 5;  // explicit "clear the end date" (valid_to = NULL); additive, opt-in
 }
 
 message DeleteShiftAssignmentRequest {
   string id = 1;
+  string organization_id = 2; // optional: validated against assignment employee org when provided
 }
 
 message DeleteShiftAssignmentResponse {
@@ -95,8 +103,120 @@ message ListShiftAssignmentsRequest {
   string employee_id = 1;
   string shift_id    = 2;
   bool   active_only = 3;
+  string organization_id = 4; // optional: filters by employee's organization when provided
 }
 
 message ListShiftAssignmentsResponse {
   repeated ShiftAssignment assignments = 1;
+}
+
+// =======================
+// ATOMIC MOVE (Phase 2)
+// =======================
+
+message MoveShiftRequest {
+  string organization_id      = 1; // authenticated org context (gateway-resolved, not client-authoritative)
+  repeated string employee_ids = 2;
+  string destination_shift_id = 3;
+  string effective_from       = 4; // strict YYYY-MM-DD business date (today or future)
+}
+
+message MoveShiftEmployeeResult {
+  string employee_id          = 1;
+  string previous_assignment_id = 2;
+  string previous_shift_id    = 3;
+  string previous_valid_to    = 4; // YYYY-MM-DD
+  string new_assignment_id    = 5;
+  string new_shift_id         = 6;
+  string new_valid_from       = 7; // YYYY-MM-DD
+  string new_valid_to         = 8; // YYYY-MM-DD, empty = open-ended
+}
+
+message MoveShiftResponse {
+  bool   success             = 1;
+  string effective_from      = 2;
+  string destination_shift_id = 3;
+  repeated MoveShiftEmployeeResult results = 4;
+}
+
+// =======================
+// ATOMIC CHANGE (Phase 2.4)
+// =======================
+
+message ChangeShiftAssignmentRequest {
+  string organization_id  = 1; // authenticated org context (gateway-resolved, not client-authoritative)
+  string employee_id      = 2;
+  string shift_id         = 3; // destination shift
+  string effective_from   = 4; // strict YYYY-MM-DD business date (today or future)
+  string valid_to         = 5; // YYYY-MM-DD, empty = open-ended
+}
+
+message ChangeShiftAssignmentResponse {
+  ShiftAssignment previous_assignment = 1; // covering row state before the change
+  ShiftAssignment assignment          = 2; // persisted result (closed+created or updated in place)
+}
+
+// =======================
+// ATOMIC SWAP (Phase 2.5)
+// =======================
+
+message SwapShiftAssignmentRequest {
+  string organization_id = 1; // authenticated org context (gateway-resolved, not client-authoritative)
+  string employee_a_id   = 2;
+  string employee_b_id   = 3;
+  string effective_from  = 4; // strict YYYY-MM-DD business date (today or future)
+}
+
+// One employee's side of the swap: covering state before + persisted row after.
+message SwapEmployeeAssignmentPair {
+  string employee_id        = 1;
+  ShiftAssignment previous_assignment = 2; // covering row state before the swap
+  ShiftAssignment new_assignment      = 3; // persisted result (closed+created or updated in place)
+}
+
+message SwapShiftAssignmentResponse {
+  bool   success        = 1;
+  string effective_from = 2;
+  SwapEmployeeAssignmentPair employee_a = 3;
+  SwapEmployeeAssignmentPair employee_b = 4;
+}
+
+// =======================
+// ATOMIC ROTATION (Phase 2.6)
+// =======================
+
+message RotateShiftAssignmentRequest {
+  string organization_id = 1; // authenticated org context (gateway-resolved, not client-authoritative)
+  string shift_1_id       = 2; // rotation group 1 (group 1 employees move to shift_2_id)
+  string shift_2_id       = 3; // rotation group 2 (group 2 employees move to shift_3_id)
+  string shift_3_id       = 4; // rotation group 3 (group 3 employees move to shift_1_id)
+  string effective_from   = 5; // strict YYYY-MM-DD business date (today or future)
+}
+
+// Employee count per rotation group as of effective_from.
+message RotateShiftGroupCount {
+  string shift_id      = 1;
+  string shift_name    = 2;
+  int32  employee_count = 3;
+}
+
+// One employee's side of the rotation: covering state before + persisted row after.
+message RotateShiftEmployeeResult {
+  string employee_id          = 1;
+  string previous_shift_id    = 2;
+  string new_shift_id         = 3;
+  string mode                 = 4; // "split" | "in-place"
+  ShiftAssignment previous_assignment = 5; // covering row state before the rotation
+  ShiftAssignment new_assignment      = 6; // persisted result (closed+created or updated in place)
+}
+
+message RotateShiftAssignmentResponse {
+  bool   success        = 1;
+  string effective_from = 2;
+  string shift_1_id     = 3;
+  string shift_2_id     = 4;
+  string shift_3_id     = 5;
+  int32  affected_employee_count = 6; // employees actually rotated (all groups combined)
+  repeated RotateShiftGroupCount group_counts = 7; // exactly 3 entries, request order
+  repeated RotateShiftEmployeeResult results = 8; // one entry per affected employee
 }
